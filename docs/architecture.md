@@ -37,7 +37,7 @@ flowchart LR
 - 実行時はHTTPS APIで接続する。公開サイトからDBやprivateリポへ接続しない。
 - NIHO側の契約から、このサイトに必要なDTO・操作・参照型だけを選別して配布する。公開対象の検証と合成例を伴わせ、全内部スキーマを輸出しない。
 - 初期の画面開発では仮契約と合成fixtureを用いる。連携担当が契約を確定して版を固定する。APIとmockは同じ契約検証を通す。
-- カタログ取得、開催枠・料金、ゲストCheckout、エラー・期限切れ、予約確認への遷移を定義する。具体的なendpoint名は既存API調査後に確定する。
+- カタログ取得、開催枠・料金、ゲストCheckout、エラー・期限切れ、予約確認への遷移を定義する。仮契約は [公開API契約](api-contract.md)。
 - APIの互換拡張を先に配備する。公開SDKは固定版・SHAと整合性情報で参照し、可変mainや実行時の外部JS差し替えに依存しない。
 - 個別商品をどの地域・公開サイトへ掲載できるかを共通APIで管理する。CORSは認可の代わりにせず、許可origin・path・method・戻り先を限定する。
 
@@ -58,8 +58,8 @@ flowchart LR
 ```text
 apps/web/                 # 公開サイト。SSR、一覧、詳細、予約入力
 packages/experience-ui/    # 必要になった共通表示部品
-packages/api-client/       # 選別された契約・型・クライアント
-fixtures/                 # 合成の体験・開催枠・提供者
+packages/api-client/       # 選別された契約・型・クライアント・合成の体験/開催枠/提供者と mock（docs/api-contract.md）
+fixtures/                 # API 以外の合成素材が必要になったとき
 docs/                     # 公開可能な仕様・開発方法・運用
 ```
 

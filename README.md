@@ -19,6 +19,7 @@ NIHOの共通基盤が、提供者ログイン、権限、商品管理、予約�
 既存のNIHOアカウントと販売者口座を活用します。
 
 - [構成・データ境界](docs/architecture.md)
+- [公開API契約（仮契約）](docs/api-contract.md)
 - [デザイン方針](docs/design-brief.md)
 - [Epic一覧・着手順・担当への指示](docs/execution-plan.md)
 - [作業上の約束](AGENTS.md)

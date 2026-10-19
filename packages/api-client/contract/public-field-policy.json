@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "description": "公開契約に入れてよい項目の規則。契約の全 object は閉じた形（additionalProperties: false）で、ここに無い名前でも『禁止されていないから追加』しない。新しい項目は公開目的と同意根拠を docs/api-contract.md に書いてから足す。",
+  "forbiddenPropertyNames": [
+    "spotId",
+    "pageId",
+    "requestId",
+    "bookingId",
+    "bookingIntentId",
+    "listingId",
+    "orgId",
+    "paymentEntityId",
+    "connectedAccountId",
+    "stripeAccountId",
+    "accountId",
+    "customerId",
+    "sessionId",
+    "checkoutSessionId",
+    "paymentIntentId",
+    "userId",
+    "memberId",
+    "ownerUserId",
+    "hostUserIds",
+    "uid",
+    "bookingToken",
+    "token",
+    "latitude",
+    "longitude"
+  ],
+  "forbiddenNameTokens": [
+    "email",
+    "phone",
+    "mobile",
+    "user",
+    "member",
+    "stripe",
+    "billing",
+    "payment",
+    "payout",
+    "bank",
+    "card",
+    "secret",
+    "password",
+    "token",
+    "ip",
+    "birth",
+    "passport",
+    "kyc",
+    "identity",
+    "internal",
+    "objectkey",
+    "prisma"
+  ],
+  "sensitiveRequestFields": {
+    "ExperienceCheckoutRequest": {
+      "fields": ["guestName", "guestEmail", "note", "answers"],
+      "reason": "旅行者本人がゲスト予約のために送る連絡先・備考・質問への回答。NIHO の予約にだけ保存し、応答・ログ・計測・URL・storage へ複製しない。"
+    }
+  },
+  "allowedValueExceptions": {
+    "emailDomains": ["example.com", "example.org", "example.net", "example.test"]
+  }
+}
