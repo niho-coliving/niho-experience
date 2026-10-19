@@ -12,7 +12,7 @@ test("experience facts and links are in the initial HTML", async ({ request }) =
     "Home-cooked dinner with locals in a shared living room",
     "Komorebi Living (sample)",
     "2 hr 30 min",
-    "English & Japanese",
+    "English &amp; Japanese",
     "¥6,500",
     "Sold by",
     'href="/experiences"',
