@@ -14,6 +14,7 @@ export function ExperienceCard({ experience: e, priority = false, preview = fals
       <p className="eyebrow">{e.region.name}</p>
       <h3 className="text-xl"><Link href={`/experiences/${e.slug}`} className="after:absolute after:inset-0 focus-visible:outline-none group-has-[:focus-visible]:underline">{e.title}</Link></h3>
       <p className="text-sm text-ink-soft">With <span className="font-bold text-ink">{e.provider.name}</span></p>
+      <p className="line-clamp-3 text-base text-ink-soft">{e.lead}</p>
       <p className="text-sm text-muted">{formatDuration(e.duration.minMinutes)}{e.duration.maxMinutes !== e.duration.minMinutes ? `–${formatDuration(e.duration.maxMinutes)}` : ""}</p>
       <p className="mt-auto pt-2"><span className="text-sm text-muted">From </span><span className="text-lg font-extrabold">{formatYen(e.priceFrom.amountYen)}</span><span className="text-sm text-muted"> per adult</span></p>
     </div>

@@ -27,15 +27,33 @@ export interface TrackedEvent {
 }
 
 const SAFE_STRING = /^[a-z0-9_-]{1,64}$/;
+const UMAMI_WEBSITE_ID = /^[0-9a-f-]{36}$/i;
 const ALLOWED_UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_content"] as const;
+
+export function doNotTrackEnabled(value: string | null | undefined): boolean {
+  return value === "1" || value === "yes";
+}
+
+export function analyticsModeForRuntime(apiMode: "http" | "mock", siteUrl: string, websiteId: string): "debug" | "off" | "umami" {
+  if (apiMode === "mock") return "debug";
+  return siteUrl === "https://experience.niho.life" && UMAMI_WEBSITE_ID.test(websiteId) ? "umami" : "off";
+}
+
+export function shouldStartUmami(websiteId: string, doNotTrack: string | null | undefined): boolean {
+  return UMAMI_WEBSITE_ID.test(websiteId) && !doNotTrackEnabled(doNotTrack);
+}
 
 /** Removes query values outside the approved UTM set before Umami sees a URL. */
 export function sanitizeUmamiPayload(
-  _type: string,
+  type: string,
   payload: Record<string, unknown>,
   currentOrigin: string,
 ): Record<string, unknown> | false {
   try {
+    if (type !== "pageview" && type !== "event") return false;
+    // Umami's tracker reports ordinary pageviews as unnamed `event` payloads.
+    // Named events must still be one of our allowlisted funnel events.
+    if (type === "event" && payload.name !== undefined && (typeof payload.name !== "string" || !Object.hasOwn(FUNNEL_EVENTS, payload.name))) return false;
     const rawUrl = payload.url;
     if (typeof rawUrl !== "string") return false;
 
@@ -62,6 +80,19 @@ export function sanitizeUmamiPayload(
     }
 
     const safePayload: Record<string, unknown> = { ...payload, url: `${url.pathname}${url.search}` };
+    if (type === "event" && typeof payload.name === "string") {
+      const rawData = payload.data;
+      const props: EventProps = {};
+      if (rawData && typeof rawData === "object" && !Array.isArray(rawData)) {
+        for (const [key, value] of Object.entries(rawData)) {
+          if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") props[key] = value;
+        }
+      }
+      safePayload.data = sanitize(payload.name as FunnelEvent, props).props;
+    } else if (type === "event") {
+      // Unnamed Umami events are pageviews, so they must not carry event data.
+      delete safePayload.data;
+    }
     if (typeof payload.referrer === "string" && payload.referrer) {
       try {
         safePayload.referrer = new URL(payload.referrer, currentOrigin).origin;

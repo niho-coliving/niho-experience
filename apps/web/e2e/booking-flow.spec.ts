@@ -57,10 +57,52 @@ test("required booking answer and consent are shown before checkout", async ({ p
   await page.getByRole("button", { name: "Request to book" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("required question");
   await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
+  expect(await page.evaluate(() => (window as Window & { __nihoEvents?: { event: string }[] }).__nihoEvents?.filter((event) => event.event === "checkout_start").length ?? 0)).toBe(0);
 });
 
 test("booking page is private", async ({ request }) => {
   const res = await request.get(`${dinner}/book`);
   expect(res.headers()["cache-control"]).toContain("no-store");
   expect(res.headers()["x-robots-tag"]).toContain("noindex");
+});
+
+test("a newly full date can be checked again without trapping the guest", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-full`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.locator("main").getByRole("alert").last()).toContainText("filled up");
+  await page.getByRole("button", { name: "Check dates again" }).click();
+  await page.locator('input[name="occurrence"]:not([disabled])').first().check();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
+});
+
+test("a changed price requires a fresh detail and agreement", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-price-changed`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.getByRole("link", { name: "Reload the experience" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeDisabled();
+  await page.getByRole("link", { name: "Reload the experience" }).click();
+  await expect(page).toHaveURL(new RegExp(`${dinner}$`));
+});
+
+test("a failing analytics sink never blocks a preview booking", async ({ page }) => {
+  await page.addInitScript(() => {
+    console.debug = () => { throw new Error("analytics blocked"); };
+  });
+  await page.goto(`${dinner}/book`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page).toHaveURL(/\/preview\/checkout$/);
+  const trackedEvents = await page.evaluate(() => (window as Window & { __nihoEvents?: { event: string }[] }).__nihoEvents?.map(({ event }) => event) ?? []);
+  expect(trackedEvents).toContain("checkout_start");
 });
