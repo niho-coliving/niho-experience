@@ -40,20 +40,30 @@ v1の規模（少数の体験、30日の検証）では、無料枠と6か月の
 | `data-domains` | 公開ドメイン（決定後） | プレビューや別のホストで動かさない |
 | `data-do-not-track` | `true` | ブラウザのDo Not Trackを尊重する |
 | `data-exclude-hash` | `true` | URLのハッシュを送らない |
-| `data-before-send` | 関数を用意する | クエリ文字列は `utm_source`・`utm_medium`・`utm_campaign`・`utm_content` だけを残す。`/experiences/*/book` と `/booking/*` はクエリをすべて落とす。予約入力の値は送らない |
+| `data-before-send` | 関数を用意する | pageviewと許可したファネルイベントだけ通す。クエリ文字列は `utm_source`・`utm_medium`・`utm_campaign`・`utm_content` だけを残す。`/experiences/*/book` と `/booking/*` はクエリをすべて落とす。予約入力の値は送らない |
 | `data-distinct-id` | 使わない | 訪問者に識別子を付けない |
 | `data-performance` | 使わない（必要になったら検討） | v1の目的に要らない |
 
 - UTMをページビューで受け取るため、`data-exclude-search` は使わず、上の `data-before-send` で残す値を絞る。
-- 送信先のホストをCSPの `script-src` と `connect-src` に加える。
+- Umamiの自動click収集を無効にし、pageviewはNext.jsのroute変更から手動送信する。ファネルイベント以外は `data-before-send` で破棄する。
+- Tracker scriptは `cloud.umami.is/script.js` の2026-10-19時点のSHA-384 SRIで固定する。更新時はhashをレビューして同時に更新する。CSPはscript取得先 `cloud.umami.is` と送信先 `gateway.umami.is` を個別に許可する。
 - プレビュー（mock）では送らない（現状どおり `window.__nihoEvents` に記録）。
 - NIHO運営の内部アクセスは、Umamiの「自分の訪問を除外」の機能で除く。手順はアカウント作成後に公式の案内で確認する。
+
+## サイト登録と実装
+
+- Umami Cloudのサイト名は `NIHO Experience`、登録ドメインは `experience.niho.life`。
+- Website IDは `f7a8b3ed-ef71-4a35-969e-955b88f01902`。公開IDのためコードへ直書きせず、`UMAMI_WEBSITE_ID` の実行時環境変数で渡す。
+- `UMAMI_WEBSITE_ID` が設定され、APIモードが `http` で、`SITE_URL` が `https://experience.niho.life` と完全一致する場合だけトラッカーを読み込む。preview（mock）と他ホストでは送信しない。
+- 現時点で本番サービス・本番配備workflowは未作成。将来、本番サービスを作る際にこのIDを本番サービスだけへ設定し、プライバシーポリシーへ計測内容を追記してから送信を有効にする。previewには設定しない。
+- ブラウザの `Do Not Track` を尊重し、URLは許可したUTMだけ残す。予約入力URL・予約結果URLのqueryや予約結果識別子、URL hash、リファラーのpath/queryは送らない。
+- Cloud tracker scriptは `cloud.umami.is/script.js` の取得内容をSHA-384 SRIで固定する（2026-10-19 snapshot: `sha384-na2rtfGcck2U+oedd3Fj+22SUyB41DM4F/gLssqYa9ELN6oF1aJzA2p80zu7Vy6a`）。上流のscriptが変わるとブラウザが実行を拒否するため、更新は内容を確認したPRで行う。
 
 ## 同意と公表
 
 - 同意バナーは出さない。計測をブロックされても予約は同じように動く（担当1の実装どおり）。
 - この案は、cookie・端末保存・独自の訪問者IDを使わない計測に限る。`attribution_id` をsessionStorage等へ保存して予約と結び付ける変更は前提外であり、コードやデータ保存を始める前にオーナーと担当2が同意・公表の要否、目的、保存期間、閲覧権限を判断して承認する。承認までは識別子を生成・保存・送信しない。
-- プライバシーポリシーに、計測ツールの名前、送る情報（閲覧したページ、イベント、おおよその地域・端末の種類など）、目的、保存期間を書く。文面はNIHOの既存のポリシーとそろえ、他の追記と合わせて後でまとめて行う（2026-10-19 オーナー決定）。本番で計測の送信を始める前に済ませることを推奨する。
+- プライバシーポリシーに、計測ツールの名前、送る情報（閲覧したページ、イベント、おおよその地域・端末の種類など）、目的、保存期間を書く。文面はNIHOの既存のポリシーとそろえ、他の追記と合わせて後でまとめて行う（2026-10-19 オーナー決定）。[公開文案](privacy-copy.md)を用意し、本番で計測の送信を始める前に掲載する。
 - 電気通信事業法の外部送信規律：今回の内容（この文書の計測）までは問題ないことをオーナーが確認した（2026-10-19）。送る情報や送信先を増やすときは改めて確認する。
 - cookieを使う計測や広告タグを入れる場合は、先に同意の取得を設計する。地域ごとの初期設定もそのときに決める。
 

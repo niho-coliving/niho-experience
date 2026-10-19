@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { computeExpectedTotalYen, type ExperienceApiClient, type ExperienceOffer, type Occurrence } from "@niho-experience/api-client";
 import { getBrowserApi } from "@/lib/browser-api";
-import { formatDay, formatTimeRange, formatYen } from "@/lib/format";
+import { formatDay, formatTimeRange, formatYen, pluralize } from "@/lib/format";
 import { slotAvailabilityLabel } from "@/lib/availability-copy";
 import { track } from "@/lib/analytics";
 import { buttonClass } from "./ui";
@@ -66,6 +66,6 @@ export function SlotPicker({ slug, offers, preview, availabilityIsProvisional, n
     </div> : null}
     {offer ? <p className="text-sm text-muted">{offer.minimumParticipants}–{offer.maxPartySize} guests per booking. {offer.pricing.child ? `Children ${formatYen(offer.pricing.child.priceYen)} each.` : "This option is for adults only."}</p> : null}
     <p aria-live="polite" className="rounded-xl bg-sand p-3 font-bold">Total: {total !== null && countsValid ? formatYen(total) : "Check guest counts"} <span className="block text-sm font-normal text-muted">Japanese yen, tax included. Availability is confirmed at checkout.</span></p>
-    {canContinue ? <button type="button" onClick={() => { track("slot_continue", { experience: slug, guests: headCount }); onContinue({ offerId, date, adultCount, childCount }); }} className={buttonClass("primary", "w-full text-center")}>Continue</button> : <p className="text-sm text-muted">Choose an available date and a valid party size to continue.</p>}
+    {canContinue ? <button type="button" onClick={() => { track("slot_continue", { experience: slug, guests: headCount }); onContinue({ offerId, date, adultCount, childCount }); }} className={buttonClass("primary", "w-full text-center")}>Continue</button> : <p className="text-sm text-muted">{selected?.bookable && selected.seatsLeft < headCount ? availabilityIsProvisional ? "This sample date cannot take that party size. Try another date or fewer guests." : `Only ${pluralize(selected.seatsLeft, "place")} available for this date. Try another date or fewer guests.` : "Choose an available date and a valid party size to continue."}</p>}
   </div>;
 }

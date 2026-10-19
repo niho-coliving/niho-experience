@@ -3,6 +3,7 @@ import "@fontsource-variable/nunito";
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { AnalyticsSetup } from "@/components/Analytics";
+import { analyticsModeForRuntime } from "@/lib/analytics";
 import { PreviewBanner, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { config, isPreview } from "@/lib/config";
 
@@ -28,13 +29,15 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const analyticsMode = analyticsModeForRuntime(config.apiMode, config.siteUrl, config.umamiWebsiteId);
+
   return (
     <html lang="en">
       <body className="flex min-h-dvh flex-col">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white">
           Skip to content
         </a>
-        <AnalyticsSetup mode={isPreview ? "debug" : "off"} />
+        <AnalyticsSetup mode={analyticsMode} websiteId={config.umamiWebsiteId} />
         {isPreview ? <PreviewBanner catalog={config.mockCatalog} /> : null}
         <SiteHeader />
         <main id="main" className="flex-1">

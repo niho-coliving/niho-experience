@@ -1,29 +1,29 @@
 # 30日検証のローンチキット（文案・リンク・QR）
 
 最終更新：2026-10-19（担当3）。対象：[#14](https://github.com/niho-coliving/niho-experience/issues/14)、[pilot-30day-plan.md](pilot-30day-plan.md)。
-**すべて未承認の下書き。** 配布・掲示・投稿・連絡は、本番運用の開始後にオーナーが行う（2026-10-19のオーナー決定）。印刷物に価格と日程を載せない。価格・日程は変わりうるため、QRの先の画面で見せる。
+**すべて未承認の下書き。** 配布・掲示・投稿・連絡は、本番運用の開始後にオーナーが行う（2026-10-19のオーナー決定）。印刷物に価格と日程を載せない。現在は予約不可のテストサイトで5商品の雰囲気を確認する段階である。下のURLは本番ドメインの予定値で、2026-10-19時点ではDNSが引けないため配布できない。
 
 ## 使う前のチェック
 
 - [ ] 載せる体験の価格・日程・取消条件がオーナーにより確定し、本番サイトに出ている
 - [ ] 写真の権利と、写っている人の同意が記録されている（[photo-requirements.md](../content/photo-requirements.md)）
-- [ ] 公開ドメインが決まり、下のリンクの `{SITE}` を置き換えた
+- [ ] `https://experience.niho.life` のDNS・TLS・本番ページが開き、5商品のうち案内する商品が実際に販売可能である
 - [ ] QRを実機（iPhone・Android）で読み取り、UTMが計測ツールに記録されることを確かめた
 - [ ] 文面をオーナーが承認した
 
 ## リンクとUTM
 
-`{SITE}` は公開ドメインに置き換える。`utm_campaign` は検証の期間ごとに変える（命名は [funnel-measurement.md](funnel-measurement.md)）。
+公開ドメインの予定値は `https://experience.niho.life`。ルートは画面側の `/experiences` と5つのslugに合わせた。`utm_campaign=pilot_2026q4` は今回の命名案で、実際の30日開始が次の四半期なら開始前に変更する。UTMは小文字・アンダースコアで統一し、個人名や宿泊施設名を入れない（[funnel-measurement.md](funnel-measurement.md)）。
 
 | コード | 置き場所 | リンク |
 | --- | --- | --- |
-| A1-1 | NIHO館内のテーブルカード | `{SITE}/experiences/kamakura-community-dinner?utm_source=niho_space&utm_medium=qr&utm_campaign=pilot_2026q4&utm_content=table_card` |
-| A1-2 | NIHO入口のポスター | `{SITE}/experiences?utm_source=niho_space&utm_medium=qr&utm_campaign=pilot_2026q4&utm_content=entrance_poster` |
-| A2-1 | InstagramのプロフィールのURL | `{SITE}/experiences?utm_source=niho_instagram&utm_medium=social&utm_campaign=pilot_2026q4&utm_content=bio` |
-| A2-2 | Instagramのストーリーのリンク | `{SITE}/experiences/{slug}?utm_source=niho_instagram&utm_medium=social&utm_campaign=pilot_2026q4&utm_content=story_{MMDD}` |
-| A3-1 | 会員が友人に渡すカード | `{SITE}/experiences/kamakura-community-dinner?utm_source=niho_space&utm_medium=print&utm_campaign=pilot_2026q4&utm_content=member_card` |
-| A4-1 | 公式サイト（kamakura.niho.life）のディナーのページ | `{SITE}/experiences/kamakura-community-dinner?utm_source=niho_site&utm_medium=referral&utm_campaign=pilot_2026q4` |
-| B1-n | 宿泊施設のフロントのカード（提携先ごと） | `{SITE}/experiences?utm_source=partner_a0n&utm_medium=qr&utm_campaign=pilot_2026q4&utm_content=front_desk` |
+| A1-1 | NIHO館内のテーブルカード | `https://experience.niho.life/experiences/kamakura-community-dinner?utm_source=niho_space&utm_medium=qr&utm_campaign=pilot_2026q4&utm_content=table_card` |
+| A1-2 | NIHO入口のポスター | `https://experience.niho.life/experiences?utm_source=niho_space&utm_medium=qr&utm_campaign=pilot_2026q4&utm_content=entrance_poster` |
+| A2-1 | InstagramのプロフィールのURL | `https://experience.niho.life/experiences?utm_source=niho_instagram&utm_medium=social&utm_campaign=pilot_2026q4&utm_content=bio` |
+| A2-2 | Instagramのストーリーのリンク | `https://experience.niho.life/experiences/{slug}?utm_source=niho_instagram&utm_medium=social&utm_campaign=pilot_2026q4&utm_content=story_{MMDD}`。実際の投稿前に掲載中のslugと日付で置換 |
+| A3-1 | 会員が友人に渡すカード | `https://experience.niho.life/experiences/kamakura-community-dinner?utm_source=niho_space&utm_medium=print&utm_campaign=pilot_2026q4&utm_content=member_card` |
+| A4-1 | 公式サイト（kamakura.niho.life）のディナーのページ | `https://experience.niho.life/experiences/kamakura-community-dinner?utm_source=niho_site&utm_medium=referral&utm_campaign=pilot_2026q4` |
+| B1-n | 宿泊施設のフロントのカード（提携先ごと） | `https://experience.niho.life/experiences?utm_source=partner_a0n&utm_medium=qr&utm_campaign=pilot_2026q4&utm_content=front_desk`。`n`を実際の匿名コードに置換 |
 
 - 提携先のコード（`partner_a01` など）と施設名の対応表は非公開台帳に置く。
 - 短縮URLサービスは使わない（リンク切れ、第三者による計測を避けるため）。
@@ -37,7 +37,10 @@
 | 印刷の大きさ | 一辺2.5cm以上。ポスターは4cm以上 |
 | 余白 | 周囲にQRの4モジュール分 |
 | 色 | 白地に濃い色。ロゴを中に入れない |
-| 併記 | QRの下に読める形のURL（例：`{SITE}/experiences`） |
+| 併記 | QRの下に読める形のURL（例：`experience.niho.life/experiences`） |
+
+本番URLが開くまでQRの印刷データを確定しない。プレビューはmockで外部計測を送らないため、URLの構文だけを今確認し、UmamiでのUTM受信とiPhone・Androidでの読み取りは本番受入時に行う。
+[3種類のQR試作PNG](qr/README.md)は、上の確定待ち項目を確認するための内部レビュー用であり、配布には使わない。
 
 ## 英語の文案
 
