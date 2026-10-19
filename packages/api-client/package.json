@@ -1,0 +1,44 @@
+{
+  "name": "@niho-experience/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "NIHO 共通基盤の公開 API（体験の一覧・詳細・残席・ゲスト予約の開始）の選別された契約・型・クライアント・合成 mock。",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./mock": {
+      "types": "./src/mock/index.ts",
+      "default": "./src/mock/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    },
+    "./contract/experience-public-api.openapi.json": "./contract/experience-public-api.openapi.json"
+  },
+  "scripts": {
+    "gen:types": "node ./scripts/gen-types.ts",
+    "check:types": "node ./scripts/gen-types.ts --check",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "verify:live": "node ./scripts/verify-live.ts",
+    "check": "npm run check:types && npm run typecheck && npm run test"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}
