@@ -71,6 +71,13 @@ export const problemCopy: Record<ApiErrorCode, ProblemCopy> = {
   UNAVAILABLE: { tone: "danger", title: "We couldn't reach the booking service", body: "Nothing has been charged. Your details are still here, so you can try again." },
 };
 
+/** Shown when the site's booking switch is off during an incident (#15). */
+export const bookingsPausedCopy: ProblemCopy = {
+  tone: "warn",
+  title: "Online booking is paused for now",
+  body: "We've paused new bookings for a short time. Bookings you already made are not affected and nothing new has been charged. Please try again later.",
+};
+
 /** What the guest can do next for each error. */
 export type ProblemAction = "choose_date" | "review_total" | "retry" | "browse";
 

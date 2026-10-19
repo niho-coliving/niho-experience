@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import type { ApiErrorCode, AvailabilityStatus, ExperienceSummary } from "@niho-experience/api-client";
 import { MOCK_CHECKOUT_TRIGGERS } from "@niho-experience/api-client/mock";
 import { ExperienceCard, ExperienceGridSkeleton } from "@/components/ExperienceCard";
-import { EmptyResults, problemCopy } from "@/components/States";
+import { EmptyResults, bookingsPausedCopy, problemCopy } from "@/components/States";
 import { Notice, SectionHeading } from "@/components/ui";
 import { getApi } from "@/lib/api";
 import { isPreview } from "@/lib/config";
@@ -101,6 +101,12 @@ export default async function StatesPage() {
       <section>
         <SectionHeading title="Booking problems" />
         <ul className="grid gap-4 md:grid-cols-2">
+          <li>
+            <Notice tone={bookingsPausedCopy.tone} title={bookingsPausedCopy.title}>
+              <p>{bookingsPausedCopy.body}</p>
+              <p className="mt-1 font-mono text-xs text-muted">BOOKINGS_ENABLED=false</p>
+            </Notice>
+          </li>
           {codes.map((code) => (
             <li key={code}>
               <Notice tone={problemCopy[code].tone} title={problemCopy[code].title}>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { startCheckout, type CheckoutState } from "@/app/experiences/[slug]/book/actions";
 import { track } from "@/lib/analytics";
-import { problemAction, problemCopy } from "./States";
+import { bookingsPausedCopy, problemAction, problemCopy } from "./States";
 import { Notice, buttonClass } from "./ui";
 
 interface Props {
@@ -42,9 +42,9 @@ export function BookingForm({ slug, guests, totalJpy, quoteId, policyVersion, id
   const invalid = (name: string) => errorFields.includes(name);
 
   useEffect(() => {
-    if (state.status !== "error") return;
+    if (state.status === "idle") return;
     alertRef.current?.focus();
-    track("checkout_error", { experience: slug, error_code: state.code.toLowerCase() });
+    track("checkout_error", { experience: slug, error_code: state.status === "paused" ? "bookings_paused" : state.code.toLowerCase() });
   }, [state, slug]);
 
   const field = (name: keyof typeof values, label: string, opts: { type?: string; autoComplete?: string; required?: boolean; hint?: string; errorName?: string } = {}) => {
@@ -96,6 +96,14 @@ export function BookingForm({ slug, guests, totalJpy, quoteId, policyVersion, id
       <input type="hidden" name="quoteId" value={quoteId} />
       <input type="hidden" name="policyVersion" value={policyVersion} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+
+      {state.status === "paused" ? (
+        <div ref={alertRef} tabIndex={-1} className="outline-none">
+          <Notice role="alert" tone={bookingsPausedCopy.tone} title={bookingsPausedCopy.title}>
+            <p>{bookingsPausedCopy.body}</p>
+          </Notice>
+        </div>
+      ) : null}
 
       {problem ? (
         <div ref={alertRef} tabIndex={-1} className="outline-none">

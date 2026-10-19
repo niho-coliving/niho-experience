@@ -19,6 +19,10 @@ describe("indexing guard", () => {
     expect(resolveConfig({ SITE_INDEXING: "allow", EXPERIENCE_API_MODE: "http" }).indexingAllowed).toBe(true);
     expect(resolveConfig({ SITE_INDEXING: "yes", EXPERIENCE_API_MODE: "http" }).indexingAllowed).toBe(false);
   });
+  it("keeps bookings on unless explicitly switched off", () => {
+    expect(resolveConfig({}).bookingsEnabled).toBe(true);
+    expect(resolveConfig({ BOOKINGS_ENABLED: "false" }).bookingsEnabled).toBe(false);
+  });
   it("normalises the site URL", () => {
     expect(resolveConfig({ SITE_URL: "https://a.example/" }).siteUrl).toBe("https://a.example");
   });

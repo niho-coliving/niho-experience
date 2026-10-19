@@ -10,6 +10,8 @@ export function resolveConfig(env: Env) {
     siteUrl: (env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, ""),
     // Synthetic data must never be indexed, even if SITE_INDEXING is set by mistake.
     indexingAllowed: env.SITE_INDEXING === "allow" && apiMode === "http",
+    // Incident switch (#15): "false" stops new bookings on the site. NIHO's API remains the authority.
+    bookingsEnabled: env.BOOKINGS_ENABLED !== "false",
     hostSignupMode: env.HOST_SIGNUP_MODE === "open" ? "open" : "pilot",
     nihoHostStartUrl: env.NIHO_HOST_START_URL ?? "",
     hostPilotContactUrl: env.HOST_PILOT_CONTACT_URL ?? "",

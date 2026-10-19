@@ -6,11 +6,11 @@ import { TrackView } from "@/components/Analytics";
 import { BookingForm } from "@/components/BookingForm";
 import { Photo } from "@/components/Photo";
 import { PolicyDetails } from "@/components/Policy";
-import { problemAction, problemCopy } from "@/components/States";
+import { bookingsPausedCopy, problemAction, problemCopy } from "@/components/States";
 import { ButtonLink, Notice, Pill } from "@/components/ui";
 import { getApi } from "@/lib/api";
 import { bookingHref, parseSelection } from "@/lib/checkout";
-import { isPreview } from "@/lib/config";
+import { config, isPreview } from "@/lib/config";
 import type { SearchParams } from "@/lib/filters";
 import { formatLongDay, formatTime, formatTimeRange, formatYen, pluralize } from "@/lib/format";
 
@@ -27,6 +27,23 @@ export default async function BookPage({ params, searchParams }: Props) {
   if (!experience) notFound();
   const selection = parseSelection(query);
   if (!selection) redirect(`/experiences/${slug}#book`);
+
+  if (!config.bookingsEnabled) {
+    return (
+      <div className="container-page max-w-2xl pt-6">
+        <TrackView event="booking_unavailable" props={{ experience: slug, error_code: "bookings_paused" }} />
+        <Link href={`/experiences/${slug}`} className="text-sm font-bold text-moss hover:underline">
+          ← Back to {experience.title}
+        </Link>
+        <h1 className="mt-4 text-3xl sm:text-4xl">Review and book</h1>
+        <div className="mt-8">
+          <Notice role="alert" tone={bookingsPausedCopy.tone} title={bookingsPausedCopy.title}>
+            <p>{bookingsPausedCopy.body}</p>
+          </Notice>
+        </div>
+      </div>
+    );
+  }
 
   const result = await api.createQuote({ experienceId: experience.id, ...selection });
 

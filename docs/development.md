@@ -61,6 +61,7 @@ packages/api-client/      仮契約（zod）、HTTPクライアントの枠、�
 | `EXPERIENCE_API_MODE` | `mock` | `http` は契約確定（#7・連携A）まで意図的に失敗する |
 | `SITE_INDEXING` | 未設定＝検索除外 | `allow` かつ `EXPERIENCE_API_MODE=http` の時だけindex許可（合成データは設定を誤っても検索に出ない）。本番受入（#15）後に設定 |
 | `SITE_URL` | `http://localhost:3000` | canonical・sitemapの起点。正式ドメインは未定 |
+| `BOOKINGS_ENABLED` | `true` | `false` で新規予約を止める（障害時。#15の手順） |
 | `HOST_SIGNUP_MODE` | `pilot` | `open` はNIHO側のセルフ登録（連携B）が使えるようになってから |
 | `NIHO_HOST_START_URL` / `HOST_PILOT_CONTACT_URL` / `NIHO_BOOKING_HELP_URL` | なし | NIHO側の遷移先。固定URLのみ。利用者入力で戻り先を変えない |
 

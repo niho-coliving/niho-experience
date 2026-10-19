@@ -6,7 +6,10 @@ import { getApi } from "@/lib/api";
 import { isAllowedCheckoutUrl } from "@/lib/checkout";
 import { config } from "@/lib/config";
 
-export type CheckoutState = { status: "idle" } | { status: "error"; code: ApiErrorCode; fields: string[] };
+export type CheckoutState =
+  | { status: "idle" }
+  | { status: "error"; code: ApiErrorCode; fields: string[] }
+  | { status: "paused" };
 
 const text = (formData: FormData, key: string) => {
   const value = formData.get(key);
@@ -19,6 +22,7 @@ const optional = (value: string) => (value ? value : undefined);
  * hosted payment page. Nothing here is logged, stored or put in a URL.
  */
 export async function startCheckout(_prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
+  if (!config.bookingsEnabled) return { status: "paused" };
   const contact = GuestContactSchema.safeParse({
     fullName: text(formData, "fullName"),
     email: text(formData, "email"),

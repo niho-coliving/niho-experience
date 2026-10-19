@@ -40,7 +40,9 @@ check /host "starting with a small group of hosts"
 test "$(docker exec "$name" id -u)" != "0" && echo "ok   runs as a non-root user"
 
 # Settings switch at run time. Indexing stays blocked because this image serves sample data.
-start -e SITE_INDEXING=allow -e HOST_SIGNUP_MODE=open -e NIHO_HOST_START_URL=https://niho.example.com/start
+start -e SITE_INDEXING=allow -e HOST_SIGNUP_MODE=open -e NIHO_HOST_START_URL=https://niho.example.com/start \
+  -e BOOKINGS_ENABLED=false
 check /host "Start with your NIHO account"
 check /robots.txt "Disallow: /"
+check /experiences/neighborhood-dinner-table "Online booking is paused for now"
 echo "container smoke test passed"

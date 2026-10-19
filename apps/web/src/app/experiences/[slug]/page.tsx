@@ -7,6 +7,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { Photo } from "@/components/Photo";
 import { PolicyDetails } from "@/components/Policy";
 import { SlotPicker } from "@/components/SlotPicker";
+import { bookingsPausedCopy } from "@/components/States";
 import { Notice, Pill } from "@/components/ui";
 import { getApi } from "@/lib/api";
 import { config } from "@/lib/config";
@@ -180,7 +181,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
         </aside>
       </div>
 
-      {status === "bookable" ? (
+      {status === "bookable" && config.bookingsEnabled ? (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
           <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
             <p className="min-w-0 leading-tight">
@@ -199,6 +200,13 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
 }
 
 function BookingPanel({ experience: e, slots }: { experience: ExperienceDetail; slots: Slot[] }) {
+  if (!config.bookingsEnabled) {
+    return (
+      <Notice tone={bookingsPausedCopy.tone} title={bookingsPausedCopy.title}>
+        {bookingsPausedCopy.body}
+      </Notice>
+    );
+  }
   switch (e.availability.status) {
     case "paused":
       return (
