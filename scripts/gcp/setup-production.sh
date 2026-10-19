@@ -30,6 +30,10 @@ fi
 if [[ "$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingEnabled)')" != True ]]; then
   gcloud billing projects link "$PROJECT_ID" --billing-account="$BILLING_ACCOUNT"
 fi
+if [[ "$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingAccountName)')" != "billingAccounts/${BILLING_ACCOUNT}" ]]; then
+  echo "Project ${PROJECT_ID} is linked to a different billing account" >&2
+  exit 1
+fi
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 
 gcloud services enable --project "$PROJECT_ID" \
@@ -80,6 +84,12 @@ if ! gcloud iam workload-identity-pools providers describe "$PROVIDER" --project
     --workload-identity-pool="$POOL" --display-name="niho-coliving/niho-experience production" \
     --issuer-uri="https://token.actions.githubusercontent.com" \
     --attribute-mapping="$mapping" --attribute-condition="$condition"
+fi
+current_condition="$(gcloud iam workload-identity-pools providers describe "$PROVIDER" --project "$PROJECT_ID" --location=global \
+  --workload-identity-pool="$POOL" --format='value(attributeCondition)')"
+if [[ "$current_condition" != "$condition" ]]; then
+  echo "Production OIDC provider condition differs from the reviewed configuration" >&2
+  exit 1
 fi
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --project "$PROJECT_ID" \
   --role=roles/iam.workloadIdentityUser \
