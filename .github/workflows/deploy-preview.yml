@@ -24,7 +24,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    if: vars.GCP_PROJECT_ID != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      IMAGE: web:${{ github.sha }}
+      ARTIFACT_NAME: preview-image-${{ github.run_id }}-${{ github.run_attempt }}
+    outputs:
+      image_sha256: ${{ steps.image.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build -t "$IMAGE" .
+      - name: Smoke test image
+        run: sh scripts/container-smoke.sh "$IMAGE"
+      - name: Save image artifact
+        id: image
+        run: |
+          docker save --output image.tar "$IMAGE"
+          echo "sha256=$(sha256sum image.tar | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: image.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
   deploy:
+    needs: build
     if: vars.GCP_PROJECT_ID != '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -40,16 +74,20 @@ jobs:
       SERVICE: niho-experience-preview
       RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/web:${{ github.sha }}
+      ARTIFACT_NAME: preview-image-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # This job receives only the image artifact. It does not check out or run repository code.
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          persist-credentials: false
-
-      # Build and test before any credentials exist in the job.
-      - name: Build image
-        run: docker build -t "$IMAGE" .
-      - name: Smoke test image
-        run: sh scripts/container-smoke.sh "$IMAGE"
+          name: ${{ env.ARTIFACT_NAME }}
+          path: .
+      - name: Verify and load image artifact
+        env:
+          EXPECTED_IMAGE_SHA256: ${{ needs.build.outputs.image_sha256 }}
+        run: |
+          printf '%s  image.tar\n' "$EXPECTED_IMAGE_SHA256" | sha256sum --check --status
+          docker load --input image.tar
+          docker tag "web:${GITHUB_SHA}" "$IMAGE"
 
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
