@@ -16,7 +16,7 @@ test("browse, review adult and child total, and reach browser-only mock checkout
   await expect(page).toHaveURL(/\/book$/);
   await page.getByRole("spinbutton", { name: /Adults/ }).fill("2");
   await page.getByRole("spinbutton", { name: /Children/ }).fill("1");
-  await page.locator('input[name="occurrence"]:not([disabled])').first().check();
+  await page.getByRole("radio", { name: /[3-9] places currently available/ }).first().check();
   await expect(page.getByText("Total: ¥16,000")).toBeVisible();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByText("Total ¥16,000")).toBeVisible();
@@ -62,4 +62,47 @@ test("booking page is private", async ({ request }) => {
   const res = await request.get(`${dinner}/book`);
   expect(res.headers()["cache-control"]).toContain("no-store");
   expect(res.headers()["x-robots-tag"]).toContain("noindex");
+});
+
+test("a newly full date can be checked again without trapping the guest", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-full`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.locator("main").getByRole("alert").last()).toContainText("filled up");
+  await page.getByRole("button", { name: "Check dates again" }).click();
+  await page.locator('input[name="occurrence"]:not([disabled])').first().check();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
+});
+
+test("a changed price requires a fresh detail and agreement", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-price-changed`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.getByRole("link", { name: "Reload the experience" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeDisabled();
+  await page.getByRole("link", { name: "Reload the experience" }).click();
+  await expect(page).toHaveURL(new RegExp(`${dinner}$`));
+});
+
+test("blocking analytics requests never blocks a preview booking", async ({ page }) => {
+  const analyticsRequests: string[] = [];
+  await page.addInitScript(() => Object.defineProperty(navigator, "doNotTrack", { configurable: true, get: () => "1" }));
+  await page.route(/https:\/\/(?:cloud|gateway)\.umami\.is\//, (route) => {
+    analyticsRequests.push(route.request().url());
+    return route.abort();
+  });
+  await page.goto(`${dinner}/book`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page).toHaveURL(/\/preview\/checkout$/);
+  expect(analyticsRequests).toEqual([]);
 });

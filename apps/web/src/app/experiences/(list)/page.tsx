@@ -11,8 +11,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const query = await searchParams;
   const filtered = query.theme !== undefined || query.date !== undefined;
   return {
-    title: "Experiences in Kamakura",
-    description: "Small group experiences in Kamakura hosted by locals.",
+    title: "Kamakura Experiences with Local Hosts",
+    description: "Small-group experiences in Kamakura hosted by people who live here. Prices in Japanese yen, times in JST, and no account needed to book.",
     alternates: { canonical: `${config.siteUrl}/experiences` },
     ...(filtered ? { robots: { index: false, follow: true } } : {}),
   };
