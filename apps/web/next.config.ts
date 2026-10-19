@@ -1,6 +1,9 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
-const indexingAllowed = process.env.SITE_INDEXING === "allow";
+// Headers here are fixed at build time. Anything that differs per environment
+// (indexing, host sign-up, API mode) is read at request time in src/lib/config.ts,
+// so one reviewed image can be promoted from preview to production.
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -22,7 +25,6 @@ const securityHeaders = [
       "form-action 'self' https://checkout.stripe.com",
     ].join("; "),
   },
-  ...(indexingAllowed ? [] : [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]),
 ];
 
 /** Pages that carry booking input or personal results: never cached, never indexed. */
@@ -32,6 +34,9 @@ const privatePageHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Self-contained server for the container image (docs/adr/0001-web-stack.md).
+  output: "standalone",
+  outputFileTracingRoot: path.join(process.cwd(), "../.."),
   poweredByHeader: false,
   reactStrictMode: true,
   transpilePackages: ["@niho-experience/api-client"],

@@ -20,11 +20,24 @@ http://localhost:3000 を開く。画面上部の黒い帯「Preview with sample
 | `npm run lint` | ESLint（Next.js推奨ルール + アクセシビリティ） |
 | `npm run typecheck` | 型検査（route型の生成 → アプリ → E2E） |
 | `npm test` | 単体テスト（契約・mock・表示ロジック） |
-| `npm run build` | 本番ビルド |
+| `npm run build` | 本番ビルド（`output: "standalone"`） |
+| `npm start` | ビルド済みのサーバーをコンテナと同じ方法で起動（`PORT`・`HOSTNAME` で待受先を指定） |
 | `npm run test:e2e` | Playwright。先に `npm run build` が必要。初回は `npx -w @niho-experience/web playwright install chromium` |
 | `npm run check` | lint + typecheck + test + build |
 
 Claude Codeのクラウド環境のようにChromiumが入っている環境では、`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium` を付けるとブラウザの取得を省ける。
+
+## コンテナ
+
+本番はCloud Run（入口はCloudflare）で動かす（[ADR 0001](adr/0001-web-stack.md)）。
+
+```sh
+docker build -t niho-experience .
+docker run --rm -p 8080:8080 niho-experience        # http://localhost:8080
+sh scripts/container-smoke.sh niho-experience       # 表示と、設定による切替の確認
+```
+
+環境ごとの値はビルドに入れず、`docker run -e SITE_INDEXING=allow` のように実行時に渡す。同じイメージをプレビューと本番で使う。
 
 ## 構成
 

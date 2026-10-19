@@ -20,10 +20,10 @@ export default defineConfig({
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 }, launchOptions: { executablePath } } },
   ],
   webServer: {
-    command: `npx next start -p ${PORT} -H 127.0.0.1`,
+    command: "sh scripts/start-standalone.sh",
     url: `http://127.0.0.1:${PORT}/experiences`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
-    env: { EXPERIENCE_API_MODE: "mock", SITE_INDEXING: "block", NEXT_TELEMETRY_DISABLED: "1" },
+    env: { PORT: String(PORT), HOSTNAME: "127.0.0.1", EXPERIENCE_API_MODE: "mock", SITE_INDEXING: "block", NEXT_TELEMETRY_DISABLED: "1" },
   },
 });

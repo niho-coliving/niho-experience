@@ -1,0 +1,13 @@
+.git
+.github
+**/node_modules
+**/.next
+**/playwright-report
+**/test-results
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+docs
+*.md
+!packages/api-client/README.md

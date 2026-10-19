@@ -5,13 +5,19 @@ import type { Metadata, Viewport } from "next";
 import { PreviewBanner, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { config, isPreview } from "@/lib/config";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(config.siteUrl),
-  title: { default: "Meet the people of Kamakura | NIHO Experience", template: "%s | NIHO Experience" },
-  description: "Small experiences hosted by people who live in Kamakura: cook, craft, walk and share a table. Book as a guest, no account needed.",
-  robots: config.indexingAllowed ? undefined : { index: false, follow: false },
-  openGraph: { siteName: "NIHO Experience", type: "website", locale: "en_US" },
-};
+// Every page reads environment settings (indexing, API mode, host sign-up) at
+// request time, so the same build can run as preview or production.
+export const dynamic = "force-dynamic";
+
+export function generateMetadata(): Metadata {
+  return {
+    metadataBase: new URL(config.siteUrl),
+    title: { default: "Meet the people of Kamakura | NIHO Experience", template: "%s | NIHO Experience" },
+    description: "Small experiences hosted by people who live in Kamakura: cook, craft, walk and share a table. Book as a guest, no account needed.",
+    robots: config.indexingAllowed ? undefined : { index: false, follow: false },
+    openGraph: { siteName: "NIHO Experience", type: "website", locale: "en_US" },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#fbf8f2",

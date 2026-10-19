@@ -1,5 +1,6 @@
 # Public CI: synthetic data only, no secrets, GitHub-hosted runners.
-# Fork PRs run with a read-only token. There is no deploy step here (see docs/adr/0001-web-stack.md).
+# Fork PRs run with a read-only token. Images are built and tested but never pushed or deployed here
+# (see docs/adr/0001-web-stack.md).
 name: CI
 
 on:
@@ -52,3 +53,16 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+
+  container:
+    # Builds the image that would be deployed (not pushed anywhere) and smoke-tests it.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build image
+        run: docker build -t niho-experience:ci .
+      - name: Smoke test
+        run: sh scripts/container-smoke.sh niho-experience:ci
