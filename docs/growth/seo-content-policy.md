@@ -33,7 +33,7 @@
 | 体験一覧 | `/experiences` | する |
 | 体験詳細 | `/experiences/{slug}` 例：`/experiences/kamakura-community-dinner` | する |
 | 絞り込み・検索 | `/experiences?theme=...&date=...` | しない（`noindex, follow`、canonicalは `/experiences`、sitemapに載せない） |
-| 予約入力・Checkoutからの戻り・予約確認 | 担当1・2が決める | しない。`no-store`、robots.txtで巡回させない、sitemapやページからリンクしない。tokenをURLに入れない（[#10](https://github.com/niho-coliving/niho-experience/issues/10)） |
+| 予約入力・Checkoutからの戻り・予約確認 | 担当1・2が決める | `noindex`をHTMLまたは`X-Robots-Tag`で返し、sitemapやページからリンクしない。noindexを検索エンジンが読めるようrobots.txtでは拒否しない。`no-store`にし、tokenをURLに入れない（[#10](https://github.com/niho-coliving/niho-experience/issues/10)）。予約情報へのアクセスはNIHO側で認証・認可する。robots.txtやnoindexはアクセス制御の代わりにしない |
 | プレビュー | 本番と別のホスト | しない。認証で閉じ、`X-Robots-Tag: noindex` も付ける |
 | 提供者 | v1では体験詳細の中に置き、単独ページを作らない | — |
 
