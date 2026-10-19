@@ -31,6 +31,19 @@ test("browse, review adult and child total, and reach browser-only mock checkout
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
 });
 
+test("provisional pilot dates do not claim remaining seats", async ({ page }) => {
+  const pilot = process.env.MOCK_CATALOG === "pilot";
+  const slug = pilot ? "kamakura-community-dinner" : "home-cooked-dinner-with-locals";
+  await page.goto(`/experiences/${slug}/book`);
+
+  if (pilot) {
+    await expect(page.getByText("Sample date · availability not confirmed").first()).toBeVisible();
+    await expect(page.getByText(/\d+ places? currently available/)).toHaveCount(0);
+  } else {
+    await expect(page.getByText(/\d+ places? currently available/).first()).toBeVisible();
+  }
+});
+
 test("required booking answer and consent are shown before checkout", async ({ page }) => {
   await page.goto("/experiences/indigo-dyeing-with-an-artisan/book");
   await chooseFirstDate(page);
