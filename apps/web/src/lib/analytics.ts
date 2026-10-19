@@ -41,7 +41,9 @@ export function sanitizeUmamiPayload(
 ): Record<string, unknown> | false {
   try {
     if (type !== "pageview" && type !== "event") return false;
-    if (type === "event" && (typeof payload.name !== "string" || !Object.hasOwn(FUNNEL_EVENTS, payload.name))) return false;
+    // Umami's tracker reports ordinary pageviews as unnamed `event` payloads.
+    // Named events must still be one of our allowlisted funnel events.
+    if (type === "event" && payload.name !== undefined && (typeof payload.name !== "string" || !Object.hasOwn(FUNNEL_EVENTS, payload.name))) return false;
     const rawUrl = payload.url;
     if (typeof rawUrl !== "string") return false;
 
@@ -68,7 +70,7 @@ export function sanitizeUmamiPayload(
     }
 
     const safePayload: Record<string, unknown> = { ...payload, url: `${url.pathname}${url.search}` };
-    if (type === "event") {
+    if (type === "event" && typeof payload.name === "string") {
       const rawData = payload.data;
       const props: EventProps = {};
       if (rawData && typeof rawData === "object" && !Array.isArray(rawData)) {
@@ -77,6 +79,9 @@ export function sanitizeUmamiPayload(
         }
       }
       safePayload.data = sanitize(payload.name as FunnelEvent, props).props;
+    } else if (type === "event") {
+      // Unnamed Umami events are pageviews, so they must not carry event data.
+      delete safePayload.data;
     }
     if (typeof payload.referrer === "string" && payload.referrer) {
       try {

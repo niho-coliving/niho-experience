@@ -116,7 +116,7 @@ export function AnalyticsSetup({ mode, websiteId }: { mode: "debug" | "off" | "u
     // before adding the external script so no unfiltered payload can race it.
     window.nihoUmamiBeforeSend = (type, payload) => {
       if (type === "event") {
-        if (typeof payload.name !== "string" || !Object.hasOwn(FUNNEL_EVENTS, payload.name)) return false;
+        if (payload.name !== undefined && (typeof payload.name !== "string" || !Object.hasOwn(FUNNEL_EVENTS, payload.name))) return false;
       } else if (type !== "pageview") {
         return false;
       }

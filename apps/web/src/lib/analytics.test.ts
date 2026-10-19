@@ -55,6 +55,9 @@ describe("Umami privacy filter", () => {
 
   it("rechecks event data at the final send boundary", () => {
     const origin = "https://experience.niho.life";
+    const pageview = sanitizeUmamiPayload("event", { url: "/experiences?token=private", data: { guestName: "Jane" } }, origin);
+    expect(pageview).toMatchObject({ url: "/experiences" });
+    expect(pageview).not.toHaveProperty("data");
     expect(sanitizeUmamiPayload("event", {
       name: "checkout_start", url: "/experiences/dinner/book?guest=Jane",
       data: { experience: "dinner", guests: 2, guestName: "Jane Doe", email: "guest@example.com", total_jpy: 1000 },
