@@ -34,7 +34,7 @@ check() {
 
 start -e SITE_INDEXING=block
 check / "Meet the people who make Kamakura home"
-check /experiences/neighborhood-dinner-table "Home-style dinner at a neighborhood table"
+check /experiences/home-cooked-dinner-with-locals "Home-cooked dinner with locals in a shared living room"
 check /robots.txt "Disallow: /"
 check /host "starting with a small group of hosts"
 test "$(docker exec "$name" id -u)" != "0" && echo "ok   runs as a non-root user"
@@ -44,5 +44,5 @@ start -e SITE_INDEXING=allow -e HOST_SIGNUP_MODE=open -e NIHO_HOST_START_URL=htt
   -e BOOKINGS_ENABLED=false
 check /host "Start with your NIHO account"
 check /robots.txt "Disallow: /"
-check /experiences/neighborhood-dinner-table "Online booking is paused for now"
+check /experiences/home-cooked-dinner-with-locals/book "Online booking is paused for now"
 echo "container smoke test passed"
