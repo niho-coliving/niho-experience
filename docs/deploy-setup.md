@@ -86,18 +86,18 @@ Actions → **Deploy preview** → Run workflow（branch: main）。5〜10分で
 | `Deploy` の段で権限エラー | `GCP_RUNTIME_SERVICE_ACCOUNT` と `GCP_DEPLOY_SERVICE_ACCOUNT` の値が手順1の表示と同じか |
 | URLを開くと403 | 組織のポリシーで公開が禁止されている可能性。Cloud Runの「認証が不要」が有効か確認する |
 
+## 本番について
+
+本番の固定SHA配備、専用GCPプロジェクト、`experience.niho.life` の入口・DNS/TLS/cache、NIHO側のCORS/canonical、販売・検索・外部提供者の個別ゲートは [production-deploy.md](production-deploy.md) を正とする。
+
 ## Cloudflareについて
 
 **プレビューにはCloudflareは不要。** Cloud RunのURLで見られる。
 
-本番（独自ドメイン）では、NIHOappと同じくCloudflareを入口に置く。公開ドメインが決まった時に、次を決めてから設定する。
+本番（独自ドメイン）ではCloudflareを入口に置く。ホスト名は `experience.niho.life` と決まった。
 
-1. **ホスト名**：例 `experience.niho.life`。NIHOのDNSはCloudflareにある。
-2. **入口の方式**（どちらかを選ぶ）：
-   - **A. Cloud Runのドメインマッピング＋CloudflareのDNS**：費用が増えない。Googleの証明書の発行・更新のため、Cloudflareは「DNSのみ（グレーの雲）」で使う。WAFやCDNはCloudflareで効かない。
-   - **B. GCPのロードバランサー＋Cloudflareのproxy（オレンジの雲）**：NIHOappの本番と同じ。WAF・CDN・攻撃対策が効く。ロードバランサーの月額費用がかかる。手順はNIHOappの `gcp/runbooks/prod-public-edge-control-plane.md` を基にする。
-3. **cacheの設定**：Cloudflareでcacheするのは `/_next/static/*` と画像だけ。予約入力・決済後ページはアプリが `no-store` を返すので、cacheしない設定を確認する。
+入口は専用の global external Application Load Balancer と Cloudflare proxy を推奨する。Cloud Run の直接 domain mapping は Google が production に推奨していない。新規課金・権限の判断と適用手順は [production-deploy.md](production-deploy.md) にまとめた。Cloudflareでcacheするのは初期は `/_next/static/*` だけとし、予約入力・決済後ページは bypass を確認する。
 
-試験販売の前に、本番用のサービス（`niho-experience`、最小インスタンス1、実APIの設定）と配備workflowを追加する。その時にA・Bを決めてもらえれば、Claudeが設定手順をこの文書に追記する。
+本番候補のworkflowと準備スクリプトは用意済み。請求先と入口方式の承認後にサービスを作り、受入中は最小インスタンス0・予約停止・検索除外で運用する。販売開始時の最小インスタンス1への変更も受入記録に含める。
 
-Umami CloudのWebsite IDは `f7a8b3ed-ef71-4a35-969e-955b88f01902`（ドメイン `experience.niho.life`）。本番サービスを追加する際、プライバシーポリシーへの計測内容の追記後に、実行時環境変数 `UMAMI_WEBSITE_ID` として本番サービスだけへ設定する。previewには設定しない。サイトID自体は公開情報で、GitHub Secretではなくランタイム設定として扱う。
+Umami CloudのWebsite IDは `f7a8b3ed-ef71-4a35-969e-955b88f01902`（ドメイン `experience.niho.life`）。プライバシーポリシーへの計測内容の追記後に、実行時環境変数 `UMAMI_WEBSITE_ID` として本番サービスだけへ設定する。previewには設定しない。サイトID自体は公開情報で、GitHub Secretではなくランタイム設定として扱う。

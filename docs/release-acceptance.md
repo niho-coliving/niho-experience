@@ -56,7 +56,7 @@
 
 ## 配備（Cloud Run）
 
-[ADR 0001](adr/0001-web-stack.md) の構成。初回のGCP・Cloudflareの準備はオーナーの承認後に行う。
+[ADR 0001](adr/0001-web-stack.md) の構成。固定SHA・権限・DNS/TLS/cache・個別公開ゲートの現行手順は [production-deploy.md](production-deploy.md) を正とする。初回のGCP・Cloudflareの有料リソースはオーナーの判断後に作る。
 
 1. mainのレビュー済みcommitを決める。
 2. secretを持たないジョブがそのcommitからイメージを作る（`docker build .`）。同じジョブで `scripts/container-smoke.sh` を通す。
@@ -65,7 +65,7 @@
 5. トラフィックを新revisionへ移す。Cloudflareでは静的ファイル以外のcacheを使っていないので、通常はpurge不要。
 6. 15分ほどエラー率とログを見る。
 
-環境変数（本番）：`EXPERIENCE_API_MODE=http`、`NEXT_PUBLIC_NIHO_WEB_ORIGIN`、`SITE_URL`、`SITE_INDEXING=allow`（受入後）、`BOOKINGS_ENABLED=true`、`HOST_SIGNUP_MODE`、NIHO側の遷移先URL。API接続の資格情報が必要になった場合はSecret Managerから渡し、イメージやリポには入れない。
+最初の本番候補は `EXPERIENCE_API_MODE=http`、`SITE_INDEXING=block`、`BOOKINGS_ENABLED=false`、`HOST_SIGNUP_MODE=pilot`。検索公開・予約開始・外部登録は個別の受入後に切り替える。API接続の資格情報が必要になった場合はSecret Managerから渡し、イメージやリポには入れない。
 
 ## 戻す
 
