@@ -692,6 +692,15 @@
           },
           "booking": { "$ref": "#/components/schemas/BookingTerms" },
           "updatedAt": { "type": "string", "format": "date-time" }
+        },
+        "not": {
+          "type": "object",
+          "required": ["meetingPointDisclosure", "meetingPoint"],
+          "properties": {
+            "meetingPointDisclosure": { "enum": ["AFTER_BOOKING"] },
+            "meetingPoint": { "type": "object" }
+          },
+          "description": "予約確定後に案内する集合場所は公開応答に含めない。"
         }
       },
       "ExperienceDetailResponse": {

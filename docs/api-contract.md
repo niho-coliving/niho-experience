@@ -85,7 +85,7 @@
 | --- | --- | --- | --- | --- |
 | `VALIDATION_ERROR` | 400 | 本文が JSON でない等 | 作らない | 実装の誤り。入力を直す |
 | `INPUT_INVALID` | 422 | 項目の誤り（`field`） | 作らない | その項目を直す（新しい key） |
-| `ANSWERS_INVALID` | 422 | 回答の字数等（`questionId`） | 作らない | その質問を直す |
+| `ANSWERS_INVALID` | 422 | 質問形式・選択肢 ID・回答の字数（`questionId`） | 作らない | その質問を直す |
 | `CONSENT_OUTDATED` | 422 | 同意文書の版が古い | 作らない | 詳細を読み直して同意し直す |
 | `OCCURRENCE_INVALID` | 422 | 開催回でない・締切後・受付停止（`occurrenceReason`） | 作らない | 残席を読み直して選び直す |
 | `UNAVAILABLE` | 409 | 今は申込を受けていない | 作らない | 予約の入口を閉じる |

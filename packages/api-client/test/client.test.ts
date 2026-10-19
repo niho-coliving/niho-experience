@@ -61,6 +61,19 @@ describe("createExperienceApiClient", () => {
     expect(await client.startCheckout("x-y", BODY)).toEqual({ ok: false, kind: "rejected", status: 429, error, retryAfterSeconds: 60 });
   });
 
+  it("未知・不完全・status 不一致の checkout error は unexpected_response", async () => {
+    const error = { code: "RATE_LIMITED", message: "Too many", retryable: true, field: null, questionId: null, seatsLeft: null, occurrenceReason: null, currentTotalYen: null };
+    for (const [status, responseError] of [
+      [429, { ...error, code: "BOGUS" }],
+      [429, { code: "RATE_LIMITED", message: "Too many", retryable: true }],
+      [409, error],
+      [429, { ...error, extra: "unexpected" }],
+    ] as const) {
+      const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: respond(status, { error: responseError }) });
+      expect(await client.startCheckout("x-y", BODY)).toEqual({ ok: false, kind: "unexpected_response", status });
+    }
+  });
+
   it("404 は not_found・形の違う本文は unexpected_response", async () => {
     expect(await createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: respond(404, null) }).getExperience("x-y")).toEqual({ ok: false, kind: "not_found" });
     expect(await createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: respond(200, [1, 2]) }).listExperiences()).toEqual({
@@ -68,10 +81,30 @@ describe("createExperienceApiClient", () => {
       kind: "unexpected_response",
       status: 200,
     });
+    expect(await createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: respond(200, {}) }).listExperiences()).toEqual({
+      ok: false,
+      kind: "unexpected_response",
+      status: 200,
+    });
+    expect(await createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: respond(200, { experience: {} }) }).getExperience("x-y")).toEqual({
+      ok: false,
+      kind: "unexpected_response",
+      status: 200,
+    });
+    expect(await createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: respond(200, { occurrences: [null] }) }).getAvailability("x-y")).toEqual({
+      ok: false,
+      kind: "unexpected_response",
+      status: 200,
+    });
   });
 
   it("一覧・詳細だけ cacheableReadInit を使い、残席は no-store", async () => {
-    const fetchMock = respond(200, { experiences: [] });
+    const fetchMock: FetchLike = vi.fn(async (input) =>
+      new Response(JSON.stringify(input.endsWith("/availability?offerId=offer_1") ? { occurrences: [] } : { experiences: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
     const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: fetchMock, cacheableReadInit: { cache: "force-cache" } });
     await client.listExperiences({ region: "kamakura" });
     await client.getAvailability("x-y", { offerId: "offer_1" });

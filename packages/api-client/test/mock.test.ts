@@ -147,6 +147,24 @@ describe("mock の checkout", () => {
     });
   });
 
+  it("申込質問の入力形式と選択肢 ID が違う回答は ANSWERS_INVALID", async () => {
+    const base = await checkoutBody("indigo-dyeing-with-an-artisan");
+    const answer = base.answers?.[0];
+    if (!answer) throw new Error("required answer missing");
+    const invalidAnswers = [
+      [{ questionId: answer.questionId, text: "Deep indigo" }],
+      [{ questionId: answer.questionId, optionIds: ["unknown-option"] }],
+      [{ questionId: answer.questionId, optionIds: [answer.optionIds?.[0], "o_light"] }],
+    ];
+
+    for (const answers of invalidAnswers) {
+      const { response, body: error } = await call("default", "/api/public/experiences/indigo-dyeing-with-an-artisan/checkout", post({ ...base, answers }));
+      expect(response.status).toBe(422);
+      expect(error).toMatchObject({ error: { code: "ANSWERS_INVALID", questionId: answer.questionId } });
+      expect(validator.validateResponse("startExperienceCheckout", response.status, error)).toEqual({ ok: true });
+    }
+  });
+
   it("申込停止中・同意の版違い・子ども料金の無い商品の子どもは受け付けない", async () => {
     const paused = await detail("evening-pottery-session");
     const pausedBody = {

@@ -96,6 +96,26 @@ describe("合成 fixture", () => {
     expect(validator.validateSchema("ExperienceDetailResponse", { experience: { ...first, cover: null, meetingPoint: null } })).toEqual({ ok: true });
   });
 
+  it("予約確定後に案内する集合場所を公開応答で拒否する", () => {
+    const [first] = experiences;
+    if (!first) throw new Error("fixture missing");
+    const leaked = {
+      experience: {
+        ...first,
+        meetingPointDisclosure: "AFTER_BOOKING",
+        meetingPoint: {
+          name: "Sample meeting point",
+          address: "Sample address",
+          accessNote: null,
+          entranceNote: null,
+          mapUrl: null,
+          exteriorPhotoIndex: null,
+        },
+      },
+    };
+    expect(validator.validateSchema("ExperienceDetailResponse", leaked).ok).toBe(false);
+  });
+
   it("値の走査はメール・Stripe の ID・objectKey・電話番号を見つける", () => {
     expect(findSensitiveValues({ a: "contact real@gmail.com", b: "acct_1AbCdEfGhIjKlM", c: "article/image/u1/x.jpg", d: "090-1234-5678" })).toHaveLength(4);
     expect(findSensitiveValues({ a: "guest@example.com" })).toEqual([]);

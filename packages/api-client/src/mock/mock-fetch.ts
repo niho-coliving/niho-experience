@@ -179,17 +179,59 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     if (body.expectedTotalYen !== total) return checkoutError("PRICE_CHANGED", { currentTotalYen: total });
     if (body.bookingQuestionsFingerprint !== offer.bookingQuestionsFingerprint) return checkoutError("QUESTIONS_CHANGED");
 
+    if (body.answers !== undefined && !Array.isArray(body.answers)) {
+      return checkoutError("ANSWERS_INVALID", { field: "answers" });
+    }
     const answers = Array.isArray(body.answers) ? body.answers : [];
+    const questionById = new Map(offer.bookingQuestions.map((question) => [question.id, question]));
+    const seenQuestionIds = new Set<string>();
+    for (const candidate of answers) {
+      if (!isObject(candidate) || typeof candidate.questionId !== "string") {
+        return checkoutError("ANSWERS_INVALID", { field: "questionId" });
+      }
+      const question = questionById.get(candidate.questionId);
+      if (!question || seenQuestionIds.has(candidate.questionId)) {
+        return checkoutError("ANSWERS_INVALID", { questionId: candidate.questionId, field: "questionId" });
+      }
+      seenQuestionIds.add(candidate.questionId);
+
+      const hasText = Object.prototype.hasOwnProperty.call(candidate, "text");
+      const hasOptionIds = Object.prototype.hasOwnProperty.call(candidate, "optionIds");
+      if (hasText && hasOptionIds) {
+        return checkoutError("ANSWERS_INVALID", { questionId: question.id, field: "answer" });
+      }
+      if (question.inputType === "SHORT_TEXT" || question.inputType === "LONG_TEXT") {
+        if (hasOptionIds || (hasText && typeof candidate.text !== "string")) {
+          return checkoutError("ANSWERS_INVALID", { questionId: question.id, field: hasOptionIds ? "optionIds" : "text" });
+        }
+        if (typeof candidate.text === "string" && candidate.text.length > (question.inputType === "SHORT_TEXT" ? 200 : 1000)) {
+          return checkoutError("ANSWERS_INVALID", { questionId: question.id, field: "text" });
+        }
+      } else {
+        if (hasText || (hasOptionIds && !Array.isArray(candidate.optionIds))) {
+          return checkoutError("ANSWERS_INVALID", { questionId: question.id, field: hasText ? "text" : "optionIds" });
+        }
+        if (Array.isArray(candidate.optionIds)) {
+          const optionIds = candidate.optionIds;
+          const distinctOptionIds = new Set(optionIds);
+          const expectedCount = question.inputType === "SINGLE_SELECT" ? 1 : optionIds.length;
+          const validOptions = optionIds.every((optionId) =>
+            typeof optionId === "string" && question.options.some((option) => option.id === optionId),
+          );
+          if (
+            optionIds.length !== expectedCount || distinctOptionIds.size !== optionIds.length || !validOptions ||
+            optionIds.length > question.options.length || optionIds.length > 8
+          ) {
+            return checkoutError("ANSWERS_INVALID", { questionId: question.id, field: "optionIds" });
+          }
+        }
+      }
+    }
     for (const question of offer.bookingQuestions) {
       const answer = answers.find((candidate) => isObject(candidate) && candidate.questionId === question.id);
-      const answered =
-        isObject(answer) &&
+      const answered = isObject(answer) &&
         ((typeof answer.text === "string" && answer.text.trim().length > 0) || (Array.isArray(answer.optionIds) && answer.optionIds.length > 0));
       if (question.required && !answered) return checkoutError("QUESTIONS_CHANGED", { questionId: question.id });
-      if (isObject(answer) && typeof answer.text === "string") {
-        const max = question.inputType === "SHORT_TEXT" ? 200 : 1000;
-        if (answer.text.length > max) return checkoutError("ANSWERS_INVALID", { questionId: question.id, field: "text" });
-      }
     }
 
     const contentKey = JSON.stringify([body.offerId, body.occurrenceDate, body.adultCount, body.childCount, body.guestName, body.guestEmail, body.note ?? null, answers]);

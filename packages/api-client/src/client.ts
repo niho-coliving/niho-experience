@@ -10,6 +10,7 @@ import type {
   ExperienceCheckoutError,
   ExperienceCheckoutRequest,
   ExperienceDetailResponse,
+  CheckoutErrorCode,
   OfferId,
   RegionKey,
 } from "./types.ts";
@@ -79,8 +80,66 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isCheckoutError(value: unknown): value is ExperienceCheckoutError {
-  return isObject(value) && typeof value.code === "string" && typeof value.message === "string" && typeof value.retryable === "boolean";
+const CHECKOUT_ERROR_STATUS: Record<CheckoutErrorCode, number> = {
+  VALIDATION_ERROR: 400,
+  INPUT_INVALID: 422,
+  CONSENT_OUTDATED: 422,
+  OCCURRENCE_INVALID: 422,
+  ANSWERS_INVALID: 422,
+  UNAVAILABLE: 409,
+  FULL: 409,
+  HOLD_LIMIT: 409,
+  REQUEST_MISMATCH: 409,
+  QUESTIONS_CHANGED: 409,
+  PRICE_CHANGED: 409,
+  RATE_LIMITED: 429,
+  CHECKOUT_UNAVAILABLE: 503,
+};
+
+const CHECKOUT_ERROR_FIELDS = ["code", "message", "retryable", "field", "questionId", "seatsLeft", "occurrenceReason", "currentTotalYen"];
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isNullableNonNegativeInteger(value: unknown): value is number | null {
+  return value === null || (Number.isInteger(value) && (value as number) >= 0);
+}
+
+function isCheckoutError(value: unknown, status: number): value is ExperienceCheckoutError {
+  if (!isObject(value) || typeof value.code !== "string" || !Object.prototype.hasOwnProperty.call(CHECKOUT_ERROR_STATUS, value.code)) return false;
+  const code = value.code as CheckoutErrorCode;
+  return (
+    CHECKOUT_ERROR_STATUS[code] === status &&
+    Object.keys(value).every((field) => CHECKOUT_ERROR_FIELDS.includes(field)) &&
+    typeof value.message === "string" &&
+    typeof value.retryable === "boolean" &&
+    isNullableString(value.field) &&
+    isNullableString(value.questionId) &&
+    isNullableNonNegativeInteger(value.seatsLeft) &&
+    (value.occurrenceReason === null || ["NOT_SCHEDULED", "CUTOFF", "UNAVAILABLE"].includes(String(value.occurrenceReason))) &&
+    isNullableNonNegativeInteger(value.currentTotalYen)
+  );
+}
+
+function hasExperienceCatalogShape(value: unknown): boolean {
+  return isObject(value) && Array.isArray(value.experiences) && value.experiences.every((experience) =>
+    isObject(experience) && typeof experience.slug === "string" && typeof experience.title === "string" && isObject(experience.provider),
+  );
+}
+
+function hasExperienceDetailShape(value: unknown): boolean {
+  return isObject(value) && isObject(value.experience) &&
+    typeof value.experience.slug === "string" && typeof value.experience.title === "string" &&
+    isObject(value.experience.provider) && Array.isArray(value.experience.offers) &&
+    value.experience.offers.every(isObject);
+}
+
+function hasAvailabilityShape(value: unknown): boolean {
+  return isObject(value) && Array.isArray(value.occurrences) && value.occurrences.every((occurrence) =>
+    isObject(occurrence) && typeof occurrence.offerId === "string" && typeof occurrence.date === "string" &&
+    typeof occurrence.bookable === "boolean" && Number.isInteger(occurrence.seatsLeft),
+  );
 }
 
 export function createExperienceApiClient(options: ExperienceApiClientOptions) {
@@ -108,7 +167,7 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
     }
   }
 
-  async function readJson<T>(path: string, cacheable: boolean): Promise<ReadResult<T>> {
+  async function readJson<T>(path: string, cacheable: boolean, hasExpectedShape: (body: unknown) => boolean): Promise<ReadResult<T>> {
     const response = await request(path, { method: "GET", headers: { accept: "application/json" } }, cacheable);
     if (!response) return { ok: false, kind: "network_error" };
     if (response.status === 404) return { ok: false, kind: "not_found" };
@@ -119,7 +178,7 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
     }
     if (response.status !== 200) return { ok: false, kind: "unexpected_response", status: response.status };
     const body: unknown = await response.json().catch(() => undefined);
-    if (!isObject(body)) return { ok: false, kind: "unexpected_response", status: response.status };
+    if (!hasExpectedShape(body)) return { ok: false, kind: "unexpected_response", status: response.status };
     return { ok: true, data: body as T };
   }
 
@@ -127,18 +186,18 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
     /** 掲載中の体験の一覧（SSR 可）。 */
     listExperiences(params: { region?: RegionKey } = {}): Promise<ReadResult<ExperienceCatalogResponse>> {
       const query = params.region ? `?region=${encodeURIComponent(params.region)}` : "";
-      return readJson(`/api/public/experiences${query}`, true);
+      return readJson(`/api/public/experiences${query}`, true, hasExperienceCatalogShape);
     },
 
     /** 体験の詳細（SSR 可）。 */
     getExperience(slug: string): Promise<ReadResult<ExperienceDetailResponse>> {
-      return readJson(`/api/public/experiences/${encodeURIComponent(slug)}`, true);
+      return readJson(`/api/public/experiences/${encodeURIComponent(slug)}`, true, hasExperienceDetailShape);
     },
 
     /** 開催回と残席（ブラウザから。キャッシュしない）。 */
     getAvailability(slug: string, params: { offerId?: OfferId } = {}): Promise<ReadResult<ExperienceAvailabilityResponse>> {
       const query = params.offerId ? `?offerId=${encodeURIComponent(params.offerId)}` : "";
-      return readJson(`/api/public/experiences/${encodeURIComponent(slug)}/availability${query}`, false);
+      return readJson(`/api/public/experiences/${encodeURIComponent(slug)}/availability${query}`, false, hasAvailabilityShape);
     },
 
     /**
@@ -162,7 +221,7 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
         return { ok: false, kind: "unexpected_response", status: response.status };
       }
       const error = isObject(parsed) ? parsed.error : undefined;
-      if (isCheckoutError(error)) {
+      if (isCheckoutError(error, response.status)) {
         const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
         return {
           ok: false,
