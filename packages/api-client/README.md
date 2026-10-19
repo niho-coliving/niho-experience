@@ -12,7 +12,7 @@ NIHO 共通基盤の公開 API（体験の一覧・詳細・残席・ゲスト�
 | `@niho-experience/api-client/testing` | 契約の検証器（Node・test だけ） |
 
 ```sh
-npm -C packages/api-client ci
+npm ci                                     # リポジトリのrootで一度だけ（lockfileはrootの1つ）
 npm -C packages/api-client run check      # 型の drift・型検査・テスト
 npm -C packages/api-client run gen:types  # 契約を変えたとき
 npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life  # 実 API の読み取りを同じ契約で検証
