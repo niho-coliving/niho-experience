@@ -47,7 +47,7 @@ L〜Cはブラウザの計測（cookieを使わない計測ツール。[analytic
 
 ### ファネルの分母と重複排除（担当1からの質問への回答）
 
-計測ツールの「訪問者」（[analytics-decision.md](analytics-decision.md)。cookieを使わないため、同じ人でも日をまたぐと別の訪問者として数えられうる）を単位にする。
+Umami の `visitor` を単位にする。これは人そのものではなく、サイトID・hostname・User-Agent等と月初に変わるsaltから作るsession hashである（[公式のmetric定義](https://docs.umami.is/docs/metric-definitions)）。同じhashが月内の複数日に残ることがあるため、週や月を一度に指定したレポートでは期間中のvisitorとしてまとめて数えられ、「体験×visitor×日」の単位にならない。
 
 | 率 | 分子 | 分母 | 重複排除 |
 | --- | --- | --- | --- |
@@ -56,9 +56,12 @@ L〜Cはブラウザの計測（cookieを使わない計測ツール。[analytic
 | 予約入力→Checkout開始 | `checkout_start` のあった訪問者 | `booking_form_view` のあった訪問者 | 同上。同じ見積で何度押しても1回 |
 | Checkoutへ進めない割合 | `checkout_error` の件数 | `checkout_start` の件数 | 件数で数え、`error_code` 別に出す（入力不備での再試行も見える） |
 | 予約入力を出せない割合 | `booking_unavailable` の件数 | `slot_continue` の件数 | 件数・`error_code` 別 |
-| 予約確定率（参考値） | 共通基盤の予約確定の件数 | `experience_view` のあった訪問者 | 出所が違う2つの数字の比なので「参考値」と明記する。流入元の結び付けは担当2の対応後 |
+| 予約確定率（参考値） | — | — | 現状は算出しない。共通基盤の確定予約件数とUmamiのvisitor-dayを別々に報告する。visitor単位の結合は、同意・公表方針と安全な結合方法の承認後に再定義する |
 
 - 期間はJSTの暦日。週次の振り返りは月曜0時〜日曜24時。
+- Umamiでは各イベントstepに `experience` が対象slugと一致するフィルターを設定し、体験ごとに日次ファネルを実行する。Umami Cloudはファネルのstepごとのフィルターに対応している（[公式changelog](https://docs.umami.is/docs/cloud/changelog)）。
+- 日次ファネルのvisitor数を週・30日分それぞれ合計し、率は合計した分子÷合計した分母で計算する。日ごとの率は平均しない。同じvisitor hashが別の日に再訪した場合は、その日ごとに1回ずつ数える。週・月の合計を「人数」とは表現しない。
+- Umamiのファネルは順序どおりのstepを設定した `Window` 内に完了したvisitorを数える（[公式Funnel仕様](https://docs.umami.is/docs/funnel)）。初期の検証では隣接するstep間の `Window` を60分に固定し、週次記録にも設定値を残す。日をまたぐstepや60分を超えたstep間の遷移は、その日次ファネルの完了に含めない。
 - NIHO運営の内部アクセスは計測ツールの「自分の訪問を除外」の機能で除く（[analytics-decision.md](analytics-decision.md)）。
 - プレビュー（mock）のイベントは計測ツールへ送らない（担当1の実装どおり）。
 
@@ -83,7 +86,7 @@ L〜Cはブラウザの計測（cookieを使わない計測ツール。[analytic
 
 | 項目 | 内容 |
 | --- | --- |
-| `attribution_id` | ブラウザで生成する推測不能な乱数。予約情報と結び付く仮名識別子として扱う。sessionStorageに置き、予約確定または期限切れ後にブラウザ側から削除する。API側の保存期間・閲覧権限・利用目的は実装前にオーナーと担当2が決める |
+| `attribution_id` | 将来案。予約情報と結び付く仮名識別子として扱う。sessionStorageへの保存、APIへの送信・保管、Umamiのvisitorとの結合方法は、同意・公表の要否、利用目的、保存期間、閲覧権限とともにオーナーと担当2が決めて承認するまで実装しない。承認前は予約とvisitorを結び付けず、予約確定件数と計測値を別々に報告する |
 | `utm_source` / `utm_medium` / `utm_campaign` / `utm_content` | 最初の流入時の値。許可した文字種だけ |
 | `landing_page_type` | 最初に見たページの種類 |
 
