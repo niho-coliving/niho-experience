@@ -132,6 +132,8 @@ jobs:
           URL: ${{ steps.candidate.outputs.url }}
           REVISION: ${{ steps.candidate.outputs.revision }}
         run: |
+          curl -fsS --retry 5 --retry-all-errors 'https://niho.life/api/public/experiences' \
+            | jq -e '.experiences | type == "array"' >/dev/null
           revision_json="$(gcloud run revisions describe "$REVISION" --project "$PROJECT_ID" --region "$REGION" --format=json)"
           test "$(jq -r '.spec.containers[0].image' <<< "$revision_json")" = "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${GITHUB_SHA}"
           test "$(jq -r '.spec.containers[0].env[] | select(.name == "EXPERIENCE_API_MODE") | .value' <<< "$revision_json")" = http
