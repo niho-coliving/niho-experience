@@ -3,7 +3,14 @@
 地域の人・暮らし・文化に出会う、旅行者向けの体験予約サイト。
 最初の地域は鎌倉。訪日旅行者が地元の人による体験を探し、会員登録なしで予約できることを目指します。
 
-**現在は企画・設計段階です。** このリポジトリには実装の作業計画を置いています。稼働中の予約サービス、決済機能、開発サーバーはまだありません。
+**現在はモックプレビューの段階です。** 合成データで一覧・詳細・予約入力・決済復帰の画面を確認できます。実在の予約・決済はまだ受け付けません。
+
+```sh
+npm ci
+npm run dev   # http://localhost:3000
+```
+
+詳しくは [開発手順](docs/development.md)。
 
 ## 方針
 
@@ -20,7 +27,9 @@ NIHOの共通基盤が、提供者ログイン、権限、商品管理、予約�
 
 - [構成・データ境界](docs/architecture.md)
 - [公開API契約（仮契約）](docs/api-contract.md)
-- [デザイン方針](docs/design-brief.md)
+- [デザイン方針](docs/design-brief.md) / [デザインシステムと画面仕様](docs/design-system.md)
+- [技術構成の判断（ADR 0001）](docs/adr/0001-web-stack.md) / [開発手順](docs/development.md)
+- [検索公開の方針](docs/seo.md) / [予約ファネルのイベント](docs/analytics-events.md) / [公開受入と配備・停止の手順](docs/release-acceptance.md)
 - [Epic一覧・着手順・担当への指示](docs/execution-plan.md)
 - [作業上の約束](AGENTS.md)
 - [Issues](https://github.com/niho-coliving/niho-experience/issues)

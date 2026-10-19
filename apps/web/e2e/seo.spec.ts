@@ -1,0 +1,53 @@
+import { expect, test } from "@playwright/test";
+
+// Server-rendered HTML as a crawler sees it, without running JavaScript.
+test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== "desktop"));
+
+const dinner = "/experiences/home-cooked-dinner-with-locals";
+
+test("experience facts and links are in the initial HTML", async ({ request }) => {
+  const html = await (await request.get(dinner)).text();
+  for (const fact of [
+    "<h1",
+    "Home-cooked dinner with locals in a shared living room",
+    "Komorebi Living (sample)",
+    "2 hr 30 min",
+    "English &amp; Japanese",
+    "¥6,500",
+    "Sold by",
+    'href="/experiences"',
+  ]) {
+    expect(html, fact).toContain(fact);
+  }
+  expect(html).toContain('<link rel="canonical" href="https://experiences.niho.example/experiences/home-cooked-dinner-with-locals"');
+  expect(html).toContain('"@type":"BreadcrumbList"');
+  // Mock preview data is never described as a live TouristTrip.
+  expect(html).not.toContain('"@type":"TouristTrip"');
+});
+
+test("list links reach every experience without JavaScript", async ({ request }) => {
+  const html = await (await request.get("/experiences")).text();
+  for (const slug of [
+    "home-cooked-dinner-with-locals",
+    "indigo-dyeing-with-an-artisan",
+    "seaside-cycling-and-market-breakfast",
+    "evening-pottery-session",
+  ]) {
+    expect(html).toContain(`href="/experiences/${slug}"`);
+  }
+  expect(html).toContain('<link rel="canonical" href="http://localhost:3000/experiences"');
+});
+
+test("legacy filter query URLs point to the main list and stay out of the index", async ({ request }) => {
+  const html = await (await request.get("/experiences?theme=craft")).text();
+  expect(html).toContain('<link rel="canonical" href="http://localhost:3000/experiences"');
+  expect(html).toMatch(/<meta name="robots" content="noindex, follow"/);
+});
+
+test("preview builds are never indexable", async ({ request }) => {
+  for (const path of ["/", "/host", dinner]) {
+    const html = await (await request.get(path)).text();
+    expect(html, path).toMatch(/<meta name="robots" content="noindex, nofollow"/);
+  }
+  expect(await (await request.get("/sitemap.xml")).text()).not.toContain("<loc>");
+});
