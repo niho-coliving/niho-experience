@@ -75,6 +75,8 @@ jobs:
       RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/web:${{ github.sha }}
       ARTIFACT_NAME: preview-image-${{ github.run_id }}-${{ github.run_attempt }}
+      # pilot: the first experiences the owner has permission to list, with provisional details (docs/content/README.md).
+      MOCK_CATALOG: ${{ vars.PREVIEW_MOCK_CATALOG || 'pilot' }}
     steps:
       # This job receives only the image artifact. It does not check out or run repository code.
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -107,7 +109,8 @@ jobs:
             gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)' 2>/dev/null || true
           }
           url="$(describe_url)"
-          env_vars="EXPERIENCE_API_MODE=mock,SITE_INDEXING=block,BOOKINGS_ENABLED=true,HOST_SIGNUP_MODE=pilot"
+          case "$MOCK_CATALOG" in pilot|synthetic) ;; *) MOCK_CATALOG=synthetic ;; esac
+          env_vars="EXPERIENCE_API_MODE=mock,MOCK_CATALOG=${MOCK_CATALOG},SITE_INDEXING=block,BOOKINGS_ENABLED=true,HOST_SIGNUP_MODE=pilot"
           if [ -n "$url" ]; then env_vars="${env_vars},SITE_URL=${url}"; fi
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT_ID" \

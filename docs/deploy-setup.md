@@ -12,7 +12,7 @@ main に merge → GitHub Actions（.github/workflows/deploy-preview.yml）
   4. 公開URLで表示とrobots.txt（検索除外）を確認し、URLを実行結果に表示
 ```
 
-- プレビューは合成データ（`EXPERIENCE_API_MODE=mock`）で、検索に出ず、予約も決済もできない。
+- プレビューはmock（`EXPERIENCE_API_MODE=mock`）で、検索に出ず、予約も決済もできない。表示する体験は、既定で掲載許可のある最初の5体験（`MOCK_CATALOG=pilot`、価格・日程は推奨値）。架空の合成データに戻すときは、手順2-2と同じ画面でリポジトリ変数 `PREVIEW_MOCK_CATALOG` を `synthetic` にして配備し直す。Cloud Runの画面で環境変数を直接変えても、次の配備で上書きされる。
 - 最小インスタンス0なので、使わない時はほぼ費用がかからない（しばらく使わないと最初の表示に数秒かかる）。
 - NIHOappとは別のGCPプロジェクトに作る。NIHOappの権限・データには触れない。
 - 準備が済むまで、このworkflowは何もせずに終わる（`GCP_PROJECT_ID` 変数がない間はskip）。

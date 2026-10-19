@@ -242,8 +242,9 @@ export function buildPilotExperiences(): ExperienceDetail[] {
           pricing: {
             currency: "JPY",
             taxIncluded: true,
-            adultPriceYen: 12000,
-            child: { priceYen: 6000, minAge: 6, maxAge: 17, adultRequired: true },
+            // NIHOappの企画ページの金額（オーナー確認 2026-10-19）。子どもの年齢範囲は推奨値のまま。
+            adultPriceYen: 30000,
+            child: { priceYen: 12000, minAge: 6, maxAge: 17, adultRequired: true },
           },
           capacity: 8,
           maxPartySize: 8,
