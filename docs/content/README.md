@@ -21,6 +21,7 @@
 | [operations.md](operations.md) | NIHOと提供者の運営分担を一枚にまとめたもの | #13 |
 | [../growth/funnel-measurement.md](../growth/funnel-measurement.md) | 予約ファネルのイベント契約と指標定義 | #14 |
 | [../growth/analytics-decision.md](../growth/analytics-decision.md) | 計測ツール・同意の方式・保存期間の決定案 | #14 |
+| [../growth/launch-kit.md](../growth/launch-kit.md) | 30日検証の文案・UTM付きリンク・QRの仕様（未承認の下書き） | #14 |
 | [../growth/pilot-30day-plan.md](../growth/pilot-30day-plan.md) | 30日間の流入検証計画 | #14 |
 | [../growth/search-research.md](../growth/search-research.md) | 検索量・競合の測定設定と観測記録 | #14 #12 |
 | [../growth/seo-content-policy.md](../growth/seo-content-policy.md) | URL・title・canonical・構造化データの情報設計案 | #12 |
