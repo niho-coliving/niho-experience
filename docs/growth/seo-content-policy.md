@@ -69,6 +69,46 @@ v1は英語版だけなので、hreflangを出さない。日本語版を公開�
 - 体験詳細から、実在する他の体験へのリンクを2〜3件置く。架空の関連記事・空のカテゴリへのリンクを置かない。
 - NIHOapp・公式サイトから、niho-experienceの体験ページへリンクする（オーナー判断）。
 
+## 担当1からの依頼への回答（2026-10-19）
+
+画面側の実装（[docs/seo.md](../seo.md)）で「担当3と決めること」とされた4点への回答。
+
+### 1. 英語の題名・説明文・検索語
+
+| ページ | title（`%s \| NIHO Experience` の `%s`） | description |
+| --- | --- | --- |
+| トップ | 現状どおり：Meet the people of Kamakura | 現状どおり |
+| 一覧 | Kamakura Experiences with Local Hosts | Small-group experiences in Kamakura hosted by people who live here. Prices in Japanese yen, times in JST, and no account needed to book. |
+| 体験詳細 | 体験の題名（契約の `title`） | 契約の `lead`。160字を超える場合は、160字以内の文の区切りで切る（区切りがなければ単語の区切りで切り「…」を付ける）。実装は担当1 |
+| 提供者向け | 現状どおり | 現状どおり |
+
+体験ごとに狙う検索語（検索量は未取得。[search-research.md](search-research.md)）：
+
+| slug | 本文・題名に自然に含める語 |
+| --- | --- |
+| `kamakura-community-dinner` | Kamakura, dinner with locals, Japanese home cooking, cooking class |
+| `kamakura-coffee-roasting` | Kamakura, coffee roasting |
+| `engakuji-zen-meditation` | Engakuji, Kamakura, zen meditation, zazen |
+| `kamakura-ceramic-mending` | Kamakura, kintsugi-inspired, mend pottery。「traditional kintsugi」は使わない |
+| `kamakura-calligraphy` | Kamakura, calligraphy, shodo |
+
+検索語は原稿の中で自然に使い、繰り返しや検索語だけの段落を作らない（[copy-guidelines.md](../content/copy-guidelines.md)）。
+
+### 2. 写真の許諾・代替文・Open Graph画像
+
+- 写真の許諾は [photo-requirements.md](../content/photo-requirements.md) のとおり。実写真が届くまで、Open Graph画像は出さない（現状どおり）。
+- Open Graph画像は、権利を確認した体験のメイン写真を使う。横1200px以上で、1.91:1に切り抜いても主題が残るものを選ぶ。
+- 写真ごとの代替文は、現在の公開API（`PublicImage` は `url` だけ）では渡せない。`alt` の追加を担当2に依頼した（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）。それまでは現状どおり、メイン写真は体験の題名、2枚目以降は「題名＋別の場面」とする。
+- 提供者の紹介文（Host の bio）も現在の契約にないため、あわせて依頼した。
+
+### 3. NIHO既存ページとの正規URL
+
+推奨は[正規URLの方針](#正規urlの方針)のとおり。niho-experienceの体験ページを正規とし、NIHOappの企画ページはnoindexのままにする。`canonicalUrl` はNIHOが決めるので、連携Aでこの方針に合わせる（#7・担当2）。公式サイト（kamakura.niho.life）のページの扱いはオーナーの判断。
+
+### 4. 公開後のSearch Consoleの確認
+
+下の「公開後の確認手順」のとおり。担当者はオーナー（プロパティ作成と権限付与）、担当1（sitemap送信・URL検査・除外の確認）、担当3（4週間の週次確認と判断の記録）。数値は非公開台帳に置き、Issueには判断だけを書く。
+
 ## 公開後の確認手順（ドメイン決定後）
 
 | 手順 | 担当 |

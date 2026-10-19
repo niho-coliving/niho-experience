@@ -25,21 +25,42 @@ flowchart LR
   A -.-> Z[取消・返金]
 ```
 
-L〜Cはブラウザの計測（同意した訪問者だけ）。R以降は共通基盤の記録（全件）。
+L〜Cはブラウザの計測（cookieを使わない計測ツール。[analytics-decision.md](analytics-decision.md)）。R以降は共通基盤の記録（全件）。
 リクエスト予約では、Rは「カードの与信と提供者への承認依頼」、Aは「提供者の承認と決済の確定」。即時予約ではRとAが同時に起きる。
 
-## ブラウザのイベント（担当1）
+## ブラウザのイベント（担当1が実装済み）
 
-| イベント | 発火のタイミング | 送ってよい属性 |
+イベント名と値の正本は [docs/analytics-events.md](../analytics-events.md)（担当1、`apps/web/src/lib/analytics.ts`）。この文書の当初案（`slot_select` など）は実装の名前に読み替える。
+
+| ファネルの段階 | 実装のイベント | 使う値 |
 | --- | --- | --- |
-| `page_view` | ページ表示 | ページの種類（top / list / detail / booking など）、パスのテンプレート（`/experiences/[slug]`） |
-| `experience_list_view` | 一覧の表示 | 一覧の種類、表示件数 |
-| `experience_card_click` | 一覧のカードを押した | experience_slug、表示位置 |
-| `experience_view` | 詳細の表示 | experience_slug、提供者の区分（既存拠点／外部） |
-| `slot_select` | 日時・人数を選んだ | experience_slug、option_id、開催日（YYYY-MM-DD）、何日先か、人数（大人・子ども） |
-| `booking_form_start` | 予約入力の最初の操作 | experience_slug |
-| `checkout_start` | Checkoutへ進むボタンでAPIが成功した | experience_slug、option_id、人数、APIが返した見積額（円）※売上ではない |
-| `checkout_return` | Checkoutから戻った | 戻りの種類（完了画面／取消）。予約成立の判定には使わない |
+| 一覧 | `list_view` | `result_count` |
+| 詳細 | `experience_view` | `experience` |
+| 枠・人数の選択 | `slot_continue` | `experience`、`guests` |
+| 予約入力の表示 | `booking_form_view` | `experience`、`guests`、`total_jpy`（見積。売上ではない） |
+| 予約入力を出せない | `booking_unavailable` | `experience`、`error_code` |
+| Checkout開始 | `checkout_start` | `experience`、`guests`、`total_jpy`（同上） |
+| Checkoutへ進めない | `checkout_error` | `experience`、`error_code` |
+| 提供者向け | `host_view`、`host_start` | `signup_mode` |
+
+当初案の `experience_card_click`（表示位置）と `checkout_return` は実装しない。決済後の状態はNIHOが表示し、このサイトでは支払結果を数えない。
+
+### ファネルの分母と重複排除（担当1からの質問への回答）
+
+計測ツールの「訪問者」（[analytics-decision.md](analytics-decision.md)。cookieを使わないため、同じ人でも日をまたぐと別の訪問者として数えられうる）を単位にする。
+
+| 率 | 分子 | 分母 | 重複排除 |
+| --- | --- | --- | --- |
+| 詳細→枠選択 | 同じ体験で `slot_continue` のあった訪問者 | 同じ体験で `experience_view` のあった訪問者 | 体験×訪問者×日で1回 |
+| 枠選択→予約入力 | `booking_form_view` のあった訪問者 | `slot_continue` のあった訪問者 | 同上。人数を変えて見積を取り直しても1回 |
+| 予約入力→Checkout開始 | `checkout_start` のあった訪問者 | `booking_form_view` のあった訪問者 | 同上。同じ見積で何度押しても1回 |
+| Checkoutへ進めない割合 | `checkout_error` の件数 | `checkout_start` の件数 | 件数で数え、`error_code` 別に出す（入力不備での再試行も見える） |
+| 予約入力を出せない割合 | `booking_unavailable` の件数 | `slot_continue` の件数 | 件数・`error_code` 別 |
+| 予約確定率（参考値） | 共通基盤の予約確定の件数 | `experience_view` のあった訪問者 | 出所が違う2つの数字の比なので「参考値」と明記する。流入元の結び付けは担当2の対応後 |
+
+- 期間はJSTの暦日。週次の振り返りは月曜0時〜日曜24時。
+- NIHO運営の内部アクセスは計測ツールの「自分の訪問を除外」の機能で除く（[analytics-decision.md](analytics-decision.md)）。
+- プレビュー（mock）のイベントは計測ツールへ送らない（担当1の実装どおり）。
 
 ### 送らないもの
 
@@ -78,7 +99,7 @@ APIの対応前は、予約フォームの任意の質問「How did you hear abo
 | `utm_content` | `table_card`、`entrance_poster`、`story_1103` | 置き場所・投稿の区別 |
 
 OTA経由の予約はOTAの管理画面で数える。OTAからこのサイトへの誘導は行わない（[pilot-30day-plan.md](pilot-30day-plan.md)）。
-NIHO運営の内部アクセスは、内部用のURLパラメータで付けた印で除外する。IPアドレスによる除外は使わない。
+NIHO運営の内部アクセスは、計測ツールの「自分の訪問を除外」の機能で除く。IPアドレスによる除外は使わない。
 
 ## 指標の定義
 
@@ -86,9 +107,8 @@ NIHO運営の内部アクセスは、内部用のURLパラメータで付けた�
 
 | 指標 | 分子 | 分母 | 重複排除・注意 |
 | --- | --- | --- | --- |
-| 詳細→枠選択率 | `slot_select` のあった訪問 | 同じ体験の `experience_view` のあった訪問 | 訪問単位。同意した訪問者だけ |
-| Checkout開始率 | `checkout_start` のあった訪問 | `experience_view` のあった訪問 | 同上 |
-| 予約確定率（サイト） | `attribution_id` で結び付いた予約確定 | `experience_view` のあった訪問 | 分母は同意者だけ、分子は結び付いた予約だけ。結び付かない予約確定の件数も併記する |
+| ファネルの各率 | 上の「ファネルの分母と重複排除」 | 同左 | 同左 |
+| 予約確定率（サイト） | `attribution_id` で結び付いた予約確定 | `experience_view` のあった訪問者 | 分子は結び付いた予約だけ。結び付かない予約確定の件数も併記する |
 | 承認率 | 予約確定 | 予約リクエスト受付 | リクエスト予約の商品だけ。booking_idで一意 |
 | 客単価 | 予約確定の確定額の合計（税込・円） | 予約確定の件数 | 1予約あたりと1名あたりを両方出す。返金は別に集計 |
 | 提供者対応時間 | confirmed_at − requested_at | — | 中央値と90パーセンタイル。予約前の質問への初回返信時間はNIHO運営の対応記録から |
@@ -98,12 +118,14 @@ NIHO運営の内部アクセスは、内部用のURLパラメータで付けた�
 
 ## 同意と計測拒否
 
-- 同意前は計測のcookie・識別子を作らない。拒否後も予約入力・Checkout・確認への遷移は同じように動く。
-- 同意者だけの分母は偏る。報告では「同意者ベース」と明記し、予約確定の総数（共通基盤、全件）と並べる。
+- v1の計測はcookieや端末への保存を使わない方式にし、同意バナーを出さない（[analytics-decision.md](analytics-decision.md)）。ブラウザのDo Not Trackの設定は尊重する。
+- 計測の読み込みに失敗したり、ブロックされたりしても、予約入力・Checkout・確認への遷移は同じように動く。
+- ブロックされた訪問は分母に入らない。報告では計測ツールの数字と、予約確定の総数（共通基盤、全件）を並べる。
+- cookieを使う計測・広告タグ（GA4等）を入れる場合は、同意の取得（CMP）を先に設計する。
 
 ## 受入の確認
 
 - 合成データで一覧→詳細→枠選択→Checkout開始までのイベントが、上の属性だけで送られることを確認する（担当1）。
 - 送信内容に氏名・メール・電話・備考・token・決済IDが含まれないことを、開発者ツールの送信記録で確認する（担当1）。
-- 計測を拒否した状態でCheckoutまで進めることを確認する（担当1）。
+- 計測をブロックした状態でCheckoutまで進めることを確認する（担当1）。
 - 予約確定の件数と金額を共通基盤から取得し、Checkout開始の件数と別に報告できることを確認する（担当2）。
