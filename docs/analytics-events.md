@@ -35,8 +35,9 @@
 
 ## 計測ツールを決めた後の作業
 
-1. 担当3がツール・同意の方式・保存期間を決める（広告タグや有料契約は授権の確認後）。
-2. `AnalyticsSetup`（`apps/web/src/components/Analytics.tsx`）で、同意がある時だけ `setAnalyticsSink` に送信処理を登録する。
-3. CSPの `script-src` / `connect-src` に送信先を追加する（`apps/web/next.config.ts`）。
-4. 同意しない場合でも一覧→予約→決済が動くことをE2Eで確認する。
-5. ファネルの分母と重複排除を決める。例：`booking_form_view` から `checkout_start` までの率は、同じ見積で重複を数えるか。確定予約は共通基盤のデータと突き合わせる。
+1. 計測ツール・同意方式・保存期間は [analytics-decision.md](growth/analytics-decision.md) で決定済み（広告タグや有料契約は別途授権後）。
+2. `AnalyticsSetup`（`apps/web/src/components/Analytics.tsx`）は本番ドメイン・HTTP APIモード・`UMAMI_WEBSITE_ID` がそろう時だけUmamiを読み込み、previewは `window.__nihoEvents` への記録だけにする。
+3. 自動click収集を止め、手動pageviewと許可済みファネルイベントだけを送る。`data-before-send` でイベント名・URLを検査し、クエリ・予約結果識別子・hash・リファラーのpath/queryを除去する。
+4. CSPの `script-src` にscript取得先、`connect-src` に収集先を追加する（`apps/web/next.config.ts`）。Tracker scriptのSHA-384 SRIも更新時にレビューする。
+5. 計測をブロックしても一覧→予約→決済が動くことをE2Eで確認する。
+6. ファネルの分母と重複排除を決める。例：`booking_form_view` から `checkout_start` までの率は、同じ見積で重複を数えるか。確定予約は共通基盤のデータと突き合わせる。
