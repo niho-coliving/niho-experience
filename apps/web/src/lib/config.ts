@@ -5,3 +5,6 @@ import { resolveConfig } from "./resolve-config";
 export const config = resolveConfig(process.env);
 
 export const isPreview = config.apiMode === "mock";
+
+/** Label on preview listings: synthetic data is invented, pilot data is real but provisional. */
+export const previewListingLabel = config.mockCatalog === "pilot" ? "Details to be confirmed" : "Sample listing";

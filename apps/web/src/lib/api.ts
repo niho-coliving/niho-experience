@@ -11,7 +11,7 @@ export async function getApi(searchParams?: Record<string, string | string[] | u
     const scenario = scenarios[requested as keyof typeof scenarios] ?? (config.mockLatencyMs > 0 ? "slow" : "default");
     return createExperienceApiClient({
       nihoWebOrigin: config.nihoWebOrigin,
-      fetch: createMockExperienceFetch({ scenario, slowDelayMs: requested === "slow" ? 1500 : config.mockLatencyMs }),
+      fetch: createMockExperienceFetch({ scenario, catalog: config.mockCatalog, slowDelayMs: requested === "slow" ? 1500 : config.mockLatencyMs }),
     });
   }
   return createExperienceApiClient({

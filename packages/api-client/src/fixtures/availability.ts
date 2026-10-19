@@ -19,7 +19,8 @@ function jstToInstant(date: string, time: string): number {
   return Date.parse(`${date}T${time}:00+09:00`);
 }
 
-export type MockSeatPolicy = "varied" | "sold-out";
+/** `open` は残席を作らない（実在の体験を載せる pilot で、作り物の「残りわずか・満席」を見せないため）。 */
+export type MockSeatPolicy = "varied" | "sold-out" | "open";
 
 export function buildMockOccurrences(params: {
   experience: ExperienceDetail;
@@ -44,7 +45,7 @@ export function buildMockOccurrences(params: {
       const startMs = jstToInstant(date, offer.startTime);
       const endMs = startMs + offer.durationMinutes * 60_000;
       const pattern = (day * 7 + offerIndex * 3) % 10;
-      const used = seatPolicy === "sold-out" ? offer.capacity : pattern === 0 ? offer.capacity : pattern < 3 ? offer.capacity - 1 : pattern % offer.capacity;
+      const used = seatPolicy === "sold-out" ? offer.capacity : seatPolicy === "open" ? 0 : pattern === 0 ? offer.capacity : pattern < 3 ? offer.capacity - 1 : pattern % offer.capacity;
       const held = params.heldSeats?.get(`${offer.id}|${date}`) ?? 0;
       const seatsLeft = Math.max(0, offer.capacity - used - held);
 

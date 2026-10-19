@@ -124,6 +124,7 @@ const client = createExperienceApiClient({
 ```
 
 - 合成の 4 体験（即時確定・承認制で集合場所非公開・複数商品と子ども料金・申込停止中）。名前に `(sample)`、画像は仮素材。実在の提供者・住所・写真・レビュー・販売実績は入れない。
+- `catalog`：`synthetic`（既定。上の合成の体験）／`pilot`（オーナーが掲載許可を確認した最初の5体験を推奨値で載せた `fixtures/pilot-experiences.ts`。写真は仮素材、レビュー・実績・残席は入れない。2026-10-19のオーナー決定）／`all`（両方。slug は重ならない）。
 - `scenario`：`default` / `empty-catalog` / `sold-out` / `slow` / `network-error` / `checkout-full` / `checkout-hold-limit` / `checkout-price-changed` / `checkout-questions-changed` / `checkout-consent-outdated` / `checkout-rate-limited` / `checkout-unavailable`。
 - mock の checkout は Stripe へ遷移しない URL を返します。`isMockCheckoutUrl(url)` で検出し、画面の mock 決済ページ（請求なしと明示）へ切り替えてください。
 - mock は決済・DB・ログインを持ちません。本番の build では `@niho-experience/api-client/mock` を読み込まず、mock のプレビューには「Sample data」を常に表示します。

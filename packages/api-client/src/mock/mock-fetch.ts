@@ -6,6 +6,7 @@ import { computeExpectedTotalYen } from "../booking-rules.ts";
 import { buildMockOccurrences } from "../fixtures/availability.ts";
 import { toExperienceSummary } from "../fixtures/catalog.ts";
 import { buildFixtureExperiences, FIXTURE_CONSENT_VERSION } from "../fixtures/experiences.ts";
+import { buildPilotExperiences } from "../fixtures/pilot-experiences.ts";
 import type { FetchLike } from "../client.ts";
 import type { CheckoutErrorCode, ExperienceCheckoutError, ExperienceDetail, Occurrence } from "../types.ts";
 
@@ -25,8 +26,17 @@ export const MOCK_SCENARIOS = [
 ] as const;
 export type MockScenario = (typeof MOCK_SCENARIOS)[number];
 
+/**
+ * mock が返す体験の一覧。`synthetic` は架空の合成 fixture、`pilot` は掲載許可のある体験を推奨値で載せた pilot fixture
+ * （fixtures/pilot-experiences.ts）、`all` は両方（slug は重ならない）。ブラウザ側は SSR がどちらを出しても動くよう `all` を使う。
+ */
+export const MOCK_CATALOGS = ["synthetic", "pilot", "all"] as const;
+export type MockCatalog = (typeof MOCK_CATALOGS)[number];
+
 export type MockExperienceFetchOptions = {
   scenario?: MockScenario;
+  /** 既定は `synthetic`。 */
+  catalog?: MockCatalog;
   /** 開催回の基準時刻（既定は呼び出し時の現在時刻）。test で固定する。 */
   now?: () => Date;
   /** `mock-assets/` を配信する URL（省略時は data URI の画像）。 */
@@ -109,7 +119,11 @@ type HoldRecord = { contentKey: string; url: string; offerId: string; date: stri
 export function createMockExperienceFetch(options: MockExperienceFetchOptions = {}): FetchLike {
   const scenario = options.scenario ?? "default";
   const now = options.now ?? (() => new Date());
-  const experiences = buildFixtureExperiences(options.imageBaseUrl ? { imageBaseUrl: options.imageBaseUrl } : {});
+  const catalog = options.catalog ?? "synthetic";
+  const synthetic = catalog === "pilot" ? [] : buildFixtureExperiences(options.imageBaseUrl ? { imageBaseUrl: options.imageBaseUrl } : {});
+  const pilot = catalog === "synthetic" ? [] : buildPilotExperiences();
+  const pilotSlugs = new Set(pilot.map((experience) => experience.slug));
+  const experiences = [...pilot, ...synthetic];
   const holds = new Map<string, HoldRecord>();
   let checkoutCounter = 0;
 
@@ -126,7 +140,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     return buildMockOccurrences({
       experience,
       now: now(),
-      seatPolicy: scenario === "sold-out" ? "sold-out" : "varied",
+      seatPolicy: scenario === "sold-out" ? "sold-out" : pilotSlugs.has(experience.slug) ? "open" : "varied",
       heldSeats: heldSeats(),
     });
   }
