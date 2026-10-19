@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, type ComponentProps } from "react";
-import { doNotTrackEnabled, FUNNEL_EVENTS, sanitizeUmamiPayload, setAnalyticsSink, track, type EventProps, type FunnelEvent, type TrackedEvent } from "@/lib/analytics";
+import { doNotTrackEnabled, FUNNEL_EVENTS, sanitizeUmamiPayload, setAnalyticsSink, shouldStartUmami, track, type EventProps, type FunnelEvent, type TrackedEvent } from "@/lib/analytics";
 
 interface UmamiTracker {
   track: {
@@ -102,12 +102,7 @@ export function AnalyticsSetup({ mode, websiteId }: { mode: "debug" | "off" | "u
       return () => setAnalyticsSink(null);
     }
 
-    if (!/^[0-9a-f-]{36}$/i.test(websiteId)) {
-      setAnalyticsSink(null);
-      return;
-    }
-
-    if (doNotTrackEnabled(navigator.doNotTrack)) {
+    if (!shouldStartUmami(websiteId, navigator.doNotTrack)) {
       setAnalyticsSink(null);
       return;
     }

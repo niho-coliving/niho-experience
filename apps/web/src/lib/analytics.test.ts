@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { doNotTrackEnabled, FUNNEL_EVENTS, sanitize, sanitizeUmamiPayload, setAnalyticsSink, track } from "./analytics";
+import { analyticsModeForRuntime, doNotTrackEnabled, FUNNEL_EVENTS, sanitize, sanitizeUmamiPayload, setAnalyticsSink, shouldStartUmami, track } from "./analytics";
 
 afterEach(() => setAnalyticsSink(null));
 
@@ -36,10 +36,23 @@ describe("funnel events", () => {
 });
 
 describe("Umami privacy filter", () => {
+  const websiteId = "123e4567-e89b-12d3-a456-426614174000";
+
+  it("enables Umami only for the production API host with a configured website ID", () => {
+    expect(analyticsModeForRuntime("mock", "https://experience.niho.life", websiteId)).toBe("debug");
+    expect(analyticsModeForRuntime("http", "https://experience.niho.life", websiteId)).toBe("umami");
+    expect(analyticsModeForRuntime("http", "https://preview.example", websiteId)).toBe("off");
+    expect(analyticsModeForRuntime("http", "https://experience.niho.life", "")).toBe("off");
+  });
+
   it("recognizes a browser's Do Not Track signal", () => {
     expect(doNotTrackEnabled("1")).toBe(true);
     expect(doNotTrackEnabled("yes")).toBe(true);
     expect(doNotTrackEnabled("0")).toBe(false);
+    expect(shouldStartUmami(websiteId, "1")).toBe(false);
+    expect(shouldStartUmami(websiteId, "yes")).toBe(false);
+    expect(shouldStartUmami(websiteId, "0")).toBe(true);
+    expect(shouldStartUmami("", "0")).toBe(false);
   });
 
   it("removes booking queries and opaque result paths", () => {

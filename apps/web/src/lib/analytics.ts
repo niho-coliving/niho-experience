@@ -27,10 +27,20 @@ export interface TrackedEvent {
 }
 
 const SAFE_STRING = /^[a-z0-9_-]{1,64}$/;
+const UMAMI_WEBSITE_ID = /^[0-9a-f-]{36}$/i;
 const ALLOWED_UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_content"] as const;
 
 export function doNotTrackEnabled(value: string | null | undefined): boolean {
   return value === "1" || value === "yes";
+}
+
+export function analyticsModeForRuntime(apiMode: "http" | "mock", siteUrl: string, websiteId: string): "debug" | "off" | "umami" {
+  if (apiMode === "mock") return "debug";
+  return siteUrl === "https://experience.niho.life" && UMAMI_WEBSITE_ID.test(websiteId) ? "umami" : "off";
+}
+
+export function shouldStartUmami(websiteId: string, doNotTrack: string | null | undefined): boolean {
+  return UMAMI_WEBSITE_ID.test(websiteId) && !doNotTrackEnabled(doNotTrack);
 }
 
 /** Removes query values outside the approved UTM set before Umami sees a URL. */

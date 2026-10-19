@@ -3,6 +3,7 @@ import "@fontsource-variable/nunito";
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { AnalyticsSetup } from "@/components/Analytics";
+import { analyticsModeForRuntime } from "@/lib/analytics";
 import { PreviewBanner, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { config, isPreview } from "@/lib/config";
 
@@ -28,11 +29,7 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const analyticsMode = isPreview
-    ? "debug"
-    : config.apiMode === "http" && config.siteUrl === "https://experience.niho.life" && config.umamiWebsiteId
-      ? "umami"
-      : "off";
+  const analyticsMode = analyticsModeForRuntime(config.apiMode, config.siteUrl, config.umamiWebsiteId);
 
   return (
     <html lang="en">
