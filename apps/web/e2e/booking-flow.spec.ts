@@ -103,4 +103,6 @@ test("a failing analytics sink never blocks a preview booking", async ({ page })
   await page.getByRole("checkbox", { name: /agree to version/ }).check();
   await page.getByRole("button", { name: "Continue to mock payment" }).click();
   await expect(page).toHaveURL(/\/preview\/checkout$/);
+  const trackedEvents = await page.evaluate(() => (window as Window & { __nihoEvents?: { event: string }[] }).__nihoEvents?.map(({ event }) => event) ?? []);
+  expect(trackedEvents).toContain("checkout_start");
 });
