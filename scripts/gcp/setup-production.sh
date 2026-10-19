@@ -72,7 +72,7 @@ if ! gcloud iam workload-identity-pools describe "$POOL" --project "$PROJECT_ID"
   gcloud iam workload-identity-pools create "$POOL" --project "$PROJECT_ID" --location=global \
     --display-name="Production GitHub Actions"
 fi
-condition="assertion.repository_id == '${GITHUB_REPO_ID}' && assertion.ref == 'refs/heads/main' && assertion.environment == 'production'"
+condition="assertion.repository_id == '${GITHUB_REPO_ID}' && assertion.ref == 'refs/heads/main' && assertion.environment == 'production' && assertion.event_name == 'workflow_dispatch' && assertion.workflow_ref == 'niho-coliving/niho-experience/.github/workflows/deploy-production.yml@refs/heads/main'"
 mapping="google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.ref=assertion.ref,attribute.environment=assertion.environment"
 if ! gcloud iam workload-identity-pools providers describe "$PROVIDER" --project "$PROJECT_ID" --location=global \
   --workload-identity-pool="$POOL" >/dev/null 2>&1; then

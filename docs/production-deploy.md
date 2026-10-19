@@ -9,7 +9,7 @@
 | GCP | プレビュー `niho-experience-web` と NIHOapp から分離した `niho-experience-prod`。`asia-northeast1` |
 | Cloud Run | `niho-experience`、`experience-runtime`（権限なし）、1 vCPU / 512 MiB、候補段階は min 0 / max 2 |
 | イメージ | 本リポのレビュー済み `main` の40文字SHA。資格情報なしで build と smoke を行い、SHA256確認済みのイメージだけを配備jobへ渡す |
-| 配備権限 | 本番プロジェクト専用の `experience-deployer`。専用 Workload Identity Pool は GitHub repository ID `1425500695`、`refs/heads/main`、`production` environment の同時一致を要求 |
+| 配備権限 | 本番プロジェクト専用の `experience-deployer`。専用 Workload Identity Pool は GitHub repository ID `1425500695`、`refs/heads/main`、`production` environment、手動起動、`deploy-production.yml` の同時一致を要求 |
 | GitHub | `production` environment に `main` のみの branch rule と required reviewer を設定。repository variable `PRODUCTION_DEPLOY_ENABLED=true` は設定が揃うまで付けない |
 | 初期revision | `EXPERIENCE_API_MODE=http`、`SITE_URL=https://experience.niho.life`、`NEXT_PUBLIC_NIHO_WEB_ORIGIN=https://niho.life`、`SITE_INDEXING=block`、`BOOKINGS_ENABLED=false`、`HOST_SIGNUP_MODE=pilot`。`MOCK_CATALOG` と `UMAMI_WEBSITE_ID` は渡さない |
 
