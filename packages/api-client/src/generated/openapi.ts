@@ -101,6 +101,46 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/api/public/experiences/v1.1/{experienceSlug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 体験サイト: 体験の詳細
+         * @description 掲載中の体験の公開本文・商品条件・販売者・同意文書。残席は返さない。画像は不透明な URL。集合場所を公開しない体験は集合場所と外観写真を出さない。
+         */
+        get: operations["getPublicExperienceV11"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/experiences/v1.1/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 体験サイト: 掲載中の体験の一覧
+         * @description 体験サイトに掲載中の体験の一覧（NIHO の審査を通り、提供者が公開中で、英語の原稿のものだけ）。残席は返さない（availability を使う）。掲載の古い順に 200 件まで。登録の無い地域は空の一覧。認証・cookie は使わない。
+         */
+        get: operations["listPublicExperiencesV11"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
@@ -153,6 +193,9 @@ export type components = {
         PublicExperienceCatalogResponse: {
             experiences: components["schemas"]["PublicExperienceSummary"][];
         };
+        PublicExperienceCatalogResponseV11: {
+            experiences: components["schemas"]["PublicExperienceSummaryV11"][];
+        };
         /** @description 答えた質問だけを送る。記述式は text、選択式は optionIds。 */
         PublicExperienceCheckoutAnswer: {
             optionIds?: string[];
@@ -186,6 +229,8 @@ export type components = {
         PublicExperienceCheckoutRequest: {
             adultCount: number;
             answers?: components["schemas"]["PublicExperienceCheckoutAnswer"][];
+            /** @description 個人情報を含まない任意の UUID v4。同じ値を持つ流入と確定予約の非公開集計にだけ使い、応答・URL・ログへ出さない。 */
+            attributionId?: string;
             bookingQuestionsFingerprint: string;
             childCount: number;
             /** @description 申込の試行ごとの乱数（UUID v4 推奨）。通信失敗の再送は同じ値、内容を変えたら新しい値。 */
@@ -195,9 +240,22 @@ export type components = {
             expectedTotalYen: number;
             guestEmail: string;
             guestName: string;
+            /**
+             * @description 体験サイトで最初に見た旅行者向けページの種類。提供者向けのページは含めない。
+             * @enum {string}
+             */
+            landingPageType?: "HOME" | "LIST" | "DETAIL";
             note?: string | null;
             occurrenceDate: components["schemas"]["PublicExperienceLocalDate"];
             offerId: components["schemas"]["PublicExperienceOfferId"];
+            /** @description 最初の流入時の utm_campaign。小文字英数字・アンダースコア・ハイフンだけ。 */
+            utmCampaign?: string;
+            /** @description 最初の流入時の utm_content。小文字英数字・アンダースコア・ハイフンだけ。 */
+            utmContent?: string;
+            /** @description 最初の流入時の utm_medium。小文字英数字・アンダースコア・ハイフンだけ。 */
+            utmMedium?: string;
+            /** @description 最初の流入時の utm_source。小文字英数字・アンダースコア・ハイフンだけ。 */
+            utmSource?: string;
         };
         PublicExperienceCheckoutResponse: {
             /** @description 遷移先。https://checkout.stripe.com/ または NIHO の予約確認ページ（決済済みの再送）。それ以外の URL なら遷移しない。 */
@@ -252,6 +310,43 @@ export type components = {
         PublicExperienceDetailResponse: {
             experience: components["schemas"]["PublicExperienceDetail"];
         };
+        PublicExperienceDetailResponseV11: {
+            experience: components["schemas"]["PublicExperienceDetailV11"];
+        };
+        PublicExperienceDetailV11: {
+            booking: components["schemas"]["PublicExperienceBookingTerms"];
+            /** @description 検索エンジン向けの正規 URL（NIHO が決める）。体験サイトは link rel=canonical にそのまま使う。 */
+            canonicalUrl: string;
+            contentLanguage: components["schemas"]["PublicExperienceContentLanguage"];
+            cover: components["schemas"]["PublicExperienceImageV11"] | null;
+            /** @description プレーンテキスト。段落は空行区切り。HTML・Markdown として解釈しない。 */
+            description: string;
+            highlights: string[];
+            hosts: components["schemas"]["PublicExperienceHostV11"][];
+            included: string[];
+            knowBeforeYouGo: string[];
+            /** @description 当日の言語（提供者の記述。例: English & Japanese）。 */
+            languageNote: string;
+            lead: string;
+            meetingPoint: components["schemas"]["PublicExperienceMeetingPoint"] | null;
+            /**
+             * @description AFTER_BOOKING のときは `meetingPoint` を常に null にし（集合場所は予約確定後に NIHO の状態ページとメールで案内）、画面では「予約確定後に案内」と伝える。
+             * @enum {string}
+             */
+            meetingPointDisclosure: "PUBLIC" | "AFTER_BOOKING";
+            notIncluded: string[];
+            notSuitableFor: string[];
+            offers: components["schemas"]["PublicExperienceOffer"][];
+            photos: components["schemas"]["PublicExperienceImageV11"][];
+            provider: components["schemas"]["PublicExperienceProviderV11"];
+            region: components["schemas"]["PublicExperienceRegion"];
+            seller: components["schemas"]["PublicExperienceSeller"];
+            slug: components["schemas"]["PublicExperienceSlug"];
+            timeline: components["schemas"]["PublicExperienceTimelineItem"][];
+            title: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         PublicExperienceDurationRange: {
             maxMinutes: number;
             minMinutes: number;
@@ -261,7 +356,20 @@ export type components = {
             avatar: components["schemas"]["PublicExperienceImage"] | null;
             displayName: string;
         };
+        /** @description 迎える人。表示名と顔写真だけ。 */
+        PublicExperienceHostV11: {
+            avatar: components["schemas"]["PublicExperienceImageV11"] | null;
+            /** @description 迎える人の紹介。提供者本人が入力した本文だけを返す。 */
+            bio: string | null;
+            displayName: string;
+        };
         PublicExperienceImage: {
+            /** @description NIHO の公開 Web origin の不透明な画像 URL（`/api/public/experiences/{slug}/media/{mediaKey}?v=`）。EXIF を除いた公開用の画像だけを返し、保存先の名前・署名・期限を含まない。差し替えると URL が変わる。 */
+            url: string;
+        };
+        PublicExperienceImageV11: {
+            /** @description 写真の説明。未入力の場合は null。 */
+            alt: string | null;
             /** @description NIHO の公開 Web origin の不透明な画像 URL（`/api/public/experiences/{slug}/media/{mediaKey}?v=`）。EXIF を除いた公開用の画像だけを返し、保存先の名前・署名・期限を含まない。差し替えると URL が変わる。 */
             url: string;
         };
@@ -363,6 +471,12 @@ export type components = {
             kind: components["schemas"]["PublicExperienceProviderKind"];
             name: string;
         };
+        PublicExperienceProviderV11: {
+            kind: components["schemas"]["PublicExperienceProviderKind"];
+            logo: components["schemas"]["PublicExperienceImageV11"] | null;
+            name: string;
+            tagline: string | null;
+        };
         PublicExperienceRegion: {
             key: components["schemas"]["PublicExperienceRegionKey"];
             name: string;
@@ -379,6 +493,22 @@ export type components = {
         PublicExperienceSummary: {
             contentLanguage: components["schemas"]["PublicExperienceContentLanguage"];
             cover: components["schemas"]["PublicExperienceImage"] | null;
+            duration: components["schemas"]["PublicExperienceDurationRange"];
+            lead: string;
+            priceFrom: components["schemas"]["PublicExperiencePriceFrom"];
+            provider: components["schemas"]["PublicExperienceProviderSummary"];
+            region: components["schemas"]["PublicExperienceRegion"];
+            slug: components["schemas"]["PublicExperienceSlug"];
+            title: string;
+            /**
+             * Format: date-time
+             * @description 公開本文・商品条件の最終更新（UTC）。sitemap の lastmod に使える。
+             */
+            updatedAt: string;
+        };
+        PublicExperienceSummaryV11: {
+            contentLanguage: components["schemas"]["PublicExperienceContentLanguage"];
+            cover: components["schemas"]["PublicExperienceImageV11"] | null;
             duration: components["schemas"]["PublicExperienceDurationRange"];
             lead: string;
             priceFrom: components["schemas"]["PublicExperiencePriceFrom"];
@@ -664,6 +794,82 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    getPublicExperienceV11: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 体験サイトでの体験の slug（掲載の slug。拠点・ページの slug とは別） */
+                experienceSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "public, max-age=60, stale-while-revalidate=300";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicExperienceDetailResponseV11"];
+                };
+            };
+            /** @description path / query の形が不正 */
+            400: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProjectionErrorResponse"];
+                };
+            };
+            /** @description 掲載中でない（不存在・申請中・停止・取り下げ・ページの非公開・拠点の非公開を区別しない）。本文なし */
+            404: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPublicExperiencesV11: {
+        parameters: {
+            query?: {
+                /** @description 地域の key（例: kamakura） */
+                region?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "public, max-age=60, stale-while-revalidate=300";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicExperienceCatalogResponseV11"];
+                };
+            };
+            /** @description path / query の形が不正 */
+            400: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProjectionErrorResponse"];
+                };
             };
         };
     };

@@ -58,6 +58,21 @@ function post(body: unknown): RequestInit {
 }
 
 describe("mock の読み取りが契約を満たす", () => {
+  it("v1.0 の厳密契約を維持し、v1.1 だけ写真 alt と提供者 bio を返す", async () => {
+    const legacy = await call("default", "/api/public/experiences/home-cooked-dinner-with-locals");
+    const next = await call("default", "/api/public/experiences/v1.1/home-cooked-dinner-with-locals");
+    const catalog = await call("default", "/api/public/experiences/v1.1/catalog");
+    expect(validator.validateResponse("getPublicExperience", legacy.response.status, legacy.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperienceV11", next.response.status, next.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("listPublicExperiencesV11", catalog.response.status, catalog.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperience", next.response.status, next.body).ok).toBe(false);
+    expect((next.body as { experience: { cover: { alt: string | null }; hosts: Array<{ bio: string | null }> } }).experience.cover.alt).toBeTruthy();
+    expect((legacy.body as { experience: { cover: Record<string, unknown> } }).experience.cover).not.toHaveProperty("alt");
+    const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: createMockExperienceFetch({ now: () => NOW }) });
+    expect((await client.listExperiencesV11()).ok).toBe(true);
+    expect((await client.getExperienceV11("home-cooked-dinner-with-locals")).ok).toBe(true);
+  });
+
   it.each(MOCK_SCENARIOS.filter((scenario) => scenario !== "network-error" && scenario !== "slow"))("%s: 一覧・詳細・残席", async (scenario) => {
     const catalog = await call(scenario, "/api/public/experiences?region=kamakura");
     expect(validator.validateResponse("listPublicExperiences", catalog.response.status, catalog.body)).toEqual({ ok: true });
@@ -119,6 +134,23 @@ describe("mock の checkout", () => {
     expect(changed.status).toBe(409);
     expect(changedBody.error.code).toBe("REQUEST_MISMATCH");
     expect(validator.validateResponse("postPublicExperienceCheckout", 409, changedBody)).toEqual({ ok: true });
+  });
+
+  it("流入元は任意で、同じ申込 key の流入元変更を拒否する", async () => {
+    const fetchMock = createMockExperienceFetch({ now: () => NOW });
+    const body = await checkoutBody(slug, {
+      attributionId: "11111111-2222-4333-8444-555555555555",
+      utmSource: "niho_site",
+      landingPageType: "DETAIL",
+    });
+    const path = `${ORIGIN}/api/public/experiences/${slug}/checkout`;
+    const first = await fetchMock(path, post(body));
+    expect(first.status).toBe(201);
+    const changed = await fetchMock(path, post({ ...body, utmSource: "other" }));
+    expect(changed.status).toBe(409);
+    expect((await changed.json()).error.code).toBe("REQUEST_MISMATCH");
+    const invalid = await fetchMock(path, post({ ...body, utmSource: "BAD VALUE" }));
+    expect(invalid.status).toBe(422);
   });
 
   it("応答に旅行者の入力（名前・メール・回答）を含めない", async () => {
