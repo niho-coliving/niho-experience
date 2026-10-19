@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import type { PriceUnit, Slot } from "@niho-experience/api-client";
+import { track } from "@/lib/analytics";
 import { formatDay, formatTimeRange, formatYen, jstDateKey, unitLabel } from "@/lib/format";
 import { buttonClass } from "./ui";
 
@@ -88,7 +89,12 @@ export function SlotPicker({
   );
 
   return (
-    <form action={`/experiences/${slug}/book`} method="get" className="space-y-5">
+    <form
+      action={`/experiences/${slug}/book`}
+      method="get"
+      className="space-y-5"
+      onSubmit={() => track("slot_continue", { experience: slug, guests: clamped })}
+    >
       <fieldset>
         <legend id={ids.legend} className="mb-3 font-display text-xl font-semibold">
           Choose a date

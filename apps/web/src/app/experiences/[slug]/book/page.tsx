@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ApiErrorCode, ExperienceDetail, Quote } from "@niho-experience/api-client";
+import { TrackView } from "@/components/Analytics";
 import { BookingForm } from "@/components/BookingForm";
 import { Photo } from "@/components/Photo";
 import { PolicyDetails } from "@/components/Policy";
@@ -38,9 +39,12 @@ export default async function BookPage({ params, searchParams }: Props) {
 
       {result.ok ? (
         <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <TrackView event="booking_form_view" props={{ experience: slug, guests: result.quote.guests, total_jpy: result.quote.total.amount }} />
           <div className="order-2 min-w-0 lg:order-1">
             <BookingForm
               slug={slug}
+              guests={result.quote.guests}
+              totalJpy={result.quote.total.amount}
               quoteId={result.quote.id}
               policyVersion={result.quote.cancellation.version}
               idempotencyKey={crypto.randomUUID()}
@@ -57,7 +61,10 @@ export default async function BookPage({ params, searchParams }: Props) {
           </aside>
         </div>
       ) : (
-        <BookingProblem code={result.error.code} slug={slug} />
+        <>
+          <TrackView event="booking_unavailable" props={{ experience: slug, error_code: result.error.code.toLowerCase() }} />
+          <BookingProblem code={result.error.code} slug={slug} />
+        </>
       )}
     </div>
   );

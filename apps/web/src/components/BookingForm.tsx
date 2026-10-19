@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { startCheckout, type CheckoutState } from "@/app/experiences/[slug]/book/actions";
+import { track } from "@/lib/analytics";
 import { problemAction, problemCopy } from "./States";
 import { Notice, buttonClass } from "./ui";
 
 interface Props {
   slug: string;
+  guests: number;
+  totalJpy: number;
   quoteId: string;
   policyVersion: string;
   idempotencyKey: string;
@@ -28,7 +31,7 @@ const FIELD_LABELS: Record<string, string> = {
  * Guest contact form. Values live only in component state: they are not put
  * in the URL, browser storage or analytics, and survive a failed attempt.
  */
-export function BookingForm({ slug, quoteId, policyVersion, idempotencyKey, reviewHref, preview }: Props) {
+export function BookingForm({ slug, guests, totalJpy, quoteId, policyVersion, idempotencyKey, reviewHref, preview }: Props) {
   const [state, formAction, pending] = useActionState<CheckoutState, FormData>(startCheckout, { status: "idle" });
   const [values, setValues] = useState({ fullName: "", email: "", phone: "", country: "", note: "" });
   const [agreed, setAgreed] = useState(false);
@@ -39,8 +42,10 @@ export function BookingForm({ slug, quoteId, policyVersion, idempotencyKey, revi
   const invalid = (name: string) => errorFields.includes(name);
 
   useEffect(() => {
-    if (state.status === "error") alertRef.current?.focus();
-  }, [state]);
+    if (state.status !== "error") return;
+    alertRef.current?.focus();
+    track("checkout_error", { experience: slug, error_code: state.code.toLowerCase() });
+  }, [state, slug]);
 
   const field = (name: keyof typeof values, label: string, opts: { type?: string; autoComplete?: string; required?: boolean; hint?: string; errorName?: string } = {}) => {
     const errorName = opts.errorName ?? name;
@@ -82,7 +87,12 @@ export function BookingForm({ slug, quoteId, policyVersion, idempotencyKey, revi
   const action = problem ? problemAction[problem.code] : null;
 
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <form
+      action={formAction}
+      className="space-y-5"
+      noValidate
+      onSubmit={() => track("checkout_start", { experience: slug, guests, total_jpy: totalJpy })}
+    >
       <input type="hidden" name="quoteId" value={quoteId} />
       <input type="hidden" name="policyVersion" value={policyVersion} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />

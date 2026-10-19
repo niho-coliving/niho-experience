@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrackView } from "@/components/Analytics";
 import { ExperienceGrid } from "@/components/ExperienceCard";
 import { EmptyResults } from "@/components/States";
 import { buttonClass } from "@/components/ui";
@@ -28,6 +29,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
 
   return (
     <div className="container-page pt-8 sm:pt-12">
+      <TrackView event="list_view" props={{ theme: query.theme ?? "all", date_filtered: Boolean(query.date), result_count: catalog.items.length }} />
       <header className="max-w-2xl space-y-3">
         <p className="eyebrow">Kamakura</p>
         <h1 className="text-4xl sm:text-5xl">Experiences</h1>

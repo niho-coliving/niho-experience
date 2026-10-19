@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import type {} from "../src/lib/analytics";
 
 async function chooseFirstOpenSlot(page: Page) {
   const radio = page.locator('input[name="slot"]:not([disabled])').first();
@@ -38,6 +39,12 @@ test("browse, choose a date and reach the mock payment page", async ({ page }) =
   expect(page.url()).not.toContain("example.com");
   expect(page.url()).not.toContain("Sample%20Guest");
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
+
+  // Funnel events (preview keeps them in memory): identifiers only, nothing personal.
+  const events = await page.evaluate(() => window.__nihoEvents ?? []);
+  expect(events.map((e) => e.event)).toEqual(["booking_form_view", "checkout_start"]);
+  expect(events[1]!.props).toEqual({ experience: "neighborhood-dinner-table", guests: 2, total_jpy: 13600 });
+  expect(JSON.stringify(events)).not.toMatch(/example\.com|Sample Guest/);
 
   await page.getByRole("link", { name: "Simulate completed payment" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("confirming your booking");
@@ -82,6 +89,9 @@ test("validation and API failures keep the guest's input", async ({ page }) => {
   await page.getByRole("button", { name: "Continue to mock payment" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("This time just filled up");
   await expect(page.getByRole("link", { name: "Choose another date" })).toBeVisible();
+
+  const errors = await page.evaluate(() => (window.__nihoEvents ?? []).filter((e) => e.event === "checkout_error").map((e) => e.props.error_code));
+  expect(errors).toEqual(["invalid_contact", "unavailable", "slot_sold_out"]);
 });
 
 test("booking pages are private: no-store and noindex", async ({ request }) => {

@@ -2,6 +2,7 @@ import "@fontsource-variable/fraunces";
 import "@fontsource-variable/nunito";
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
+import { AnalyticsSetup } from "@/components/Analytics";
 import { PreviewBanner, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { config, isPreview } from "@/lib/config";
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white">
           Skip to content
         </a>
+        <AnalyticsSetup mode={isPreview ? "debug" : "off"} />
         {isPreview ? <PreviewBanner /> : null}
         <SiteHeader />
         <main id="main" className="flex-1">

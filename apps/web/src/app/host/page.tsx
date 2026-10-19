@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TrackView, TrackedLink } from "@/components/Analytics";
 import { Notice, SectionHeading } from "@/components/ui";
 import { config } from "@/lib/config";
 
@@ -35,6 +36,7 @@ export default function HostPage() {
   const open = config.hostSignupMode === "open" && Boolean(config.nihoHostStartUrl);
   return (
     <div className="container-page pt-8 sm:pt-12">
+      <TrackView event="host_view" props={{ signup_mode: config.hostSignupMode }} />
       <header className="max-w-2xl space-y-4">
         <p className="eyebrow">For people in Kamakura</p>
         <h1 className="text-4xl sm:text-5xl">Share what you love with travelers</h1>
@@ -47,9 +49,14 @@ export default function HostPage() {
       <section className="mt-8 max-w-2xl" aria-label="How to start">
         {open ? (
           <div className="space-y-3">
-            <a href={config.nihoHostStartUrl} className="inline-flex min-h-12 items-center rounded-full bg-moss px-6 text-lg font-bold text-white hover:bg-moss-hover">
+            <TrackedLink
+              href={config.nihoHostStartUrl}
+              event="host_start"
+              props={{ signup_mode: "open" }}
+              className="inline-flex min-h-12 items-center rounded-full bg-moss px-6 text-lg font-bold text-white hover:bg-moss-hover"
+            >
               Start with your NIHO account
-            </a>
+            </TrackedLink>
             <p className="text-sm text-muted">You&apos;ll sign in or create an account on NIHO. Already a NIHO seller? You can use the same account.</p>
           </div>
         ) : (
@@ -60,9 +67,9 @@ export default function HostPage() {
             </p>
             {config.hostPilotContactUrl ? (
               <p className="mt-3">
-                <a href={config.hostPilotContactUrl} className="font-bold text-moss underline">
+                <TrackedLink href={config.hostPilotContactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
                   Tell us you&apos;re interested
-                </a>
+                </TrackedLink>
               </p>
             ) : null}
           </Notice>

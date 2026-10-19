@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ExperienceDetail, Slot } from "@niho-experience/api-client";
+import { TrackView } from "@/components/Analytics";
 import { JsonLd } from "@/components/JsonLd";
 import { Photo } from "@/components/Photo";
 import { PolicyDetails } from "@/components/Policy";
@@ -50,6 +51,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
         ])}
       />
       <JsonLd data={experienceJsonLd(e, config.siteUrl)} />
+      <TrackView event="experience_view" props={{ experience: e.slug, availability: status }} />
       <div className="container-page pt-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted">
           <ol className="flex flex-wrap gap-1">

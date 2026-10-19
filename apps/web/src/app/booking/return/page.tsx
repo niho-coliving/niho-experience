@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TrackView } from "@/components/Analytics";
 import { ButtonLink, Notice } from "@/components/ui";
 import { bookingHref, parseSelection } from "@/lib/checkout";
 import { config, isPreview } from "@/lib/config";
@@ -22,6 +23,7 @@ export default async function BookingReturnPage({ searchParams }: { searchParams
 
   return (
     <div className="container-page max-w-2xl py-12 sm:py-16">
+      <TrackView event="payment_return" props={{ experience: slug ?? undefined, result }} />
       {result === "submitted" ? (
         <div className="space-y-6">
           <p className="eyebrow">Payment submitted</p>
