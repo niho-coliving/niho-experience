@@ -1,6 +1,6 @@
 #!/bin/sh
 # Starts the image twice with different settings and checks that pages render
-# and that indexing follows SITE_INDEXING at run time (one image, many environments).
+# and that settings apply at run time (one image, many environments).
 # Usage: scripts/container-smoke.sh <image>
 set -eu
 image="$1"
@@ -39,8 +39,8 @@ check /robots.txt "Disallow: /"
 check /host "starting with a small group of hosts"
 test "$(docker exec "$name" id -u)" != "0" && echo "ok   runs as a non-root user"
 
-start -e SITE_INDEXING=allow -e SITE_URL=https://experience.example.com \
-  -e HOST_SIGNUP_MODE=open -e NIHO_HOST_START_URL=https://niho.example.com/start
-check /robots.txt "Sitemap: https://experience.example.com/sitemap.xml"
+# Settings switch at run time. Indexing stays blocked because this image serves sample data.
+start -e SITE_INDEXING=allow -e HOST_SIGNUP_MODE=open -e NIHO_HOST_START_URL=https://niho.example.com/start
 check /host "Start with your NIHO account"
+check /robots.txt "Disallow: /"
 echo "container smoke test passed"

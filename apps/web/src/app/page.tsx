@@ -1,10 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ExperienceGrid } from "@/components/ExperienceCard";
 import { Photo } from "@/components/Photo";
 import { EmptyResults } from "@/components/States";
 import { ButtonLink, SectionHeading } from "@/components/ui";
 import { getApi } from "@/lib/api";
+import { config } from "@/lib/config";
 import type { SearchParams } from "@/lib/filters";
+
+export function generateMetadata(): Metadata {
+  return { alternates: { canonical: `${config.siteUrl}/` } };
+}
 
 const HERO = {
   url: "/placeholders/hero.svg",

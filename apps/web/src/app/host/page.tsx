@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { Notice, SectionHeading } from "@/components/ui";
 import { config } from "@/lib/config";
 
-export const metadata: Metadata = {
-  title: "Host an experience with NIHO",
-  description: "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.",
-  alternates: { canonical: `${config.siteUrl}/host` },
-};
+export function generateMetadata(): Metadata {
+  return {
+    title: "Host an experience with NIHO",
+    description: "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.",
+    alternates: { canonical: `${config.siteUrl}/host` },
+  };
+}
 
 const STEPS = [
   { title: "Tell us your idea", body: "A short chat about what you'd like to share, how often, and for how many guests." },

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ExperienceDetail, Slot } from "@niho-experience/api-client";
+import { JsonLd } from "@/components/JsonLd";
 import { Photo } from "@/components/Photo";
 import { PolicyDetails } from "@/components/Policy";
 import { SlotPicker } from "@/components/SlotPicker";
@@ -10,6 +11,7 @@ import { getApi } from "@/lib/api";
 import { config } from "@/lib/config";
 import type { SearchParams } from "@/lib/filters";
 import { formatDuration, formatLanguages, formatYen, unitLabel } from "@/lib/format";
+import { breadcrumbJsonLd, experienceJsonLd } from "@/lib/structured-data";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
 
@@ -22,6 +24,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     description: e.summary,
     alternates: { canonical: `${config.siteUrl}/experiences/${e.slug}` },
     openGraph: {
+      type: "website",
+      url: `${config.siteUrl}/experiences/${e.slug}`,
       title: e.title,
       description: e.summary,
       images: e.heroImage.placeholder ? [] : [{ url: e.heroImage.url, width: e.heroImage.width, height: e.heroImage.height, alt: e.heroImage.alt }],
@@ -39,6 +43,13 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
 
   return (
     <div className="pb-28 lg:pb-0">
+      <JsonLd
+        data={breadcrumbJsonLd(config.siteUrl, [
+          { name: "Experiences", path: "/experiences" },
+          { name: e.title, path: `/experiences/${e.slug}` },
+        ])}
+      />
+      <JsonLd data={experienceJsonLd(e, config.siteUrl)} />
       <div className="container-page pt-6">
         <nav aria-label="Breadcrumb" className="text-sm text-muted">
           <ol className="flex flex-wrap gap-1">

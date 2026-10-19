@@ -16,6 +16,7 @@ export function generateMetadata(): Metadata {
     description: "Small experiences hosted by people who live in Kamakura: cook, craft, walk and share a table. Book as a guest, no account needed.",
     robots: config.indexingAllowed ? undefined : { index: false, follow: false },
     openGraph: { siteName: "NIHO Experience", type: "website", locale: "en_US" },
+    twitter: { card: "summary_large_image" },
   };
 }
 
