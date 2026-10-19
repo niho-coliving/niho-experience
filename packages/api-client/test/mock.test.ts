@@ -60,15 +60,15 @@ function post(body: unknown): RequestInit {
 describe("mock の読み取りが契約を満たす", () => {
   it.each(MOCK_SCENARIOS.filter((scenario) => scenario !== "network-error" && scenario !== "slow"))("%s: 一覧・詳細・残席", async (scenario) => {
     const catalog = await call(scenario, "/api/public/experiences?region=kamakura");
-    expect(validator.validateResponse("listExperiences", catalog.response.status, catalog.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("listPublicExperiences", catalog.response.status, catalog.body)).toEqual({ ok: true });
     expect(catalog.response.headers.get("cache-control")).toMatch(/^public, max-age=60/);
 
     const slugs = (catalog.body as { experiences: Array<{ slug: string }> }).experiences.map((item) => item.slug);
     for (const slug of slugs) {
       const found = await call(scenario, `/api/public/experiences/${slug}`);
-      expect(validator.validateResponse("getExperience", found.response.status, found.body)).toEqual({ ok: true });
+      expect(validator.validateResponse("getPublicExperience", found.response.status, found.body)).toEqual({ ok: true });
       const availability = await call(scenario, `/api/public/experiences/${slug}/availability`);
-      expect(validator.validateResponse("getExperienceAvailability", availability.response.status, availability.body)).toEqual({ ok: true });
+      expect(validator.validateResponse("getPublicExperienceAvailability", availability.response.status, availability.body)).toEqual({ ok: true });
       expect(availability.response.headers.get("cache-control")).toBe("no-store");
       expect(findSensitiveValues(availability.body)).toEqual([]);
     }
@@ -77,9 +77,9 @@ describe("mock の読み取りが契約を満たす", () => {
   it("掲載されていない slug は本文なしの 404・形の誤りは 400", async () => {
     const missing = await call("default", "/api/public/experiences/not-listed-anywhere");
     expect(missing.response.status).toBe(404);
-    expect(validator.validateResponse("getExperience", 404, missing.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperience", 404, missing.body)).toEqual({ ok: true });
     const invalid = await call("default", "/api/public/experiences/Bad_Slug");
-    expect(validator.validateResponse("getExperience", invalid.response.status, invalid.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperience", invalid.response.status, invalid.body)).toEqual({ ok: true });
     expect(invalid.response.status).toBe(400);
   });
 
@@ -107,7 +107,7 @@ describe("mock の checkout", () => {
     const body = await checkoutBody(slug);
     const first = await fetchMock(`${ORIGIN}/api/public/experiences/${slug}/checkout`, post(body));
     const firstBody = await first.json();
-    expect(validator.validateResponse("startExperienceCheckout", first.status, firstBody)).toEqual({ ok: true });
+    expect(validator.validateResponse("postPublicExperienceCheckout", first.status, firstBody)).toEqual({ ok: true });
     expect(first.status).toBe(201);
     expect(isMockCheckoutUrl(firstBody.checkoutUrl)).toBe(true);
 
@@ -118,7 +118,7 @@ describe("mock の checkout", () => {
     const changedBody = await changed.json();
     expect(changed.status).toBe(409);
     expect(changedBody.error.code).toBe("REQUEST_MISMATCH");
-    expect(validator.validateResponse("startExperienceCheckout", 409, changedBody)).toEqual({ ok: true });
+    expect(validator.validateResponse("postPublicExperienceCheckout", 409, changedBody)).toEqual({ ok: true });
   });
 
   it("応答に旅行者の入力（名前・メール・回答）を含めない", async () => {
@@ -161,7 +161,7 @@ describe("mock の checkout", () => {
       const { response, body: error } = await call("default", "/api/public/experiences/indigo-dyeing-with-an-artisan/checkout", post({ ...base, answers }));
       expect(response.status).toBe(422);
       expect(error).toMatchObject({ error: { code: "ANSWERS_INVALID", questionId: answer.questionId } });
-      expect(validator.validateResponse("startExperienceCheckout", response.status, error)).toEqual({ ok: true });
+      expect(validator.validateResponse("postPublicExperienceCheckout", response.status, error)).toEqual({ ok: true });
     }
   });
 
@@ -197,7 +197,7 @@ describe("mock の checkout", () => {
     const { response, body: error } = await call(scenario, `/api/public/experiences/${slug}/checkout`, post(body));
     expect(response.status).toBe(status);
     expect(error).toMatchObject({ error: { code } });
-    expect(validator.validateResponse("startExperienceCheckout", status, error)).toEqual({ ok: true });
+    expect(validator.validateResponse("postPublicExperienceCheckout", status, error)).toEqual({ ok: true });
     if (code === "RATE_LIMITED") expect(response.headers.get("retry-after")).toBe("120");
   });
 

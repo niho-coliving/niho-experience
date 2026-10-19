@@ -1,8 +1,10 @@
-# 公開API契約（仮契約 v0.1.0）
+# 公開API契約（v1.0.0・合意済み）
 
 作成日：2026-10-19。担当：契約・NIHO連携（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）。
 
-**状態：仮契約（provisional）。** 正本は NIHO 共通基盤の OpenAPI です。連携A（共通基盤側）で同じ操作を実装し、NIHO が選別して配布する版へ置き換えた時点で「合意済み」とします。それまで画面に「予約できます」「接続済み」と表示しません。
+**状態：合意済み（agreed）・v1.0.0。** 正本は NIHO 共通基盤の `contracts/openapi.yaml` です。連携A（[niho-app#19122](https://github.com/niho-coliving/niho-app/issues/19122)）で同じ操作を実装し、NIHO が選別して書き出した `contracts/exports/experience-public-api.openapi.json` を**変更せずに**ここへ置いています（sha256 は `contract/experience-public-api.openapi.json.sha256`。test が一致を確かめる）。NIHO 側は実際の応答をこの契約で検証する integration test を持っています。
+
+実 API と接続済みかどうかは、NIHO の配備と `verify:live`（§11）の結果で判断します。それまで画面に「接続済み」と表示しません。仮契約 v0.1.0 からの変更は §14 にまとめています。
 
 機械可読の契約は [`packages/api-client/contract/experience-public-api.openapi.json`](../packages/api-client/contract/experience-public-api.openapi.json)、公開項目の規則は [`public-field-policy.json`](../packages/api-client/contract/public-field-policy.json) です。この文書と食い違ったら JSON を正とし、文書を直します。
 
@@ -32,9 +34,11 @@
 | 詳細 | `GET /api/public/experiences/{experienceSlug}` | SSR | 60 秒まで |
 | 開催回と残席 | `GET /api/public/experiences/{experienceSlug}/availability?offerId=` | ブラウザ | `no-store` |
 | 予約の開始 | `POST /api/public/experiences/{experienceSlug}/checkout` | ブラウザ | `no-store` |
+| 画像 | `GET /api/public/experiences/{experienceSlug}/media/{mediaKey}?v=` | ブラウザ（`<img>`） | 1 時間（`v` が変われば別の URL） |
 
 - 掲載中でない体験（不存在・下書き・審査中・停止・販売者の準備が外れた）は、区別せず本文なしの 404 です。
 - `experienceSlug` は体験サイトでの slug です。NIHO の拠点・ページの slug や内部 ID ではありません。掲載後は変わりません。
+- 画像の URL は詳細・一覧が返すもの（`PublicExperienceImage.url`）をそのまま使い、組み立てません。`v` は画像の版で、差し替えると URL が変わり、古い `v` は 404 になります。中身は EXIF を除いた WebP の派生だけで、objectKey・署名・期限を URL に含みません。
 
 ## 4. 公開してよい項目・出さない項目
 
@@ -47,7 +51,7 @@
 | 迎える人 | ○（表示名と顔写真だけ） | 提供者が選んだ人。ユーザー ID・連絡先は出さない |
 | 提供者 | ○（名前・種類・ひとこと・ロゴ） | 公開ページの表示用 |
 | 販売者 | ○（表示名・特定商取引法の表示 URL） | 決済の相手を予約前に示すため |
-| 集合場所 | 条件つき | 公開してよい場所だけ `meetingPoint`。個人宅・非公開住所は `AFTER_BOOKING` で、予約確定後に NIHO の確認ページとメールだけで伝える |
+| 集合場所 | 条件つき | 公開してよい場所だけ `meetingPoint`。個人宅・非公開住所は `AFTER_BOOKING` で `meetingPoint` を常に `null` にし、予約確定後に NIHO の確認ページとメールだけで伝える（NIHO の公開投影の guard は閉じた object だけを許し、否定の規則を schema に書けないため、この規則は `createContractValidator` が確かめる） |
 | 料金・定員・上限人数・最少人数・所要・開始時刻・曜日・取消条件・受付方式・申込時の質問 | ○ | 予約前の確認に必要 |
 | 開催回の残席 | ○（`no-store`） | 表示の目安。確保は checkout |
 | 旅行者の名前・メール・備考・回答 | 送るだけ | checkout の要求にだけ入る。応答・ログ・URL・計測・storage に複製しない |
@@ -100,6 +104,7 @@
 - 通信の失敗・時間切れは、**同じ `clientRequestKey`・同じ内容**で再送します。NIHO は同じ申込として扱い、同じ `checkoutUrl` を返します（二重予約は NIHO が防ぐ。画面の二重クリック防止だけに頼らない）。
 - 人数・日付・名前など内容を変えたら key を作り直します。
 - 対応の判定は `checkoutRecoveryFor(code)` にまとめています。`message` は開発者向けで、画面の文言は `code` から作ります。
+- 失敗の本文は契約の閉じた形（`error` の 8 項目）だけです。NIHO の API 共通のサポート ID（`supportId`）はこの path では付きません。クライアントは契約に無い項目を持つ本文を「想定外の応答」として扱います。
 
 ## 8. このサイトでの個人情報の扱い
 
@@ -138,8 +143,8 @@ const client = createExperienceApiClient({
 ## 12. 版と更新の手順
 
 1. NIHO 側の OpenAPI を変える（API が正本）。互換の拡張は API を先に配備する。
-2. NIHO から選別した契約（この JSON と同じ範囲）と sha256 を受け取り、`contract/` を置き換えて `info.version` を上げる。
-3. `npm -C packages/api-client run gen:types` → `check`。画面を直す。
+2. NIHO の `npm -C contracts run export:experience-public-contract`（niho-app）が書き出した `contracts/exports/experience-public-api.openapi.json` と `.sha256` を、そのまま `contract/` へ置く（手で直さない。`info.version` も NIHO 側で上げる）。`src/contract-meta.ts` の版と状態を合わせる。
+3. `npm -C packages/api-client run gen:types` → `check`。schema 名は NIHO の命名（`PublicExperience*`）で、画面は `src/types.ts` の別名だけを使う（名前の変更は別名の付け替えで吸収する）。画面を直す。
 4. 項目の削除・意味の変更は破壊的変更として新しい path か版で並行提供し、このサイトの切り替え後に古い方を止める。
 5. `x-niho-contract-status` を `agreed` にするのは、連携担当が NIHO 側の実装・runtime 検証と突き合わせた後だけ。
 
@@ -151,3 +156,12 @@ const client = createExperienceApiClient({
 | 地域の key の一覧 | 最初の掲載時（v1 は `kamakura`） | `region` |
 | 提供者入口の path | 連携B | §9 |
 | 販売条件・キャンセル基準・サポート分担 | 有料で公開する前 | 文言と `seller` の表示 |
+
+## 14. 仮契約 v0.1.0 からの変更（v1.0.0）
+
+- schema 名を NIHO の命名にしました（`ExperienceDetail` → `PublicExperienceDetail`、`PublicImage` → `PublicExperienceImage`、`PublicErrorResponse` → `PublicProjectionErrorResponse` など）。`src/types.ts` の別名（`ExperienceDetail` など）は変えていないので、画面のコードは変わりません。
+- operationId を NIHO の命名にしました（`listPublicExperiences`・`getPublicExperience`・`getPublicExperienceAvailability`・`postPublicExperienceCheckout`）。`verify:live` と test の `validateResponse` だけが使います。
+- 画像の操作 `getPublicExperienceMedia` を足しました（§3）。応答の形は変わりません。
+- 項目の意味・必須・上限は変わりません。nullable な参照に `type: object` が付きました（意味は同じ。検証器は `allOf` つきの nullable を null も許す形に直しています）。
+- `AFTER_BOOKING` の集合場所の規則は schema の `not` から検証器の規則へ移しました（§4）。
+
