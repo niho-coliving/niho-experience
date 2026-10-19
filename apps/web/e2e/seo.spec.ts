@@ -23,6 +23,7 @@ test("experience facts and links are in the initial HTML", async ({ request }) =
   expect(html).toContain('"@type":"BreadcrumbList"');
   // Mock preview data is never described as a live TouristTrip.
   expect(html).not.toContain('"@type":"TouristTrip"');
+  expect(html).not.toContain('<meta property="og:image"');
 });
 
 test("list links reach every experience without JavaScript", async ({ request }) => {
@@ -36,6 +37,7 @@ test("list links reach every experience without JavaScript", async ({ request })
     expect(html).toContain(`href="/experiences/${slug}"`);
   }
   expect(html).toContain('<link rel="canonical" href="http://localhost:3000/experiences"');
+  expect(html).toContain("Kamakura Experiences with Local Hosts");
 });
 
 test("legacy filter query URLs point to the main list and stay out of the index", async ({ request }) => {

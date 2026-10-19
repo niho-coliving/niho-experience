@@ -59,3 +59,11 @@ test("keyboard users can skip to content and see focus", async ({ page }) => {
   await expect(skip).toBeFocused();
   await expect(skip).toBeVisible();
 });
+
+test("list, detail and booking actions fit the project viewport", async ({ page }, testInfo) => {
+  for (const path of ["/experiences", "/experiences/home-cooked-dinner-with-locals", "/experiences/home-cooked-dinner-with-locals/book"]) {
+    await page.goto(path);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${testInfo.project.name}: ${path}`).toBeLessThanOrEqual(0);
+  }
+});

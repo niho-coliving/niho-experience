@@ -2,6 +2,19 @@ import type { Metadata } from "next";
 import { TrackView, TrackedLink } from "@/components/Analytics";
 import { Notice, SectionHeading } from "@/components/ui";
 import { config } from "@/lib/config";
+import { safeHttpsUrl } from "@/lib/safe-url";
+
+function hostStartUrl(value: string, nihoOrigin: string): string | null {
+  try {
+    const url = new URL(value);
+    const origin = new URL(nihoOrigin);
+    // The existing NIHO onboarding route currently forwards to spot creation.
+    // A fixed NIHO path must be supplied once integration B is ready.
+    if (url.origin !== origin.origin || url.protocol !== "https:" || url.username || url.password || url.search || url.hash) return null;
+    if (url.pathname === "/" || url.pathname === "/onboarding/host" || url.pathname.startsWith("/spot/")) return null;
+    return url.href;
+  } catch { return null; }
+}
 
 export function generateMetadata(): Metadata {
   return {
@@ -33,10 +46,11 @@ const NIHO = [
 ];
 
 export default function HostPage() {
-  const open = config.hostSignupMode === "open" && Boolean(config.nihoHostStartUrl);
+  const startUrl = config.hostSignupMode === "open" ? hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin) : null;
+  const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
   return (
     <div className="container-page pt-8 sm:pt-12">
-      <TrackView event="host_view" props={{ signup_mode: config.hostSignupMode }} />
+      <TrackView event="host_view" props={{ signup_mode: startUrl ? "open" : "pilot" }} />
       <header className="max-w-2xl space-y-4">
         <p className="eyebrow">For people in Kamakura</p>
         <h1 className="text-4xl sm:text-5xl">Share what you love with travelers</h1>
@@ -47,10 +61,10 @@ export default function HostPage() {
       </header>
 
       <section className="mt-8 max-w-2xl" aria-label="How to start">
-        {open ? (
+        {startUrl ? (
           <div className="space-y-3">
             <TrackedLink
-              href={config.nihoHostStartUrl}
+              href={startUrl}
               event="host_start"
               props={{ signup_mode: "open" }}
               className="inline-flex min-h-12 items-center rounded-full bg-moss px-6 text-lg font-bold text-white hover:bg-moss-hover"
@@ -63,11 +77,11 @@ export default function HostPage() {
           <Notice tone="info" title="We're starting with a small group of hosts">
             <p>
               During the first season we work directly with a few hosts we know. Online sign-up opens after that.
-              {config.hostPilotContactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}
+              {contactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}
             </p>
-            {config.hostPilotContactUrl ? (
+            {contactUrl ? (
               <p className="mt-3">
-                <TrackedLink href={config.hostPilotContactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
+                <TrackedLink href={contactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
                   Tell us you&apos;re interested
                 </TrackedLink>
               </p>
