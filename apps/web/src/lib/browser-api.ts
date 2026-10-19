@@ -4,5 +4,6 @@ import { createExperienceApiClient } from "@niho-experience/api-client";
 export async function getBrowserApi(preview: boolean, nihoWebOrigin: string) {
   if (!preview) return createExperienceApiClient({ nihoWebOrigin });
   const { createMockExperienceFetch } = await import("@niho-experience/api-client/mock");
-  return createExperienceApiClient({ nihoWebOrigin, fetch: createMockExperienceFetch() });
+  // "all": the server may render either mock catalog; slugs never overlap.
+  return createExperienceApiClient({ nihoWebOrigin, fetch: createMockExperienceFetch({ catalog: "all" }) });
 }

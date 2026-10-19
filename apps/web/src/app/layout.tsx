@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <AnalyticsSetup mode={isPreview ? "debug" : "off"} />
-        {isPreview ? <PreviewBanner /> : null}
+        {isPreview ? <PreviewBanner catalog={config.mockCatalog} /> : null}
         <SiteHeader />
         <main id="main" className="flex-1">
           {children}

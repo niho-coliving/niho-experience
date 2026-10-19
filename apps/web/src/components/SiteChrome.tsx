@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { EXPERIENCE_API_CONTRACT } from "@niho-experience/api-client";
 
-export function PreviewBanner() {
+export function PreviewBanner({ catalog = "synthetic" }: { catalog?: "synthetic" | "pilot" }) {
   return (
     <div role="note" className="bg-ink text-sm text-white">
       <p className="container-page py-2">
-        <strong>Preview with sample data.</strong> Hosts, dates and prices are invented and nothing can be booked.{" "}
+        {catalog === "pilot" ? (
+          <><strong>Preview.</strong> These experiences and hosts are real, but dates, prices and photos are provisional, and nothing can be booked.</>
+        ) : (
+          <><strong>Preview with sample data.</strong> Hosts, dates and prices are invented and nothing can be booked.</>
+        )}{" "}
         <span className="text-white/70">API contract {EXPERIENCE_API_CONTRACT.version} ({EXPERIENCE_API_CONTRACT.status})</span>
       </p>
     </div>

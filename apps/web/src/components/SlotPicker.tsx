@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { computeExpectedTotalYen, type ExperienceApiClient, type ExperienceOffer, type Occurrence } from "@niho-experience/api-client";
 import { getBrowserApi } from "@/lib/browser-api";
 import { formatDay, formatTimeRange, formatYen } from "@/lib/format";
+import { slotAvailabilityLabel } from "@/lib/availability-copy";
 import { track } from "@/lib/analytics";
 import { buttonClass } from "./ui";
 
 export type BookingSelection = { offerId: string; date: string; adultCount: number; childCount: number };
-export function SlotPicker({ slug, offers, preview, nihoWebOrigin, onContinue }: { slug: string; offers: ExperienceOffer[]; preview: boolean; nihoWebOrigin: string; onContinue: (selection: BookingSelection) => void }) {
+export function SlotPicker({ slug, offers, preview, availabilityIsProvisional, nihoWebOrigin, onContinue }: { slug: string; offers: ExperienceOffer[]; preview: boolean; availabilityIsProvisional: boolean; nihoWebOrigin: string; onContinue: (selection: BookingSelection) => void }) {
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
   const [offerId, setOfferId] = useState(offers[0]?.id ?? "");
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
@@ -56,7 +57,7 @@ export function SlotPicker({ slug, offers, preview, nihoWebOrigin, onContinue }:
        {loading ? <p role="status" className="text-muted">Checking dates…</p> : error ? <div role="alert" className="space-y-2"><p>Dates could not be loaded.</p><button type="button" className="font-bold text-moss underline" onClick={() => { setError(false); setLoading(true); if (api) { api.getAvailability(slug, { offerId }).then((result) => { setLoading(false); setError(!result.ok); setOccurrences(result.ok ? result.data.occurrences : []); }); } else { getBrowserApi(preview, nihoWebOrigin).then(setApi).catch(() => { setError(true); setLoading(false); }); } }}>Try again</button></div> :
         occurrences.length ? <div className="max-h-80 space-y-2 overflow-y-auto pr-1">{occurrences.map((item) => <label key={`${item.offerId}-${item.date}`} className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 ${item.bookable ? "cursor-pointer border-line-strong" : "border-line bg-sand text-muted"}`}>
           <input type="radio" name="occurrence" value={item.date} checked={date === item.date} disabled={!item.bookable} onChange={() => setDate(item.date)} className="size-5 accent-moss" />
-          <span><span className="block font-bold">{formatDay(item.startAt)} · {formatTimeRange(item.startAt, item.endAt)}</span><span className="block text-sm">{item.bookable ? `${item.seatsLeft} places currently available` : item.reason === "FULL" ? "Fully booked" : "Booking closed"}</span></span>
+          <span><span className="block font-bold">{formatDay(item.startAt)} · {formatTimeRange(item.startAt, item.endAt)}</span><span className="block text-sm">{slotAvailabilityLabel(item, availabilityIsProvisional)}</span></span>
         </label>)}</div> : <p className="text-muted">No dates are open yet.</p>}
     </fieldset>
     {offer ? <div className="grid grid-cols-2 gap-3">
