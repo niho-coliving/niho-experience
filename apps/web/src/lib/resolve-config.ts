@@ -5,6 +5,8 @@ export function resolveConfig(env: Env) {
   const apiMode = env.EXPERIENCE_API_MODE === "http" ? "http" : "mock";
   return {
     apiMode,
+    // Keep the deployed reader on the v1.0 endpoints until NIHO has deployed v1.1.
+    publicApiVersion: env.EXPERIENCE_PUBLIC_API_VERSION === "1.1" ? "1.1" : "1.0",
     nihoWebOrigin: env.NEXT_PUBLIC_NIHO_WEB_ORIGIN ?? "https://niho.life",
     mockLatencyMs: Number(env.MOCK_LATENCY_MS ?? 0) || 0,
     // "pilot" shows the permitted first experiences with provisional details (docs/content/README.md).

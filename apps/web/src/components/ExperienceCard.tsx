@@ -1,13 +1,14 @@
 import Link from "next/link";
-import type { ExperienceSummary } from "@niho-experience/api-client";
+import type { ExperienceSummaryForSite } from "@/lib/experience-types";
+import { imageAlt } from "@/lib/experience-copy";
 import { formatDuration, formatYen } from "@/lib/format";
 import { Photo } from "./Photo";
 import { Pill } from "./ui";
 
-export function ExperienceCard({ experience: e, priority = false, preview = false, previewLabel = "Sample listing" }: { experience: ExperienceSummary; priority?: boolean; preview?: boolean; previewLabel?: string }) {
+export function ExperienceCard({ experience: e, priority = false, preview = false, previewLabel = "Sample listing" }: { experience: ExperienceSummaryForSite; priority?: boolean; preview?: boolean; previewLabel?: string }) {
   return <article className="group relative flex h-full flex-col">
     <div className="relative">
-      <Photo image={e.cover} alt={e.title} priority={priority} preview={preview} sizes="(min-width: 64rem) 380px, (min-width: 40rem) 50vw, 100vw" />
+      <Photo image={e.cover} alt={imageAlt(e.cover, e.title)} priority={priority} preview={preview} sizes="(min-width: 64rem) 380px, (min-width: 40rem) 50vw, 100vw" />
       {preview ? <div className="absolute top-3 left-3"><Pill tone="sample">{previewLabel}</Pill></div> : null}
     </div>
     <div className="flex flex-1 flex-col gap-2 pt-4">
@@ -20,7 +21,7 @@ export function ExperienceCard({ experience: e, priority = false, preview = fals
     </div>
   </article>;
 }
-export function ExperienceGrid({ items, priorityCount = 0, preview = false, previewLabel }: { items: ExperienceSummary[]; priorityCount?: number; preview?: boolean; previewLabel?: string }) {
+export function ExperienceGrid({ items, priorityCount = 0, preview = false, previewLabel }: { items: ExperienceSummaryForSite[]; priorityCount?: number; preview?: boolean; previewLabel?: string }) {
   return <ul className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">{items.map((e, i) => <li key={e.slug}><ExperienceCard experience={e} priority={i < priorityCount} preview={preview} previewLabel={previewLabel} /></li>)}</ul>;
 }
 export function ExperienceGridSkeleton({ count = 3 }: { count?: number }) {
