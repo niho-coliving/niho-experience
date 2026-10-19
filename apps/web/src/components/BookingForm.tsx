@@ -70,7 +70,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting || !api || total === null || !availabilityOk) return;
+    if (submitting || checking || needsFreshDetails || !api || total === null || !availabilityOk) return;
     setProblem(""); setInvalidField("");
     const answered = collectAnswers();
     const missing = offer.bookingQuestions.find((question) => question.required && !answered.some((answer) => answer.questionId === question.id));
@@ -86,6 +86,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     if (attempt.current?.signature !== signature) attempt.current = { signature, key: createClientRequestKey() };
     const body: ExperienceCheckoutRequest = { ...draft, clientRequestKey: attempt.current.key };
     setSubmitting(true);
+    track("checkout_start", { experience: experience.slug, guests: headCount, total_jpy: total });
     let result: Awaited<ReturnType<ExperienceApiClient["startCheckout"]>>;
     try { result = await api.startCheckout(experience.slug, body); }
     catch {
@@ -134,7 +135,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
       <div id={`question-${question.id}`} className="mt-2 space-y-2">{question.options.map((option) => { const selected = Array.isArray(answers[question.id]) ? answers[question.id] as string[] : []; return <label key={option.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={selected.includes(option.id)} onChange={(event) => updateAnswer(question.id, event.target.checked ? [...selected, option.id] : selected.filter((id) => id !== option.id))} className="size-5 accent-moss" />{option.label}</label>; })}</div>}
     </div>)}</fieldset> : null}
     <div className="rounded-xl border border-line bg-sand p-4"><p className="mb-2 font-bold">Booking terms</p><ul className="mb-3 list-disc pl-5">{experience.booking.legalDocuments.map((doc) => { const url = safeHttpsUrl(doc.url); return url ? <li key={doc.kind}><a href={url} target="_blank" rel="noopener noreferrer" className="font-bold text-moss underline">{doc.kind === "COMMERCIAL_TRANSACTIONS" ? "Seller information" : doc.kind === "PRIVACY" ? "Privacy policy" : "Terms of service"}</a></li> : null; })}</ul><label className="flex gap-3"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required aria-invalid={invalidField === "consent" || undefined} className="mt-1 size-5 shrink-0 accent-moss" /><span>I have reviewed the total, seller, cancellation policy and linked terms, and agree to version {experience.booking.consentVersion}.</span></label></div>
-    <button type="submit" onClick={() => track("checkout_start", { experience: experience.slug, guests: headCount, total_jpy: total ?? undefined })} disabled={submitting || checking || !availabilityOk || needsFreshDetails || total === null} aria-busy={submitting} className={buttonClass("primary", "w-full text-lg")}>{submitting ? "Preparing checkout…" : offer.acceptanceMode === "APPROVAL" ? "Request to book" : preview ? "Continue to mock payment" : "Continue to secure payment"}</button>
+    <button type="submit" disabled={submitting || checking || !availabilityOk || needsFreshDetails || total === null} aria-busy={submitting} className={buttonClass("primary", "w-full text-lg")}>{submitting ? "Preparing checkout…" : offer.acceptanceMode === "APPROVAL" ? "Request to book" : preview ? "Continue to mock payment" : "Continue to secure payment"}</button>
     <p className="text-center text-sm text-muted">{preview ? "Preview only: no card details or payment." : "NIHO will confirm your booking after payment. No charge is made on this page."}</p>
   </form>;
 }

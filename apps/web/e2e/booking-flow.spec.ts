@@ -56,6 +56,7 @@ test("required booking answer and consent are shown before checkout", async ({ p
   await page.getByRole("button", { name: "Request to book" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("required question");
   await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
+  expect(await page.evaluate(() => (window as Window & { __nihoEvents?: { event: string }[] }).__nihoEvents?.filter((event) => event.event === "checkout_start").length ?? 0)).toBe(0);
 });
 
 test("booking page is private", async ({ request }) => {
