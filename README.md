@@ -29,7 +29,7 @@ NIHOの共通基盤が、提供者ログイン、権限、商品管理、予約�
 - [公開API契約（仮契約）](docs/api-contract.md)
 - [デザイン方針](docs/design-brief.md) / [デザインシステムと画面仕様](docs/design-system.md)
 - [技術構成の判断（ADR 0001）](docs/adr/0001-web-stack.md) / [開発手順](docs/development.md)
-- [検索公開の方針](docs/seo.md) / [予約ファネルのイベント](docs/analytics-events.md) / [公開受入と配備・停止の手順](docs/release-acceptance.md)
+- [検索公開の方針](docs/seo.md) / [予約ファネルのイベント](docs/analytics-events.md) / [公開受入と配備・停止の手順](docs/release-acceptance.md) / [プレビュー配備の準備](docs/deploy-setup.md)
 - [Epic一覧・着手順・担当への指示](docs/execution-plan.md)
 - [作業上の約束](AGENTS.md)
 - [Issues](https://github.com/niho-coliving/niho-experience/issues)
