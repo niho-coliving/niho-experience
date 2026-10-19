@@ -15,9 +15,9 @@
 
 ## 正規URLの方針
 
-**推奨：niho-experienceの体験ページを、体験ごとに唯一の検索公開ページにする。**
+**方針案：niho-experienceの体験ページを、体験ごとに唯一の検索公開ページにする。**
 
-| ページ | 推奨の扱い |
+| ページ | 扱いの案 |
 | --- | --- |
 | niho-experienceの体験ページ | index、自己参照canonical、sitemapに掲載 |
 | NIHOapp企画ページ | 現状どおりnoindex。もしくはcanonicalをniho-experienceへ向ける。どちらにするかは担当2・オーナーと決める |
@@ -103,7 +103,7 @@ v1は英語版だけなので、hreflangを出さない。日本語版を公開�
 
 ### 3. NIHO既存ページとの正規URL
 
-推奨は[正規URLの方針](#正規urlの方針)のとおり。niho-experienceの体験ページを正規とし、NIHOappの企画ページはnoindexのままにする。`canonicalUrl` はNIHOが決めるので、連携Aでこの方針に合わせる（#7・担当2）。公式サイト（kamakura.niho.life）のページの扱いはオーナーの判断。
+案は[正規URLの方針](#正規urlの方針)のとおり。niho-experienceの体験ページを正規とし、NIHOappの企画ページはnoindexのままにする。`canonicalUrl` はNIHOが決めるので、連携Aでこの方針に合わせる（#7・担当2）。公式サイト（kamakura.niho.life）のページの扱いはオーナーの判断。
 
 ### 4. 公開後のSearch Consoleの確認
 
