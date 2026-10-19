@@ -6,14 +6,25 @@ on:
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: Reviewed main commit SHA (40 hexadecimal characters)
+        description: Candidate commit SHA (40 hexadecimal characters)
         required: true
         type: string
-      promote_traffic:
-        description: Move traffic to the verified candidate (bookings and indexing stay off)
+      action:
+        description: Create a no-traffic candidate, or promote an already reviewed candidate
         required: true
-        default: false
-        type: boolean
+        type: choice
+        options:
+          - candidate
+          - promote
+        default: candidate
+      candidate_revision:
+        description: Existing revision name from the successful candidate run (promote only)
+        required: false
+        type: string
+      candidate_image_digest:
+        description: Existing sha256 digest from the successful candidate run (promote only)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -24,7 +35,7 @@ concurrency:
 
 jobs:
   build:
-    if: vars.PRODUCTION_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    if: vars.PRODUCTION_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && inputs.action == 'candidate'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -62,6 +73,7 @@ jobs:
           compression-level: 0
 
   deploy:
+    if: inputs.action == 'candidate'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -79,6 +91,7 @@ jobs:
       PREVIEW_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       SERVICE: niho-experience
       ARTIFACT_NAME: production-image-${{ github.run_id }}-${{ github.run_attempt }}
+      CANDIDATE_SHA: ${{ inputs.commit_sha }}
     steps:
       - name: Require protected production settings
         run: |
@@ -103,17 +116,22 @@ jobs:
           workload_identity_provider: ${{ vars.PROD_GCP_WIF_PROVIDER }}
           service_account: ${{ vars.PROD_GCP_DEPLOY_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-      - name: Push image
+      - name: Push image and resolve immutable digest
+        id: pushed_image
         run: |
-          image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${GITHUB_SHA}"
+          image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${CANDIDATE_SHA}"
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
           docker tag "web:${GITHUB_SHA}" "$image"
           docker push "$image"
+          digest="$(gcloud artifacts docker images describe "$image" --project "$PROJECT_ID" --format='value(image_summary.digest)')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: Deploy candidate with sales and indexing disabled
         id: candidate
         run: |
-          image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${GITHUB_SHA}"
-          tag="candidate-${GITHUB_SHA:0:12}"
+          image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web@${{ steps.pushed_image.outputs.digest }}"
+          tag="candidate-${CANDIDATE_SHA}"
+          tag="${tag:0:22}"
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT_ID" --region "$REGION" --image "$image" \
             --service-account "$RUNTIME_SERVICE_ACCOUNT" \
@@ -124,9 +142,15 @@ jobs:
           state="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json)"
           revision="$(jq -r '.status.latestReadyRevisionName' <<< "$state")"
           url="$(jq -r --arg tag "$tag" '.status.traffic[] | select(.tag == $tag) | .url' <<< "$state")"
-          test -n "$revision" && test -n "$url"
+          tagged_revision="$(jq -r --arg tag "$tag" '.status.traffic[] | select(.tag == $tag) | .revisionName' <<< "$state")"
+          test -n "$revision" && test -n "$url" && test "$revision" = "$tagged_revision"
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
           echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "revision=${revision}"
+            echo "image_digest=${{ steps.pushed_image.outputs.digest }}"
+            echo "candidate_url=${url}"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Check isolated candidate
         env:
           URL: ${{ steps.candidate.outputs.url }}
@@ -135,10 +159,13 @@ jobs:
           curl -fsS --retry 5 --retry-all-errors 'https://niho.life/api/public/experiences' \
             | jq -e '.experiences | type == "array"' >/dev/null
           revision_json="$(gcloud run revisions describe "$REVISION" --project "$PROJECT_ID" --region "$REGION" --format=json)"
-          test "$(jq -r '.spec.containers[0].image' <<< "$revision_json")" = "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${GITHUB_SHA}"
+          test "$(jq -r '.spec.containers[0].image' <<< "$revision_json")" = "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web@${{ steps.pushed_image.outputs.digest }}"
           test "$(jq -r '.spec.containers[0].env[] | select(.name == "EXPERIENCE_API_MODE") | .value' <<< "$revision_json")" = http
           test "$(jq -r '.spec.containers[0].env[] | select(.name == "BOOKINGS_ENABLED") | .value' <<< "$revision_json")" = false
           test "$(jq -r '.spec.containers[0].env[] | select(.name == "SITE_INDEXING") | .value' <<< "$revision_json")" = block
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "HOST_SIGNUP_MODE") | .value' <<< "$revision_json")" = pilot
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "SITE_URL") | .value' <<< "$revision_json")" = https://experience.niho.life
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "NEXT_PUBLIC_NIHO_WEB_ORIGIN") | .value' <<< "$revision_json")" = https://niho.life
           for path in / /experiences /host; do
             curl -fsS -o /dev/null --retry 5 --retry-all-errors "${URL}${path}"
             echo "ok   ${path}"
@@ -151,13 +178,91 @@ jobs:
           test "$(curl -sS -o /dev/null -w '%{http_code}' "${URL}/preview/checkout")" = 404
           echo "Candidate: ${REVISION} ${URL}" >> "$GITHUB_STEP_SUMMARY"
           echo "Commit: ${GITHUB_SHA}; bookings=false; indexing=block; host signup=pilot" >> "$GITHUB_STEP_SUMMARY"
-      - name: Promote verified candidate
-        if: inputs.promote_traffic
+
+  promote:
+    if: vars.PRODUCTION_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && inputs.action == 'promote'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ vars.PROD_GCP_PROJECT_ID }}
+      REGION: ${{ vars.PROD_GCP_REGION }}
+      REPOSITORY: ${{ vars.PROD_GCP_ARTIFACT_REPOSITORY }}
+      PREVIEW_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      SERVICE: niho-experience
+      CANDIDATE_SHA: ${{ inputs.commit_sha }}
+      CANDIDATE_REVISION: ${{ inputs.candidate_revision }}
+      CANDIDATE_IMAGE_DIGEST: ${{ inputs.candidate_image_digest }}
+    steps:
+      - name: Validate the selected candidate and protected settings
+        run: |
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CANDIDATE_REVISION" =~ ^${SERVICE}-[a-z0-9-]+$ ]]
+          [[ "$CANDIDATE_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          test -n "$PROJECT_ID"
+          test -n "$REGION"
+          test -n "$REPOSITORY"
+          test "$PROJECT_ID" != "$PREVIEW_PROJECT_ID"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require the candidate commit to remain on main
+        run: git merge-base --is-ancestor "$CANDIDATE_SHA" origin/main
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.PROD_GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.PROD_GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - name: Verify and recheck the existing candidate
+        id: candidate
+        run: |
+          revision_json="$(gcloud run revisions describe "$CANDIDATE_REVISION" --project "$PROJECT_ID" --region "$REGION" --format=json)"
+          expected_image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web@${CANDIDATE_IMAGE_DIGEST}"
+          test "$(jq -r '.spec.containers[0].image' <<< "$revision_json")" = "$expected_image"
+          test "$(jq -r '.metadata.labels.commit' <<< "$revision_json")" = "${CANDIDATE_SHA:0:12}"
+          jq -e '.status.conditions[] | select(.type == "Ready" and .status == "True")' <<< "$revision_json" >/dev/null
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "BOOKINGS_ENABLED") | .value' <<< "$revision_json")" = false
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "SITE_INDEXING") | .value' <<< "$revision_json")" = block
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "HOST_SIGNUP_MODE") | .value' <<< "$revision_json")" = pilot
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "SITE_URL") | .value' <<< "$revision_json")" = https://experience.niho.life
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "NEXT_PUBLIC_NIHO_WEB_ORIGIN") | .value' <<< "$revision_json")" = https://niho.life
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "EXPERIENCE_API_MODE") | .value' <<< "$revision_json")" = http
+          state="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json)"
+          tag="candidate-${CANDIDATE_SHA}"
+          tag="${tag:0:22}"
+          url="$(jq -r --arg tag "$tag" --arg revision "$CANDIDATE_REVISION" '.status.traffic[] | select(.tag == $tag and .revisionName == $revision) | .url' <<< "$state")"
+          test -n "$url" && test "$url" != null
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "Verified existing revision: ${CANDIDATE_REVISION}"
+            echo "Verified image digest: ${CANDIDATE_IMAGE_DIGEST}"
+            echo "Candidate URL: ${url}"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Check candidate URL before promotion
         env:
-          REVISION: ${{ steps.candidate.outputs.revision }}
+          URL: ${{ steps.candidate.outputs.url }}
+        run: |
+          curl -fsS --retry 5 --retry-all-errors 'https://niho.life/api/public/experiences' \
+            | jq -e '.experiences | type == "array"' >/dev/null
+          for path in / /experiences /host; do
+            curl -fsS -o /dev/null --retry 5 --retry-all-errors "${URL}${path}"
+          done
+          page="$(curl -fsS "${URL}/experiences")"
+          if grep -qF 'Preview with sample data' <<< "$page"; then exit 1; fi
+          if grep -qF 'Details to be confirmed' <<< "$page"; then exit 1; fi
+          curl -fsS "${URL}/robots.txt" | grep -qF 'Disallow: /'
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "${URL}/preview/states")" = 404
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "${URL}/preview/checkout")" = 404
+      - name: Promote the reviewed existing revision
         run: |
           gcloud run services update-traffic "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
-            --to-revisions "${REVISION}=100" --quiet
+            --to-revisions "${CANDIDATE_REVISION}=100" --quiet
           state="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json)"
-          jq -e --arg revision "$REVISION" '[.status.traffic[] | select(.revisionName == $revision and .percent == 100)] | length == 1' <<< "$state" >/dev/null
-          echo "Serving revision: ${REVISION} (100%)" >> "$GITHUB_STEP_SUMMARY"
+          jq -e --arg revision "$CANDIDATE_REVISION" '[.status.traffic[] | select(.revisionName == $revision and .percent == 100)] | length == 1' <<< "$state" >/dev/null
+          echo "Serving reviewed revision: ${CANDIDATE_REVISION} (100%)" >> "$GITHUB_STEP_SUMMARY"
