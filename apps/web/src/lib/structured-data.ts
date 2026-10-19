@@ -1,4 +1,4 @@
-import type { ExperienceDetail } from "@niho-experience/api-client";
+import type { ExperienceDetailForSite } from "./experience-types";
 import { safeHttpsUrl } from "./safe-url";
 
 type JsonLd = Record<string, unknown>;
@@ -17,7 +17,7 @@ export function breadcrumbJsonLd(siteUrl: string, items: { name: string; path: s
 }
 
 /** Public details can be described in production. Preview fixtures are never emitted as real structured data. */
-export function experienceJsonLd(e: ExperienceDetail, siteUrl: string, preview = false): JsonLd | null {
+export function experienceJsonLd(e: ExperienceDetailForSite, siteUrl: string, preview = false): JsonLd | null {
   if (preview) return null;
   const url = safeHttpsUrl(e.canonicalUrl) ?? `${siteUrl}/experiences/${e.slug}`;
   const images = [e.cover, ...e.photos]

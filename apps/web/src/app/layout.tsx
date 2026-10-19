@@ -1,7 +1,9 @@
 import "@fontsource-variable/fraunces";
 import "@fontsource-variable/nunito";
 import "./globals.css";
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
+import { AttributionCapture } from "@/components/AttributionCapture";
 import { AnalyticsSetup } from "@/components/Analytics";
 import { analyticsModeForRuntime } from "@/lib/analytics";
 import { PreviewBanner, SiteFooter, SiteHeader } from "@/components/SiteChrome";
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <AnalyticsSetup mode={analyticsMode} websiteId={config.umamiWebsiteId} />
+        <Suspense fallback={null}><AttributionCapture enabled={config.publicApiVersion === "1.1"} /></Suspense>
         {isPreview ? <PreviewBanner catalog={config.mockCatalog} /> : null}
         <SiteHeader />
         <main id="main" className="flex-1">

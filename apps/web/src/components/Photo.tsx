@@ -1,8 +1,8 @@
 import NextImage from "next/image";
-import type { PublicImage } from "@niho-experience/api-client";
+import type { PublicImage, PublicImageV11 } from "@niho-experience/api-client";
 
 export function Photo({ image, alt, sizes, priority = false, className = "", rounded = "rounded-[var(--radius-card)]", aspect = "aspect-[4/3]", preview = false }: {
-  image: PublicImage | null; alt: string; sizes: string; priority?: boolean; className?: string; rounded?: string; aspect?: string; preview?: boolean;
+  image: PublicImage | PublicImageV11 | null; alt: string; sizes: string; priority?: boolean; className?: string; rounded?: string; aspect?: string; preview?: boolean;
 }) {
   return (
     <div className={`relative overflow-hidden bg-sand ${aspect} ${rounded} ${className}`}>
