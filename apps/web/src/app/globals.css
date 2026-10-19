@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/*
+ * NIHO Experience tokens (see docs/design-system.md).
+ * Warm paper background, deep moss for actions, NIHO leaf green as accent only.
+ * Text colours keep >= 4.5:1 on canvas and surface.
+ */
+@theme {
+  --color-canvas: #fbf8f2;
+  --color-surface: #ffffff;
+  --color-sand: #f3ede2;
+  --color-ink: #1f1d1a;
+  --color-ink-soft: #4f4b44;
+  --color-muted: #6b665d;
+  --color-line: #e6dfd2;
+  --color-line-strong: #cfc6b5;
+  --color-moss: #355e1f;
+  --color-moss-hover: #2a4b18;
+  --color-leaf: #b2d67c;
+  --color-leaf-pale: #eef5e3;
+  --color-persimmon: #a8552a;
+  --color-persimmon-pale: #fbede2;
+  --color-danger: #a8321e;
+  --color-danger-pale: #fcece8;
+  --color-warn: #7a4b00;
+  --color-warn-pale: #fff3dc;
+  --color-info: #1e4ea8;
+  --color-info-pale: #eaf2ff;
+
+  --font-sans: "Nunito Variable", "Hiragino Sans", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces Variable", Georgia, "Hiragino Mincho ProN", serif;
+
+  --radius-card: 1.25rem;
+  --shadow-card: 0 1px 2px rgb(31 29 26 / 0.04), 0 8px 24px rgb(31 29 26 / 0.06);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-moss);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 75rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 40rem) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+  @media (min-width: 64rem) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+  .eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-persimmon);
+  }
+}
