@@ -27,6 +27,53 @@ export interface TrackedEvent {
 }
 
 const SAFE_STRING = /^[a-z0-9_-]{1,64}$/;
+const ALLOWED_UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_content"] as const;
+
+/** Removes query values outside the approved UTM set before Umami sees a URL. */
+export function sanitizeUmamiPayload(
+  _type: string,
+  payload: Record<string, unknown>,
+  currentOrigin: string,
+): Record<string, unknown> | false {
+  try {
+    const rawUrl = payload.url;
+    if (typeof rawUrl !== "string") return false;
+
+    const url = new URL(rawUrl, currentOrigin);
+    if (url.protocol !== "https:" || url.hostname !== "experience.niho.life") return false;
+
+    const isBookingResult = url.pathname === "/booking" || url.pathname.startsWith("/booking/");
+    const isBookingForm = /^\/experiences\/[^/]+\/book(?:\/|$)/.test(url.pathname);
+    url.hash = "";
+
+    if (isBookingResult) {
+      // Booking paths may contain opaque result identifiers as well as query tokens.
+      url.pathname = "/booking";
+      url.search = "";
+    } else if (isBookingForm) {
+      url.search = "";
+    } else {
+      const search = new URLSearchParams();
+      for (const key of ALLOWED_UTM_PARAMS) {
+        const value = url.searchParams.get(key);
+        if (value && SAFE_STRING.test(value)) search.set(key, value);
+      }
+      url.search = search.toString();
+    }
+
+    const safePayload: Record<string, unknown> = { ...payload, url: `${url.pathname}${url.search}` };
+    if (typeof payload.referrer === "string" && payload.referrer) {
+      try {
+        safePayload.referrer = new URL(payload.referrer, currentOrigin).origin;
+      } catch {
+        safePayload.referrer = "";
+      }
+    }
+    return safePayload;
+  } catch {
+    return false;
+  }
+}
 
 /** Keeps allowlisted, non-personal values only. */
 export function sanitize(event: FunnelEvent, props: EventProps): TrackedEvent {

@@ -49,6 +49,14 @@ v1の規模（少数の体験、30日の検証）では、無料枠と6か月の
 - プレビュー（mock）では送らない（現状どおり `window.__nihoEvents` に記録）。
 - NIHO運営の内部アクセスは、Umamiの「自分の訪問を除外」の機能で除く。手順はアカウント作成後に公式の案内で確認する。
 
+## サイト登録と実装
+
+- Umami Cloudのサイト名は `NIHO Experience`、登録ドメインは `experience.niho.life`。
+- Website IDは `f7a8b3ed-ef71-4a35-969e-955b88f01902`。公開IDのためコードへ直書きせず、`UMAMI_WEBSITE_ID` の実行時環境変数で渡す。
+- `UMAMI_WEBSITE_ID` が設定され、APIモードが `http` で、`SITE_URL` が `https://experience.niho.life` と完全一致する場合だけトラッカーを読み込む。preview（mock）と他ホストでは送信しない。
+- 現時点で本番サービス・本番配備workflowは未作成。将来、本番サービスを作る際にこのIDを本番サービスだけへ設定し、プライバシーポリシーへ計測内容を追記してから送信を有効にする。previewには設定しない。
+- ブラウザの `Do Not Track` を尊重し、URLは許可したUTMだけ残す。予約入力URL・予約結果URLのqueryや予約結果識別子、URL hash、リファラーのpath/queryは送らない。
+
 ## 同意と公表
 
 - 同意バナーは出さない。計測をブロックされても予約は同じように動く（担当1の実装どおり）。
