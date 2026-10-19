@@ -1,0 +1,26 @@
+{
+  "name": "niho-experience",
+  "private": true,
+  "description": "NIHO Experience public site (Kamakura first). Synthetic data only in this repo.",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "npm -w @niho-experience/web run dev",
+    "build": "npm -w @niho-experience/web run build",
+    "start": "npm -w @niho-experience/web run start",
+    "lint": "npm -w @niho-experience/web run lint",
+    "typecheck": "npm -ws --if-present run typecheck",
+    "test": "npm -ws --if-present run test",
+    "test:e2e": "npm -w @niho-experience/web run test:e2e",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "overrides": {
+    "playwright-core": "1.56.1"
+  }
+}
