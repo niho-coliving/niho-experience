@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { computeExpectedTotalYen, createClientRequestKey, type CheckoutAnswer, type ExperienceApiClient, type ExperienceDetail, type ExperienceCheckoutRequest, type ExperienceOffer } from "@niho-experience/api-client";
-import { isMockCheckoutUrl } from "@niho-experience/api-client/mock";
 import { getBrowserApi } from "@/lib/browser-api";
 import { formatLongDay, formatYen } from "@/lib/format";
 import { safeHttpsUrl } from "@/lib/safe-url";
@@ -90,6 +89,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     setSubmitting(false);
     if (result.ok) {
       if (preview) {
+        const { isMockCheckoutUrl } = await import("@niho-experience/api-client/mock");
         if (!isMockCheckoutUrl(result.checkoutUrl)) { setProblem("The preview checkout returned an unexpected address."); return; }
         router.push("/preview/checkout");
       } else window.location.assign(result.checkoutUrl);
