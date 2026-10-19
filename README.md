@@ -26,6 +26,7 @@ NIHOの共通基盤が、提供者ログイン、権限、商品管理、予約�
 既存のNIHOアカウントと販売者口座を活用します。
 
 - [構成・データ境界](docs/architecture.md)
+- [公開API契約（仮契約）](docs/api-contract.md)
 - [デザイン方針](docs/design-brief.md) / [デザインシステムと画面仕様](docs/design-system.md)
 - [技術構成の判断（ADR 0001）](docs/adr/0001-web-stack.md) / [開発手順](docs/development.md)
 - [検索公開の方針](docs/seo.md) / [予約ファネルのイベント](docs/analytics-events.md) / [公開受入と配備・停止の手順](docs/release-acceptance.md)
