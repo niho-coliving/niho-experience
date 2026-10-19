@@ -12,3 +12,6 @@ next-env.d.ts
 playwright-report/
 test-results/
 .vercel/
+# One lockfile at the repo root (npm workspaces). Packages must not have their own.
+apps/*/package-lock.json
+packages/*/package-lock.json

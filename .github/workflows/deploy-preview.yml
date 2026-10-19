@@ -1,0 +1,145 @@
+# Deploys main to the preview Cloud Run service: sample data only (mock API),
+# never indexed, nothing can be booked. See docs/deploy-setup.md.
+#
+# - Authenticates to Google Cloud with GitHub OIDC (Workload Identity Federation).
+#   No service-account keys are stored anywhere.
+# - Only main can deploy (enforced by the "preview" environment and by the
+#   identity provider's condition on the Google side).
+# - Skips itself until the repository variables from the setup script exist.
+name: Deploy preview
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-preview
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: vars.GCP_PROJECT_ID != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      IMAGE: web:${{ github.sha }}
+      ARTIFACT_NAME: preview-image-${{ github.run_id }}-${{ github.run_attempt }}
+    outputs:
+      image_sha256: ${{ steps.image.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build -t "$IMAGE" .
+      - name: Smoke test image
+        run: sh scripts/container-smoke.sh "$IMAGE"
+      - name: Save image artifact
+        id: image
+        run: |
+          docker save --output image.tar "$IMAGE"
+          echo "sha256=$(sha256sum image.tar | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: image.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  deploy:
+    needs: build
+    if: vars.GCP_PROJECT_ID != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      SERVICE: niho-experience-preview
+      RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/web:${{ github.sha }}
+      ARTIFACT_NAME: preview-image-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      # This job receives only the image artifact. It does not check out or run repository code.
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: .
+      - name: Verify and load image artifact
+        env:
+          EXPECTED_IMAGE_SHA256: ${{ needs.build.outputs.image_sha256 }}
+        run: |
+          printf '%s  image.tar\n' "$EXPECTED_IMAGE_SHA256" | sha256sum --check --status
+          docker load --input image.tar
+          docker tag "web:${GITHUB_SHA}" "$IMAGE"
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Push image
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          describe_url() {
+            gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)' 2>/dev/null || true
+          }
+          url="$(describe_url)"
+          env_vars="EXPERIENCE_API_MODE=mock,SITE_INDEXING=block,BOOKINGS_ENABLED=true,HOST_SIGNUP_MODE=pilot"
+          if [ -n "$url" ]; then env_vars="${env_vars},SITE_URL=${url}"; fi
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --image "$IMAGE" \
+            --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+            --no-invoker-iam-check \
+            --port 8080 \
+            --cpu 1 \
+            --memory 512Mi \
+            --min-instances 0 \
+            --max-instances 2 \
+            --set-env-vars "$env_vars" \
+            --labels "app=niho-experience,env=preview,commit=${GITHUB_SHA::12}" \
+            --quiet
+          if [ -z "$url" ]; then
+            # First deploy: the URL exists only now, so record it for canonical links.
+            url="$(describe_url)"
+            gcloud run services update "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
+              --update-env-vars "SITE_URL=${url}" --quiet
+          fi
+          echo "url=${url}" >> "$GITHUB_OUTPUT"
+
+      - name: Check the live preview
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          for path in / /experiences /host; do
+            curl -fsS -o /dev/null --retry 5 --retry-all-errors "${URL}${path}"
+            echo "ok   ${path}"
+          done
+          curl -fsS "${URL}/robots.txt" | grep -qF "Disallow: /"
+          echo "ok   robots.txt blocks indexing"
+          echo "### Preview: ${URL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"

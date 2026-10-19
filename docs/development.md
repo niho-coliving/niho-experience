@@ -87,4 +87,4 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 | `packages/api-client/contract/`、fixtureの構造 | 担当2（契約・NIHO連携、#7）。契約は `docs/api-contract.md` とOpenAPIを正とする |
 | 英語文言・商品の事実 | 担当3（商品・集客）。現在の文言は合成例 |
 
-依存を追加・更新する時は lockfile ごと担当1のPRにまとめる。`playwright-core` は `@axe-core/playwright` が別版を引き込まないよう root の `overrides` で `@playwright/test` と同じ版に揃えている。
+lockfileはrootの `package-lock.json` 1つだけ。パッケージのフォルダで `npm install` / `npm ci` をせず、rootで `npm install -w <パッケージ名> <依存>` のように入れる。依存を追加・更新する時は lockfile ごと担当1のPRにまとめる。`playwright-core` は `@axe-core/playwright` が別版を引き込まないよう root の `overrides` で `@playwright/test` と同じ版に揃えている。
