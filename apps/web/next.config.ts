@@ -19,7 +19,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       // Next.js inlines its bootstrap script. A nonce-based policy is planned with #12/#15.
       `script-src 'self' 'unsafe-inline' https://cloud.umami.is${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_NIHO_WEB_ORIGIN ?? "https://niho.life"} https://cloud.umami.is`,
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_NIHO_WEB_ORIGIN ?? "https://niho.life"} https://gateway.umami.is`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self' https://checkout.stripe.com",
