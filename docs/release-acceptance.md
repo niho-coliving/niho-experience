@@ -20,7 +20,7 @@
 
 | 項目 | 担当 | 確認方法 |
 | --- | --- | --- |
-| 360px・320px・デスクトップで一覧→詳細→予約→決済→復帰が通る | 画面 | 自動（E2E）＋実機（iPhone Safari・Android Chrome）で1回ずつ |
+| 360px・320px・デスクトップで一覧→詳細→予約入力→NIHOのcheckoutへ進める | 画面 | 自動（E2E）＋実機（iPhone Safari・Android Chrome）で1回ずつ |
 | JST・円・料金単位・総額・販売者・取消条件が決済前に分かる | 画面・商品 | 実商品のページで目視 |
 | 満席・停止・価格変更・期限切れ・取消・通信失敗の表示 | 画面 | 自動（mock）＋実API（検証環境）で主要経路 |
 | キーボード・focus・コントラスト・代替文 | 画面 | 自動（axe WCAG 2.2 AA）＋実商品の写真の代替文を目視 |
@@ -65,7 +65,7 @@
 5. トラフィックを新revisionへ移す。Cloudflareでは静的ファイル以外のcacheを使っていないので、通常はpurge不要。
 6. 15分ほどエラー率とログを見る。
 
-環境変数（本番）：`EXPERIENCE_API_MODE=http`、`EXPERIENCE_API_BASE_URL`、`SITE_URL`、`SITE_INDEXING=allow`（受入後）、`BOOKINGS_ENABLED=true`、`HOST_SIGNUP_MODE`、NIHO側の遷移先URL。API接続の資格情報が必要になった場合はSecret Managerから渡し、イメージやリポには入れない。
+環境変数（本番）：`EXPERIENCE_API_MODE=http`、`NEXT_PUBLIC_NIHO_WEB_ORIGIN`、`SITE_URL`、`SITE_INDEXING=allow`（受入後）、`BOOKINGS_ENABLED=true`、`HOST_SIGNUP_MODE`、NIHO側の遷移先URL。API接続の資格情報が必要になった場合はSecret Managerから渡し、イメージやリポには入れない。
 
 ## 戻す
 

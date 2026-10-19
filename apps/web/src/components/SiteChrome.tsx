@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { CONTRACT_VERSION } from "@niho-experience/api-client";
+import { EXPERIENCE_API_CONTRACT } from "@niho-experience/api-client";
 
 export function PreviewBanner() {
   return (
     <div role="note" className="bg-ink text-sm text-white">
       <p className="container-page py-2">
         <strong>Preview with sample data.</strong> Hosts, dates and prices are invented and nothing can be booked.{" "}
-        <span className="text-white/70">API contract {CONTRACT_VERSION} (provisional)</span>
+        <span className="text-white/70">API contract {EXPERIENCE_API_CONTRACT.version} ({EXPERIENCE_API_CONTRACT.status})</span>
       </p>
     </div>
   );

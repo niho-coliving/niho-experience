@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | `/` | トップ | する | `/` |
 | `/experiences` | 一覧 | する | `/experiences` |
-| `/experiences?theme=…&date=…` | 絞り込み | しない（`noindex, follow`。リンクは辿らせる） | `/experiences` |
+| `/experiences?theme=…&date=…` | 旧絞り込みURL | しない（`noindex, follow`。一覧API v0.1に絞り込み項目がないため、画面では絞り込まない） | `/experiences` |
 | `/experiences/{slug}` | 体験詳細 | する | 自分自身 |
 | `/host` | 提供者向け | する | `/host` |
 | `/experiences/{slug}/book` | 予約入力 | しない（`noindex` ＋ `no-store`、robots.txtでも除外） | — |
@@ -36,7 +36,8 @@ Server Componentで描画し、JavaScriptなしで次が読める（E2Eの `seo.
 
 ## 構造化データ
 
-- 体験詳細：`BreadcrumbList`、実データの時だけ `TouristTrip`（題名・要約・URL・掲載許諾済みの写真・言語・テーマ・販売者・料金と空き状態）。
+- 体験詳細：`BreadcrumbList`、HTTP APIの実データの時だけ `TouristTrip`（題名・要約・URL・公開写真・言語・提供者）。予約受付中なら画面に表示する最安の大人料金と販売者を `Offer` に含める。
+- v0.1のSSR詳細応答に残席がないため、構造化データに `availability` を入れない。残席はブラウザから取得し、予約時に再確認する。
 - 合成データ・仮素材の写真では出さない。レビュー・評価・販売実績は実データがあっても、このサイトが表示していない限り出さない。
 - リッチリザルトやAIの回答に載ることは保証しない。
 

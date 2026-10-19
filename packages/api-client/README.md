@@ -1,31 +1,23 @@
 # @niho-experience/api-client
 
-> **仮契約（v0.1.0-draft）**。NIHOのAPIとはまだ合意していない。正本はNIHO側で、[#7](https://github.com/niho-coliving/niho-experience/issues/7) の担当（契約・NIHO連携）が選別した配布物に置き換える。
+NIHO 共通基盤の公開 API（体験の一覧・詳細・残席・ゲスト予約の開始）の、選別された契約・型・クライアント・合成 mock。
+契約の意味・公開範囲・エラーと再送は [docs/api-contract.md](../../docs/api-contract.md) が正。
 
-画面担当が実APIを待たずに開発するための、型・検証・合成データ・mockをまとめたパッケージ。
+**状態：仮契約 v0.1.0（provisional）。** 実 API の接続は NIHO 側の連携A の後。
 
-| ファイル | 内容 |
+| 入口 | 用途 |
 | --- | --- |
-| `src/contract.ts` | zodスキーマと型。公開してよい項目だけを持つ |
-| `src/client.ts` | `ExperienceApi`（サイトが使う5操作）、`withContractValidation`、HTTPクライアントの枠（未接続） |
-| `src/mock/fixtures.ts` | 合成の体験5件（予約可・一部満席・全満席・販売停止・グループ料金） |
-| `src/mock/adapter.ts` | mock実装。JSTで今日から6週間分の開催枠を作る。決済は行わず、模擬決済ページへのURLを返す |
+| `@niho-experience/api-client` | 型・`createExperienceApiClient`・表示と再送の規則（ブラウザ・SSR） |
+| `@niho-experience/api-client/mock` | 合成データの fetch（プレビュー・テストだけ。本番 build で読み込まない） |
+| `@niho-experience/api-client/testing` | 契約の検証器（Node・test だけ） |
 
-## 操作
+```sh
+npm -C packages/api-client ci
+npm -C packages/api-client run check      # 型の drift・型検査・テスト
+npm -C packages/api-client run gen:types  # 契約を変えたとき
+npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life  # 実 API の読み取りを同じ契約で検証
+```
 
-| 操作 | 入力 | 出力 | 備考 |
-| --- | --- | --- | --- |
-| `getCatalog` | area / theme / date（JST） | 体験の要約、掲載のあるテーマ | 掲載済みだけ。下書き・非公開は返さない |
-| `getExperience` | slug | 詳細 または null | 集合はエリア単位の公開情報だけ |
-| `getSlots` | experienceId | 開催枠（JST、状態、単価、受付可能人数） | 表示用。確定は見積 |
-| `createQuote` | experienceId, slotId, guests | 見積（内訳・総額・販売者・取消条件・期限）またはエラー | 価格・在庫・販売者はAPIが決める |
-| `startGuestCheckout` | quoteId, 連絡先, 同意した規約版, idempotency key | Stripe Checkout のURL またはエラー | サイトは `checkout.stripe.com` 以外へ遷移しない |
-
-APIとmockの応答は、どちらも `withContractValidation` で同じスキーマ検証を通す。
-
-## 境界
-
-- ブラウザは金額・販売者・口座を確定しない。画面の金額はAPIの見積を表示し、選択画面の金額は「Estimated」。
-- 連絡先はサーバー側（Server Action）からAPIへ送る。URL・ブラウザ保存・ログ・計測に入れない。エラーは項目名だけを返し、入力値を返さない。
-- 戻りURLは予約成立の証明にしない。成立はwebhookを正としてNIHOが確認する。
-- fixtureは架空のデータだけ。`synthetic: true`、画像は `placeholder: true`。
+- `contract/experience-public-api.openapi.json`：契約（OpenAPI 3.0.3）。`src/generated/openapi.ts` はここから生成する。
+- `contract/public-field-policy.json`：公開してはいけない名前と、要求にだけ置ける個人情報の項目。
+- `src/fixtures/`：架空の体験。`mock-assets/`：仮素材の SVG（`node scripts/write-mock-assets.ts` で再生成）。

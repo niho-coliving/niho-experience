@@ -1,92 +1,239 @@
-import {
-  CatalogSchema,
-  CheckoutRequestSchema,
-  CheckoutResultSchema,
-  ExperienceDetailSchema,
-  QuoteRequestSchema,
-  QuoteResultSchema,
-  SlotListSchema,
-  type Catalog,
-  type CatalogQuery,
-  type CheckoutRequest,
-  type CheckoutResult,
-  type ExperienceDetail,
-  type QuoteRequest,
-  type QuoteResult,
-  type SlotList,
-} from "./contract";
+/**
+ * NIHO 公開 API のクライアント（docs/api-contract.md）。認証・cookie を使わず、旅行者の入力をログ・URL に載せない。
+ *
+ * - 一覧・詳細は SSR から読んでよい。残席と checkout はブラウザから読む（checkout はサーバーから代理送信しない）。
+ * - 応答の形は信頼境界の外なので、遷移先 URL など危険な値は使う前に確かめる。
+ */
+import type {
+  ExperienceAvailabilityResponse,
+  ExperienceCatalogResponse,
+  ExperienceCheckoutError,
+  ExperienceCheckoutRequest,
+  ExperienceDetailResponse,
+  CheckoutErrorCode,
+  OfferId,
+  RegionKey,
+} from "./types.ts";
 
-/** Operations the public site needs. Adapters: mock (now) and HTTP (after #7 / NIHO integration A). */
-export interface ExperienceApi {
-  readonly mode: "mock" | "http";
-  getCatalog(query: CatalogQuery): Promise<Catalog>;
-  /** Resolves null when the experience is not published. */
-  getExperience(slug: string): Promise<ExperienceDetail | null>;
-  getSlots(experienceId: string): Promise<SlotList>;
-  createQuote(request: QuoteRequest): Promise<QuoteResult>;
-  startGuestCheckout(request: CheckoutRequest): Promise<CheckoutResult>;
-}
+export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-/** Thrown when an adapter cannot be reached or returns data outside the contract. */
-export class ExperienceApiUnavailableError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "ExperienceApiUnavailableError";
+export type ExperienceApiClientOptions = {
+  /** NIHO の公開 Web origin（例: https://niho.life）。末尾の `/` は不要。 */
+  nihoWebOrigin: string;
+  /** 既定は globalThis.fetch。mock は `@niho-experience/api-client/mock` の createMockExperienceFetch。 */
+  fetch?: FetchLike;
+  /** 1 回の要求の待ち時間の上限（既定 10 秒）。 */
+  timeoutMs?: number;
+  /**
+   * 一覧・詳細（共有キャッシュしてよい公開投影）を読むときだけ fetch に足す設定（例: Next.js の `{ next: { revalidate: 60 } }`）。
+   * 省略時は `cache: "no-store"`。残席・checkout には使わない。応答の `Cache-Control` より長く保持しない。
+   */
+  cacheableReadInit?: RequestInit;
+};
+
+export type ReadFailure =
+  | { ok: false; kind: "not_found" }
+  | { ok: false; kind: "invalid_request"; message: string }
+  | { ok: false; kind: "network_error" }
+  | { ok: false; kind: "unexpected_response"; status: number };
+
+export type ReadResult<T> = { ok: true; data: T } | ReadFailure;
+
+export type CheckoutResult =
+  | { ok: true; checkoutUrl: string }
+  | { ok: false; kind: "not_found" }
+  | { ok: false; kind: "rejected"; status: number; error: ExperienceCheckoutError; retryAfterSeconds: number | null }
+  | { ok: false; kind: "network_error" }
+  | { ok: false; kind: "unexpected_response"; status: number };
+
+const DEFAULT_TIMEOUT_MS = 10_000;
+const STRIPE_CHECKOUT_ORIGIN = "https://checkout.stripe.com";
+
+function normalizeOrigin(value: string): string {
+  const url = new URL(value);
+  if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+    throw new Error("nihoWebOrigin must be https");
   }
-}
-
-function parseOrThrow<T>(schema: { safeParse(v: unknown): { success: true; data: T } | { success: false; error: unknown } }, value: unknown, op: string): T {
-  const result = schema.safeParse(value);
-  if (!result.success) {
-    throw new ExperienceApiUnavailableError(`${op}: response does not match contract`, { cause: result.error });
+  if (url.pathname !== "/" || url.search || url.hash || url.username || url.password) {
+    throw new Error("nihoWebOrigin must be an origin without path");
   }
-  return result.data;
+  return url.origin;
 }
 
 /**
- * Validates requests and responses of any adapter against the same contract,
- * so the mock cannot drift from what the real API will be checked against.
+ * checkout の応答の遷移先として受け付ける URL か。Stripe の Checkout か、NIHO の origin の予約確認ページだけ。
+ * 想定外の URL（別ドメイン・javascript: 等）には遷移しない。
  */
-export function withContractValidation(api: ExperienceApi): ExperienceApi {
+export function isAllowedCheckoutRedirect(candidate: string, nihoWebOrigin: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(candidate);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" || url.username || url.password) return false;
+  if (url.origin === STRIPE_CHECKOUT_ORIGIN) return true;
+  return url.origin === normalizeOrigin(nihoWebOrigin) && /^\/living\/[^/]+\/pages\/[^/]+\/bookings\/[^/]+$|^\/experiences\/bookings\/[^/]+$/.test(url.pathname);
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const CHECKOUT_ERROR_STATUS: Record<CheckoutErrorCode, number> = {
+  VALIDATION_ERROR: 400,
+  INPUT_INVALID: 422,
+  CONSENT_OUTDATED: 422,
+  OCCURRENCE_INVALID: 422,
+  ANSWERS_INVALID: 422,
+  UNAVAILABLE: 409,
+  FULL: 409,
+  HOLD_LIMIT: 409,
+  REQUEST_MISMATCH: 409,
+  QUESTIONS_CHANGED: 409,
+  PRICE_CHANGED: 409,
+  RATE_LIMITED: 429,
+  CHECKOUT_UNAVAILABLE: 503,
+};
+
+const CHECKOUT_ERROR_FIELDS = ["code", "message", "retryable", "field", "questionId", "seatsLeft", "occurrenceReason", "currentTotalYen"];
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isNullableNonNegativeInteger(value: unknown): value is number | null {
+  return value === null || (Number.isInteger(value) && (value as number) >= 0);
+}
+
+function isCheckoutError(value: unknown, status: number): value is ExperienceCheckoutError {
+  if (!isObject(value) || typeof value.code !== "string" || !Object.prototype.hasOwnProperty.call(CHECKOUT_ERROR_STATUS, value.code)) return false;
+  const code = value.code as CheckoutErrorCode;
+  return (
+    CHECKOUT_ERROR_STATUS[code] === status &&
+    Object.keys(value).every((field) => CHECKOUT_ERROR_FIELDS.includes(field)) &&
+    typeof value.message === "string" &&
+    typeof value.retryable === "boolean" &&
+    isNullableString(value.field) &&
+    isNullableString(value.questionId) &&
+    isNullableNonNegativeInteger(value.seatsLeft) &&
+    (value.occurrenceReason === null || ["NOT_SCHEDULED", "CUTOFF", "UNAVAILABLE"].includes(String(value.occurrenceReason))) &&
+    isNullableNonNegativeInteger(value.currentTotalYen)
+  );
+}
+
+function hasExperienceCatalogShape(value: unknown): boolean {
+  return isObject(value) && Array.isArray(value.experiences) && value.experiences.every((experience) =>
+    isObject(experience) && typeof experience.slug === "string" && typeof experience.title === "string" && isObject(experience.provider),
+  );
+}
+
+function hasExperienceDetailShape(value: unknown): boolean {
+  return isObject(value) && isObject(value.experience) &&
+    typeof value.experience.slug === "string" && typeof value.experience.title === "string" &&
+    isObject(value.experience.provider) && Array.isArray(value.experience.offers) &&
+    value.experience.offers.every(isObject);
+}
+
+function hasAvailabilityShape(value: unknown): boolean {
+  return isObject(value) && Array.isArray(value.occurrences) && value.occurrences.every((occurrence) =>
+    isObject(occurrence) && typeof occurrence.offerId === "string" && typeof occurrence.date === "string" &&
+    typeof occurrence.bookable === "boolean" && Number.isInteger(occurrence.seatsLeft),
+  );
+}
+
+export function createExperienceApiClient(options: ExperienceApiClientOptions) {
+  const origin = normalizeOrigin(options.nihoWebOrigin);
+  const fetchImpl: FetchLike = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  async function request(path: string, init: RequestInit, cacheable = false): Promise<Response | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const cacheInit: RequestInit = cacheable && options.cacheableReadInit ? options.cacheableReadInit : { cache: "no-store" };
+    try {
+      return await fetchImpl(`${origin}${path}`, {
+        ...cacheInit,
+        ...init,
+        credentials: "omit",
+        redirect: "error",
+        referrerPolicy: "no-referrer",
+        signal: controller.signal,
+      });
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function readJson<T>(path: string, cacheable: boolean, hasExpectedShape: (body: unknown) => boolean): Promise<ReadResult<T>> {
+    const response = await request(path, { method: "GET", headers: { accept: "application/json" } }, cacheable);
+    if (!response) return { ok: false, kind: "network_error" };
+    if (response.status === 404) return { ok: false, kind: "not_found" };
+    if (response.status === 400) {
+      const body: unknown = await response.json().catch(() => null);
+      const message = isObject(body) && isObject(body.error) && typeof body.error.message === "string" ? body.error.message : "invalid request";
+      return { ok: false, kind: "invalid_request", message };
+    }
+    if (response.status !== 200) return { ok: false, kind: "unexpected_response", status: response.status };
+    const body: unknown = await response.json().catch(() => undefined);
+    if (!hasExpectedShape(body)) return { ok: false, kind: "unexpected_response", status: response.status };
+    return { ok: true, data: body as T };
+  }
+
   return {
-    mode: api.mode,
-    async getCatalog(query) {
-      return parseOrThrow(CatalogSchema, await api.getCatalog(query), "getCatalog");
+    /** 掲載中の体験の一覧（SSR 可）。 */
+    listExperiences(params: { region?: RegionKey } = {}): Promise<ReadResult<ExperienceCatalogResponse>> {
+      const query = params.region ? `?region=${encodeURIComponent(params.region)}` : "";
+      return readJson(`/api/public/experiences${query}`, true, hasExperienceCatalogShape);
     },
-    async getExperience(slug) {
-      const detail = await api.getExperience(slug);
-      return detail === null ? null : parseOrThrow(ExperienceDetailSchema, detail, "getExperience");
+
+    /** 体験の詳細（SSR 可）。 */
+    getExperience(slug: string): Promise<ReadResult<ExperienceDetailResponse>> {
+      return readJson(`/api/public/experiences/${encodeURIComponent(slug)}`, true, hasExperienceDetailShape);
     },
-    async getSlots(experienceId) {
-      return parseOrThrow(SlotListSchema, await api.getSlots(experienceId), "getSlots");
+
+    /** 開催回と残席（ブラウザから。キャッシュしない）。 */
+    getAvailability(slug: string, params: { offerId?: OfferId } = {}): Promise<ReadResult<ExperienceAvailabilityResponse>> {
+      const query = params.offerId ? `?offerId=${encodeURIComponent(params.offerId)}` : "";
+      return readJson(`/api/public/experiences/${encodeURIComponent(slug)}/availability${query}`, false, hasAvailabilityShape);
     },
-    async createQuote(request) {
-      const req = QuoteRequestSchema.parse(request);
-      return parseOrThrow(QuoteResultSchema, await api.createQuote(req), "createQuote");
-    },
-    async startGuestCheckout(request) {
-      const req = CheckoutRequestSchema.parse(request);
-      return parseOrThrow(CheckoutResultSchema, await api.startGuestCheckout(req), "startGuestCheckout");
+
+    /**
+     * ゲスト予約の開始（ブラウザから）。成功したら `checkoutUrl` へ遷移する。
+     * 通信失敗（`network_error`）は同じ body・同じ `clientRequestKey` で再送してよい。
+     */
+    async startCheckout(slug: string, body: ExperienceCheckoutRequest): Promise<CheckoutResult> {
+      const response = await request(`/api/public/experiences/${encodeURIComponent(slug)}/checkout`, {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response) return { ok: false, kind: "network_error" };
+      if (response.status === 404) return { ok: false, kind: "not_found" };
+      const parsed: unknown = await response.json().catch(() => undefined);
+      if (response.status === 201) {
+        const checkoutUrl = isObject(parsed) ? parsed.checkoutUrl : undefined;
+        if (typeof checkoutUrl === "string" && isAllowedCheckoutRedirect(checkoutUrl, origin)) {
+          return { ok: true, checkoutUrl };
+        }
+        return { ok: false, kind: "unexpected_response", status: response.status };
+      }
+      const error = isObject(parsed) ? parsed.error : undefined;
+      if (isCheckoutError(error, response.status)) {
+        const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
+        return {
+          ok: false,
+          kind: "rejected",
+          status: response.status,
+          error,
+          retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
+        };
+      }
+      return { ok: false, kind: "unexpected_response", status: response.status };
     },
   };
 }
 
-/**
- * Placeholder for the real connection. Endpoint names, auth between the site
- * server and NIHO, and origin rules are decided in #7 with the contract lane.
- */
-export function createHttpExperienceApi(_options: { baseUrl: string }): ExperienceApi {
-  const notConnected = async (): Promise<never> => {
-    throw new ExperienceApiUnavailableError(
-      "HTTP adapter is not connected yet. The public API contract is pending (issue #7 / NIHO integration A).",
-    );
-  };
-  return {
-    mode: "http",
-    getCatalog: notConnected,
-    getExperience: notConnected,
-    getSlots: notConnected,
-    createQuote: notConnected,
-    startGuestCheckout: notConnected,
-  };
-}
+export type ExperienceApiClient = ReturnType<typeof createExperienceApiClient>;

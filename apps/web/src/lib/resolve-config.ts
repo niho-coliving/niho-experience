@@ -5,7 +5,7 @@ export function resolveConfig(env: Env) {
   const apiMode = env.EXPERIENCE_API_MODE === "http" ? "http" : "mock";
   return {
     apiMode,
-    apiBaseUrl: env.EXPERIENCE_API_BASE_URL ?? "",
+    nihoWebOrigin: env.NEXT_PUBLIC_NIHO_WEB_ORIGIN ?? "https://niho.life",
     mockLatencyMs: Number(env.MOCK_LATENCY_MS ?? 0) || 0,
     siteUrl: (env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, ""),
     // Synthetic data must never be indexed, even if SITE_INDEXING is set by mistake.

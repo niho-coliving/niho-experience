@@ -4,10 +4,10 @@ import { expect, test } from "@playwright/test";
 const PAGES = [
   "/",
   "/experiences",
-  "/experiences/neighborhood-dinner-table",
-  "/experiences/fish-market-breakfast",
+  "/experiences/home-cooked-dinner-with-locals",
+  "/experiences/indigo-dyeing-with-an-artisan",
   "/host",
-  "/booking/return?result=success&experience=neighborhood-dinner-table",
+  "/booking/return",
   "/preview/states",
 ];
 
@@ -24,8 +24,8 @@ test.describe("320px narrow phone", () => {
   }
 
   test("booking form fits and its main button is reachable", async ({ page }) => {
-    await page.goto("/experiences/neighborhood-dinner-table");
-    await page.locator('input[name="slot"]:not([disabled])').first().check();
+    await page.goto("/experiences/home-cooked-dinner-with-locals/book");
+    await page.locator('input[name="occurrence"]:not([disabled])').first().check();
     await page.getByRole("button", { name: "Continue" }).click();
     const button = page.getByRole("button", { name: "Continue to mock payment" });
     await button.scrollIntoViewIfNeeded();
@@ -36,11 +36,11 @@ test.describe("320px narrow phone", () => {
   });
 });
 
-for (const path of [...PAGES, "/experiences/neighborhood-dinner-table/book"]) {
+for (const path of [...PAGES, "/experiences/home-cooked-dinner-with-locals/book"]) {
   test(`no serious accessibility violations on ${path}`, async ({ page }) => {
     if (path.endsWith("/book")) {
-      await page.goto("/experiences/neighborhood-dinner-table");
-      await page.locator('input[name="slot"]:not([disabled])').first().check();
+      await page.goto("/experiences/home-cooked-dinner-with-locals/book");
+      await page.locator('input[name="occurrence"]:not([disabled])').first().check();
       await page.getByRole("button", { name: "Continue" }).click();
       await page.getByRole("button", { name: "Continue to mock payment" }).waitFor();
     } else {

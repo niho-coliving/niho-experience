@@ -1,55 +1,53 @@
 import type { ExperienceDetail } from "@niho-experience/api-client";
+import { safeHttpsUrl } from "./safe-url";
 
 type JsonLd = Record<string, unknown>;
-
-const AVAILABILITY: Record<ExperienceDetail["availability"]["status"], string | null> = {
-  bookable: "https://schema.org/InStock",
-  sold_out: "https://schema.org/SoldOut",
-  no_upcoming_dates: null,
-  paused: null,
-};
 
 export function breadcrumbJsonLd(siteUrl: string, items: { name: string; path: string }[]): JsonLd {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: items.map((item, i) => ({ "@type": "ListItem", position: i + 1, name: item.name, item: `${siteUrl}${item.path}` })),
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: `${siteUrl}${item.path}`,
+    })),
   };
 }
 
-/**
- * Describes only what the page shows. Returns null for synthetic listings.
- * Never adds ratings, reviews or sales counts (#12).
- */
-export function experienceJsonLd(e: ExperienceDetail, siteUrl: string): JsonLd | null {
-  if (e.synthetic) return null;
-  const url = `${siteUrl}/experiences/${e.slug}`;
-  const images = [e.heroImage, ...e.gallery].filter((img) => !img.placeholder).map((img) => img.url);
-  const availability = AVAILABILITY[e.availability.status];
+/** Public details can be described in production. Preview fixtures are never emitted as real structured data. */
+export function experienceJsonLd(e: ExperienceDetail, siteUrl: string, preview = false): JsonLd | null {
+  if (preview) return null;
+  const url = safeHttpsUrl(e.canonicalUrl) ?? `${siteUrl}/experiences/${e.slug}`;
+  const images = [e.cover, ...e.photos]
+    .filter((image): image is NonNullable<typeof image> => image !== null)
+    .map((image) => safeHttpsUrl(image.url))
+    .filter((image): image is string => image !== null);
+  const lowestAdultPrice = Math.min(...e.offers.map((offer) => offer.pricing.adultPriceYen));
+
   return {
     "@context": "https://schema.org",
     "@type": "TouristTrip",
     name: e.title,
-    description: e.summary,
+    description: e.lead,
     url,
     ...(images.length ? { image: images } : {}),
-    inLanguage: e.languages,
-    touristType: e.themes.map((t) => t.label),
-    provider: { "@type": "Organization", name: e.seller.displayName },
-    ...(availability
+    inLanguage: e.contentLanguage.toLowerCase(),
+    provider: { "@type": "Organization", name: e.provider.name },
+    ...(e.booking.checkoutAvailable && e.offers.length
       ? {
           offers: {
             "@type": "Offer",
             url,
-            price: e.price.from.amount,
-            priceCurrency: e.price.from.currency,
-            availability,
-            ...(e.availability.nextStartsAt ? { validFrom: e.availability.nextStartsAt } : {}),
+            price: lowestAdultPrice,
+            priceCurrency: "JPY",
+            seller: { "@type": "Organization", name: e.seller.displayName },
           },
         }
       : {}),
   };
 }
 
-/** Serialises for a <script type="application/ld+json"> without allowing "</script>" breakouts. */
+/** Escapes script-breaking characters before embedding JSON in HTML. */
 export const serializeJsonLd = (data: JsonLd) => JSON.stringify(data).replace(/</g, "\\u003c");

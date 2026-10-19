@@ -8,7 +8,7 @@ import type { NextConfig } from "next";
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   // Keeps booking URLs out of the Referer sent to Stripe or other sites.
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Referrer-Policy", value: "no-referrer" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
   {
     key: "Content-Security-Policy",
@@ -19,7 +19,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       // Next.js inlines its bootstrap script. A nonce-based policy is planned with #12/#15.
       `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
-      "connect-src 'self'",
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_NIHO_WEB_ORIGIN ?? "https://niho.life"}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self' https://checkout.stripe.com",

@@ -12,24 +12,24 @@
 
 | イベント | いつ | 値 |
 | --- | --- | --- |
-| `list_view` | 一覧を表示（絞り込みを変えた時も） | `theme`（`all` または slug）、`date_filtered`、`result_count` |
-| `experience_view` | 詳細を表示 | `experience`（slug）、`availability`（`bookable` / `sold_out` / `paused` / `no_upcoming_dates`） |
+| `list_view` | 一覧を表示 | `theme`（v0.1では `all`）、`date_filtered`（v0.1では `false`）、`result_count` |
+| `experience_view` | 詳細を表示 | `experience`（slug）。v0.1のSSR詳細応答には残席がないため、availability は送らない |
 | `slot_continue` | 日時・人数を選び「Continue」 | `experience`、`guests` |
 | `booking_form_view` | 見積が取れて予約入力を表示 | `experience`、`guests`、`total_jpy` |
 | `booking_unavailable` | 見積が取れず予約入力を出せない | `experience`、`error_code` |
 | `checkout_start` | 予約入力で決済へ進むボタンを押した（入力不備でも1回） | `experience`、`guests`、`total_jpy` |
 | `checkout_error` | 決済へ進めなかった | `experience`、`error_code`（`invalid_contact` / `slot_sold_out` / `unavailable` 等） |
-| `payment_return` | 決済ページから戻った | `experience`、`result`（`submitted` / `cancelled` / `unknown`） |
 | `host_view` | 提供者向けページを表示 | `signup_mode`（`pilot` / `open`） |
 | `host_start` | 提供者の開始・問い合わせリンクを押した | `signup_mode` |
 
-`payment_return` の `submitted` は「決済ページから成功側へ戻った」だけで、予約成立ではない。
+決済後の確認・復帰はNIHOが担当するため、このサイトでは支払結果のイベントを数えない。
 
 ## 個人情報を送らない仕組み
 
 - イベントごとに許可した値だけを残し、それ以外は捨てる。
 - 文字列は英小文字・数字・`-`・`_` の64文字以内だけを通す。氏名・メール・電話・メモ・URL・tokenは形の時点で落ちる。
 - 予約入力の値、見積ID、idempotency key、URLのquery はイベントに含めない。
+- v0.1の公開APIは一覧のテーマ/日付絞り込みやSSR残席を返さないため、それらを実行した扱いのイベント値を作らない。
 - 計測ツールを入れる時は、ページビューのURLから `/experiences/*/book` と `/booking/*` のqueryを取り除く。session replay（画面録画）は予約入力・決済復帰で使わない。
 - 計測の失敗や拒否で予約が止まらない（送信は投げっぱなしで、例外を握りつぶす）。
 

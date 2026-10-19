@@ -13,7 +13,7 @@ describe("funnel events", () => {
   it("drops personal or free-text values even in allowed fields", () => {
     const { props } = sanitize("checkout_error", { experience: "guest@example.com", error_code: "Sample Guest" });
     expect(props).toEqual({});
-    expect(sanitize("payment_return", { experience: "https://x.example/?token=abc", result: "submitted" }).props).toEqual({ result: "submitted" });
+    expect(sanitize("experience_view", { experience: "https://x.example/?token=abc" }).props).toEqual({});
     expect(sanitize("slot_continue", { guests: Number.NaN }).props).toEqual({});
   });
 

@@ -1,0 +1,914 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NIHO Experience Public API",
+    "version": "0.1.0",
+    "description": "niho-experience が使う NIHO 共通基盤の公開 API の仮契約。正本は NIHO 側の OpenAPI で、合意後は NIHO が選別して配布する版に置き換える。ここに無い項目・操作は使わない。",
+    "x-niho-contract-status": "provisional",
+    "x-niho-contract-source": "niho-experience#7 (provisional) / niho-app contracts/openapi.yaml (canonical after agreement)"
+  },
+  "servers": [
+    {
+      "url": "{nihoWebOrigin}",
+      "description": "NIHO の公開 Web origin。本番・stg の値は配備設定で渡す。API へ直接つながず、この origin の /api を使う。",
+      "variables": {
+        "nihoWebOrigin": {
+          "default": "https://niho.life"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "ExperiencePublic",
+      "description": "認証なしで使える体験の公開投影と、ゲスト予約の開始。"
+    }
+  ],
+  "paths": {
+    "/api/public/experiences": {
+      "get": {
+        "operationId": "listExperiences",
+        "tags": ["ExperiencePublic"],
+        "summary": "掲載中の体験の一覧",
+        "description": "体験サイトへ掲載中の体験だけを返す。下書き・審査中・掲載停止・販売者の準備が外れた体験は含めない。残席は含めない（availability を使う）。",
+        "security": [],
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "description": "地域キー。省略時は全地域。",
+            "schema": { "$ref": "#/components/schemas/RegionKey" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "掲載中の体験の一覧（0 件のときは空配列）。",
+            "headers": {
+              "Cache-Control": { "$ref": "#/components/headers/SharedCacheControl" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExperienceCatalogResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/public/experiences/{experienceSlug}": {
+      "get": {
+        "operationId": "getExperience",
+        "tags": ["ExperiencePublic"],
+        "summary": "体験の詳細",
+        "description": "SSR・SEO 用の公開本文と商品条件。残席は含めない。掲載中でない体験は存在の有無を区別せず 404。",
+        "security": [],
+        "parameters": [{ "$ref": "#/components/parameters/ExperienceSlug" }],
+        "responses": {
+          "200": {
+            "description": "体験の詳細。",
+            "headers": {
+              "Cache-Control": { "$ref": "#/components/headers/SharedCacheControl" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExperienceDetailResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/public/experiences/{experienceSlug}/availability": {
+      "get": {
+        "operationId": "getExperienceAvailability",
+        "tags": ["ExperiencePublic"],
+        "summary": "開催回と残席",
+        "description": "今日（日本時間）から 90 日の開催回。共有キャッシュしない。表示用の目安で、席の確保は checkout が行う。",
+        "security": [],
+        "parameters": [
+          { "$ref": "#/components/parameters/ExperienceSlug" },
+          {
+            "name": "offerId",
+            "in": "query",
+            "required": false,
+            "description": "商品を絞る。省略時は全商品。",
+            "schema": { "$ref": "#/components/schemas/OfferId" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "開催回の一覧。",
+            "headers": {
+              "Cache-Control": { "$ref": "#/components/headers/NoStoreCacheControl" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExperienceAvailabilityResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/public/experiences/{experienceSlug}/checkout": {
+      "post": {
+        "operationId": "startExperienceCheckout",
+        "tags": ["ExperiencePublic"],
+        "summary": "ゲスト予約の開始（席の仮押さえと Stripe Checkout）",
+        "description": "旅行者のブラウザから直接送る（サーバーから代理送信しない。IP の制限が旅行者ごとに効くようにするため）。`credentials: \"omit\"`。金額・販売者・決済口座は NIHO が決める。成功時は NIHO が用意した Stripe の URL へ遷移し、決済後は NIHO の予約確認ページへ戻る。",
+        "security": [],
+        "parameters": [{ "$ref": "#/components/parameters/ExperienceSlug" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExperienceCheckoutRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "仮押さえ済み。`checkoutUrl` へ遷移する。同じ `clientRequestKey` と同じ内容の再送も同じ URL を返す。",
+            "headers": {
+              "Cache-Control": { "$ref": "#/components/headers/NoStoreCacheControl" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExperienceCheckoutResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/CheckoutError" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/CheckoutError" },
+          "422": { "$ref": "#/components/responses/CheckoutError" },
+          "429": {
+            "description": "IP ごとの申込回数の上限。`Retry-After` 秒後に再試行できる。",
+            "headers": {
+              "Retry-After": {
+                "description": "再試行できるまでの秒数。",
+                "schema": { "type": "integer", "minimum": 1 }
+              },
+              "Cache-Control": { "$ref": "#/components/headers/NoStoreCacheControl" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExperienceCheckoutErrorResponse" }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/CheckoutError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "ExperienceSlug": {
+        "name": "experienceSlug",
+        "in": "path",
+        "required": true,
+        "description": "体験サイトでの体験の slug（NIHO の拠点 slug・ページ slug とは別）。",
+        "schema": { "$ref": "#/components/schemas/ExperienceSlug" }
+      }
+    },
+    "headers": {
+      "SharedCacheControl": {
+        "description": "共有キャッシュしてよい公開投影。`public, max-age=60, stale-while-revalidate=300` を上限とする。",
+        "schema": { "type": "string" }
+      },
+      "NoStoreCacheControl": {
+        "description": "`no-store`。キャッシュ・CDN・ISR に載せない。",
+        "schema": { "type": "string" }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "path / query の形が不正。",
+        "headers": {
+          "Cache-Control": { "$ref": "#/components/headers/NoStoreCacheControl" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/PublicErrorResponse" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "掲載中でない（不存在・下書き・停止・非公開を区別しない）。本文は無い。",
+        "headers": {
+          "Cache-Control": { "$ref": "#/components/headers/NoStoreCacheControl" }
+        }
+      },
+      "CheckoutError": {
+        "description": "申込を受け付けなかった。席も申込も作っていない（REQUEST_MISMATCH を除き、同じ内容で再送しても結果は変わらない）。",
+        "headers": {
+          "Cache-Control": { "$ref": "#/components/headers/NoStoreCacheControl" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ExperienceCheckoutErrorResponse" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ExperienceSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
+        "description": "英小文字・数字・ハイフン（連続しない）。掲載後は変わらない。"
+      },
+      "RegionKey": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"
+      },
+      "OfferId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{1,64}$",
+        "description": "商品の不透明な ID。形を解釈しない。"
+      },
+      "LocalDate": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+        "description": "日本時間（Asia/Tokyo）の日付 `YYYY-MM-DD`。"
+      },
+      "LocalTime": {
+        "type": "string",
+        "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+        "description": "日本時間（Asia/Tokyo）の時刻 `HH:mm`。"
+      },
+      "ContentLanguage": {
+        "type": "string",
+        "enum": ["EN", "JA"],
+        "description": "原稿の言語。v1 の体験サイトは EN の体験だけを掲載する。"
+      },
+      "ProviderKind": {
+        "type": "string",
+        "enum": ["SPOT", "INDIVIDUAL", "BUSINESS"],
+        "description": "体験を提供する人・場の種類。SPOT は NIHO の拠点、INDIVIDUAL は個人、BUSINESS は店舗・事業者。"
+      },
+      "PublicImage": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "EXIF 等を除いた公開用の派生画像（https）。少なくとも応答から 1 時間は有効。永続化・再配信しない。"
+          }
+        }
+      },
+      "Region": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["key", "name"],
+        "properties": {
+          "key": { "$ref": "#/components/schemas/RegionKey" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 }
+        }
+      },
+      "ProviderSummary": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["name", "kind"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "kind": { "$ref": "#/components/schemas/ProviderKind" }
+        }
+      },
+      "PriceFrom": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["amountYen", "unit", "taxIncluded"],
+        "description": "掲載中の商品の大人 1 人の料金の最小値。",
+        "properties": {
+          "amountYen": { "type": "integer", "minimum": 50 },
+          "unit": { "type": "string", "enum": ["PER_ADULT"] },
+          "taxIncluded": { "type": "boolean", "enum": [true] }
+        }
+      },
+      "DurationRange": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["minMinutes", "maxMinutes"],
+        "properties": {
+          "minMinutes": { "type": "integer", "minimum": 15, "maximum": 720 },
+          "maxMinutes": { "type": "integer", "minimum": 15, "maximum": 720 }
+        }
+      },
+      "ExperienceSummary": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "title",
+          "lead",
+          "contentLanguage",
+          "region",
+          "cover",
+          "provider",
+          "priceFrom",
+          "duration",
+          "updatedAt"
+        ],
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/ExperienceSlug" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 95 },
+          "lead": { "type": "string", "maxLength": 400 },
+          "contentLanguage": { "$ref": "#/components/schemas/ContentLanguage" },
+          "region": { "$ref": "#/components/schemas/Region" },
+          "cover": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/PublicImage" }]
+          },
+          "provider": { "$ref": "#/components/schemas/ProviderSummary" },
+          "priceFrom": { "$ref": "#/components/schemas/PriceFrom" },
+          "duration": { "$ref": "#/components/schemas/DurationRange" },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "公開本文・商品条件の最終更新（UTC）。sitemap の lastmod に使える。"
+          }
+        }
+      },
+      "ExperienceCatalogResponse": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["experiences"],
+        "properties": {
+          "experiences": {
+            "type": "array",
+            "maxItems": 200,
+            "items": { "$ref": "#/components/schemas/ExperienceSummary" }
+          }
+        }
+      },
+      "TimelineItem": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["time", "title", "text", "photoIndex"],
+        "properties": {
+          "time": {
+            "type": "string",
+            "pattern": "^(([01][0-9]|2[0-3]):[0-5][0-9])?$",
+            "description": "`HH:mm`（日本時間）または空文字（時刻なし）。"
+          },
+          "title": { "type": "string", "maxLength": 60 },
+          "text": { "type": "string", "maxLength": 200 },
+          "photoIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true,
+            "description": "`photos[]` の位置。写真なしは null。"
+          }
+        }
+      },
+      "MeetingPoint": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["name", "address", "accessNote", "entranceNote", "mapUrl", "exteriorPhotoIndex"],
+        "description": "集合場所を公開してよい体験だけに入る。",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "address": { "type": "string", "nullable": true, "maxLength": 300 },
+          "accessNote": { "type": "string", "nullable": true, "maxLength": 400 },
+          "entranceNote": { "type": "string", "nullable": true, "maxLength": 400 },
+          "mapUrl": { "type": "string", "nullable": true, "description": "地図サービスへの https リンク。" },
+          "exteriorPhotoIndex": { "type": "integer", "minimum": 0, "nullable": true }
+        }
+      },
+      "Host": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["displayName", "avatar"],
+        "description": "迎える人。表示名と顔写真だけ。",
+        "properties": {
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "avatar": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/PublicImage" }]
+          }
+        }
+      },
+      "Provider": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["name", "kind", "tagline", "logo"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "kind": { "$ref": "#/components/schemas/ProviderKind" },
+          "tagline": { "type": "string", "nullable": true, "maxLength": 200 },
+          "logo": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/PublicImage" }]
+          }
+        }
+      },
+      "Seller": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["displayName", "legalNoticeUrl"],
+        "description": "決済上の販売者（契約の相手）。体験サイトの運営者・サポート窓口と混同して表示しない。",
+        "properties": {
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "legalNoticeUrl": {
+            "type": "string",
+            "description": "特定商取引法に基づく表示（NIHO が用意する https URL）。"
+          }
+        }
+      },
+      "ChildPricing": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["priceYen", "minAge", "maxAge", "adultRequired"],
+        "properties": {
+          "priceYen": { "type": "integer", "minimum": 0 },
+          "minAge": { "type": "integer", "minimum": 0, "maximum": 17 },
+          "maxAge": { "type": "integer", "minimum": 0, "maximum": 17 },
+          "adultRequired": { "type": "boolean", "description": "子どもだけの申込を受けない。" }
+        }
+      },
+      "OfferPricing": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["currency", "taxIncluded", "adultPriceYen", "child"],
+        "description": "1 人あたりの料金（税込・円）。合計 = 大人 × adultPriceYen + 子ども × child.priceYen。追加料金は無い。",
+        "properties": {
+          "currency": { "type": "string", "enum": ["JPY"] },
+          "taxIncluded": { "type": "boolean", "enum": [true] },
+          "adultPriceYen": { "type": "integer", "minimum": 50 },
+          "child": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/ChildPricing" }],
+            "description": "子ども料金が無い商品は null（子どもの申込を受けない）。"
+          }
+        }
+      },
+      "CancellationPolicy": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["code", "freeCancellationHoursBefore"],
+        "description": "申込時に予約へ固定される。FREE_UNTIL_24H / 48H は開始の 24 / 48 時間前まで全額返金、NONE は返金なし。",
+        "properties": {
+          "code": { "type": "string", "enum": ["FREE_UNTIL_24H", "FREE_UNTIL_48H", "NONE"] },
+          "freeCancellationHoursBefore": { "type": "integer", "enum": [24, 48], "nullable": true }
+        }
+      },
+      "BookingQuestionOption": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["id", "label"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,40}$" },
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 }
+        }
+      },
+      "BookingQuestion": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["id", "prompt", "description", "inputType", "required", "options"],
+        "description": "提供者が書いた申込時の質問（翻訳しない）。回答は提供者に届く。",
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,40}$" },
+          "prompt": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "nullable": true, "maxLength": 300 },
+          "inputType": { "type": "string", "enum": ["SHORT_TEXT", "LONG_TEXT", "SINGLE_SELECT", "MULTI_SELECT"] },
+          "required": { "type": "boolean" },
+          "options": {
+            "type": "array",
+            "maxItems": 8,
+            "items": { "$ref": "#/components/schemas/BookingQuestionOption" },
+            "description": "記述式は空配列、選択式は 2〜8。"
+          }
+        }
+      },
+      "ExperienceOffer": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "shortDescription",
+          "pricing",
+          "capacity",
+          "maxPartySize",
+          "minimumParticipants",
+          "durationMinutes",
+          "startTime",
+          "weekdays",
+          "cancellationPolicy",
+          "acceptanceMode",
+          "bookingQuestions",
+          "bookingQuestionsFingerprint"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/OfferId" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "shortDescription": { "type": "string", "nullable": true, "maxLength": 200 },
+          "pricing": { "$ref": "#/components/schemas/OfferPricing" },
+          "capacity": { "type": "integer", "minimum": 1, "maximum": 500, "description": "1 回の定員。" },
+          "maxPartySize": { "type": "integer", "minimum": 1, "maximum": 500, "description": "1 組の上限人数。" },
+          "minimumParticipants": { "type": "integer", "minimum": 1, "maximum": 500, "description": "1 組の最少人数。" },
+          "durationMinutes": { "type": "integer", "minimum": 15, "maximum": 720 },
+          "startTime": { "$ref": "#/components/schemas/LocalTime" },
+          "weekdays": {
+            "type": "array",
+            "maxItems": 7,
+            "items": { "type": "integer", "minimum": 0, "maximum": 6 },
+            "description": "開催する曜日（0=日 … 6=土）。表示の要約用。実際の開催回は availability。"
+          },
+          "cancellationPolicy": { "$ref": "#/components/schemas/CancellationPolicy" },
+          "acceptanceMode": {
+            "type": "string",
+            "enum": ["INSTANT", "APPROVAL"],
+            "description": "INSTANT は決済で確定。APPROVAL はカードの仮押さえ後に提供者が承認して確定（承認されなければ請求しない）。"
+          },
+          "bookingQuestions": {
+            "type": "array",
+            "maxItems": 5,
+            "items": { "$ref": "#/components/schemas/BookingQuestion" }
+          },
+          "bookingQuestionsFingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "質問の組の SHA-256。checkout へそのまま送る。"
+          }
+        }
+      },
+      "LegalDocument": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["kind", "url"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["TERMS", "PRIVACY", "COMMERCIAL_TRANSACTIONS"] },
+          "url": { "type": "string", "description": "NIHO が用意する https URL。" }
+        }
+      },
+      "BookingTerms": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["checkoutAvailable", "currency", "timeZone", "consentVersion", "legalDocuments"],
+        "properties": {
+          "checkoutAvailable": {
+            "type": "boolean",
+            "description": "今この体験の申込を受け付けるか。false のときは予約の入口を出さない（体験の紹介は出してよい）。"
+          },
+          "currency": { "type": "string", "enum": ["JPY"] },
+          "timeZone": { "type": "string", "enum": ["Asia/Tokyo"] },
+          "consentVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "旅行者が同意する文書の版。checkout の consent.agreedVersion にそのまま送る。"
+          },
+          "legalDocuments": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": { "$ref": "#/components/schemas/LegalDocument" }
+          }
+        }
+      },
+      "ExperienceDetail": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "title",
+          "contentLanguage",
+          "region",
+          "canonicalUrl",
+          "lead",
+          "languageNote",
+          "highlights",
+          "timeline",
+          "description",
+          "included",
+          "notIncluded",
+          "notSuitableFor",
+          "knowBeforeYouGo",
+          "cover",
+          "photos",
+          "meetingPointDisclosure",
+          "meetingPoint",
+          "hosts",
+          "provider",
+          "seller",
+          "offers",
+          "booking",
+          "updatedAt"
+        ],
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/ExperienceSlug" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 95 },
+          "contentLanguage": { "$ref": "#/components/schemas/ContentLanguage" },
+          "region": { "$ref": "#/components/schemas/Region" },
+          "canonicalUrl": {
+            "type": "string",
+            "description": "検索エンジン向けの正規 URL（NIHO が決める）。体験サイトは link rel=canonical にそのまま使う。"
+          },
+          "lead": { "type": "string", "maxLength": 400 },
+          "languageNote": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "当日の言語（提供者の記述。例: English & Japanese）。"
+          },
+          "highlights": {
+            "type": "array",
+            "maxItems": 6,
+            "items": { "type": "string", "maxLength": 120 }
+          },
+          "timeline": {
+            "type": "array",
+            "maxItems": 6,
+            "items": { "$ref": "#/components/schemas/TimelineItem" }
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "プレーンテキスト。段落は空行区切り。HTML・Markdown として解釈しない。"
+          },
+          "included": { "type": "array", "maxItems": 8, "items": { "type": "string", "maxLength": 120 } },
+          "notIncluded": { "type": "array", "maxItems": 8, "items": { "type": "string", "maxLength": 120 } },
+          "notSuitableFor": { "type": "array", "maxItems": 8, "items": { "type": "string", "maxLength": 120 } },
+          "knowBeforeYouGo": { "type": "array", "maxItems": 8, "items": { "type": "string", "maxLength": 200 } },
+          "cover": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/PublicImage" }]
+          },
+          "photos": {
+            "type": "array",
+            "maxItems": 20,
+            "items": { "$ref": "#/components/schemas/PublicImage" }
+          },
+          "meetingPointDisclosure": {
+            "type": "string",
+            "enum": ["PUBLIC", "AFTER_BOOKING"],
+            "description": "AFTER_BOOKING のときは集合場所を出さず「予約確定後に案内」と伝える。"
+          },
+          "meetingPoint": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/MeetingPoint" }]
+          },
+          "hosts": {
+            "type": "array",
+            "maxItems": 4,
+            "items": { "$ref": "#/components/schemas/Host" }
+          },
+          "provider": { "$ref": "#/components/schemas/Provider" },
+          "seller": { "$ref": "#/components/schemas/Seller" },
+          "offers": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": { "$ref": "#/components/schemas/ExperienceOffer" }
+          },
+          "booking": { "$ref": "#/components/schemas/BookingTerms" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        },
+        "not": {
+          "type": "object",
+          "required": ["meetingPointDisclosure", "meetingPoint"],
+          "properties": {
+            "meetingPointDisclosure": { "enum": ["AFTER_BOOKING"] },
+            "meetingPoint": { "type": "object" }
+          },
+          "description": "予約確定後に案内する集合場所は公開応答に含めない。"
+        }
+      },
+      "ExperienceDetailResponse": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["experience"],
+        "properties": {
+          "experience": { "$ref": "#/components/schemas/ExperienceDetail" }
+        }
+      },
+      "Occurrence": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["offerId", "date", "startAt", "endAt", "seatsLeft", "bookable", "reason"],
+        "properties": {
+          "offerId": { "$ref": "#/components/schemas/OfferId" },
+          "date": { "$ref": "#/components/schemas/LocalDate" },
+          "startAt": { "type": "string", "format": "date-time", "description": "UTC。表示は Asia/Tokyo に換算する。" },
+          "endAt": { "type": "string", "format": "date-time" },
+          "seatsLeft": { "type": "integer", "minimum": 0 },
+          "bookable": { "type": "boolean" },
+          "reason": {
+            "type": "string",
+            "enum": ["CUTOFF", "FULL", "UNAVAILABLE"],
+            "nullable": true,
+            "description": "予約できない理由。bookable が true なら null。CUTOFF は締切後、FULL は満席、UNAVAILABLE は受付停止・休業等。"
+          }
+        }
+      },
+      "ExperienceAvailabilityResponse": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["generatedAt", "timeZone", "windowDays", "occurrences"],
+        "properties": {
+          "generatedAt": { "type": "string", "format": "date-time", "description": "残席を数えた時刻（UTC）。" },
+          "timeZone": { "type": "string", "enum": ["Asia/Tokyo"] },
+          "windowDays": { "type": "integer", "enum": [90] },
+          "occurrences": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": { "$ref": "#/components/schemas/Occurrence" }
+          }
+        }
+      },
+      "CheckoutAnswer": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["questionId"],
+        "description": "答えた質問だけを送る。記述式は text、選択式は optionIds。",
+        "properties": {
+          "questionId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,40}$" },
+          "text": { "type": "string", "maxLength": 1000 },
+          "optionIds": {
+            "type": "array",
+            "maxItems": 8,
+            "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,40}$" }
+          }
+        }
+      },
+      "CheckoutConsent": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["agreedVersion"],
+        "properties": {
+          "agreedVersion": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      },
+      "ExperienceCheckoutRequest": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "x-niho-sensitive-fields": ["guestName", "guestEmail", "note", "answers"],
+        "required": [
+          "offerId",
+          "occurrenceDate",
+          "adultCount",
+          "childCount",
+          "expectedTotalYen",
+          "guestName",
+          "guestEmail",
+          "bookingQuestionsFingerprint",
+          "consent",
+          "clientRequestKey"
+        ],
+        "description": "旅行者本人の入力。URL・ログ・計測・storage へ複製しない。",
+        "properties": {
+          "offerId": { "$ref": "#/components/schemas/OfferId" },
+          "occurrenceDate": { "$ref": "#/components/schemas/LocalDate" },
+          "adultCount": { "type": "integer", "minimum": 0, "maximum": 500 },
+          "childCount": { "type": "integer", "minimum": 0, "maximum": 500 },
+          "expectedTotalYen": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "画面に表示した合計。NIHO の計算と違えば 409 PRICE_CHANGED（請求額は NIHO が決め、この値では決めない）。"
+          },
+          "guestName": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "guestEmail": { "type": "string", "minLength": 3, "maxLength": 254 },
+          "note": { "type": "string", "maxLength": 500, "nullable": true },
+          "answers": {
+            "type": "array",
+            "maxItems": 5,
+            "items": { "$ref": "#/components/schemas/CheckoutAnswer" }
+          },
+          "bookingQuestionsFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "consent": { "$ref": "#/components/schemas/CheckoutConsent" },
+          "clientRequestKey": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 120,
+            "description": "申込の試行ごとの乱数（UUID v4 推奨）。通信失敗の再送は同じ値、内容を変えたら新しい値。"
+          }
+        }
+      },
+      "ExperienceCheckoutResponse": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["checkoutUrl"],
+        "properties": {
+          "checkoutUrl": {
+            "type": "string",
+            "description": "遷移先。https://checkout.stripe.com/ または NIHO の予約確認ページ（決済済みの再送）。それ以外の URL なら遷移しない。"
+          }
+        }
+      },
+      "CheckoutErrorCode": {
+        "type": "string",
+        "enum": [
+          "VALIDATION_ERROR",
+          "INPUT_INVALID",
+          "CONSENT_OUTDATED",
+          "OCCURRENCE_INVALID",
+          "ANSWERS_INVALID",
+          "UNAVAILABLE",
+          "FULL",
+          "HOLD_LIMIT",
+          "REQUEST_MISMATCH",
+          "QUESTIONS_CHANGED",
+          "PRICE_CHANGED",
+          "RATE_LIMITED",
+          "CHECKOUT_UNAVAILABLE"
+        ]
+      },
+      "ExperienceCheckoutError": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["code", "message", "retryable", "field", "questionId", "seatsLeft", "occurrenceReason", "currentTotalYen"],
+        "properties": {
+          "code": { "$ref": "#/components/schemas/CheckoutErrorCode" },
+          "message": { "type": "string", "description": "開発者向けの英語の説明。画面の文言は code から作る。" },
+          "retryable": {
+            "type": "boolean",
+            "description": "同じ clientRequestKey・同じ内容で、時間をおいて再送してよいか。"
+          },
+          "field": {
+            "type": "string",
+            "nullable": true,
+            "description": "INPUT_INVALID / ANSWERS_INVALID の項目（例: guestEmail, adultCount, answers.0.text）。"
+          },
+          "questionId": { "type": "string", "nullable": true },
+          "seatsLeft": { "type": "integer", "minimum": 0, "nullable": true },
+          "occurrenceReason": {
+            "type": "string",
+            "enum": ["NOT_SCHEDULED", "CUTOFF", "UNAVAILABLE"],
+            "nullable": true
+          },
+          "currentTotalYen": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true,
+            "description": "PRICE_CHANGED のときの今の合計。"
+          }
+        }
+      },
+      "ExperienceCheckoutErrorResponse": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["error"],
+        "properties": {
+          "error": { "$ref": "#/components/schemas/ExperienceCheckoutError" }
+        }
+      },
+      "PublicError": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string", "enum": ["VALIDATION_ERROR"] },
+          "message": { "type": "string" }
+        }
+      },
+      "PublicErrorResponse": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": ["error"],
+        "properties": {
+          "error": { "$ref": "#/components/schemas/PublicError" }
+        }
+      }
+    }
+  }
+}

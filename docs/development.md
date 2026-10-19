@@ -45,12 +45,12 @@ sh scripts/container-smoke.sh niho-experience       # 表示と、設定によ�
 apps/web/                 Next.js 16（App Router）。画面・SSR・SEO・予約入力
   src/app/                ページ（/, /experiences, /experiences/[slug], /book, /booking/return, /host, /preview/*）
   src/components/         表示部品
-  src/lib/                API選択、表示用の整形、URL条件、Checkout遷移の許可判定
+  src/lib/                SSR公開API・ブラウザ用API・表示用の整形
   e2e/                    Playwright（360px・320px・デスクトップ、axe）
-packages/api-client/      仮契約（zod）、HTTPクライアントの枠、合成fixture、mock adapter
+packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアント・合成mock
 ```
 
-`packages/experience-ui` と root の `fixtures/` は、必要になるまで作らない（#5 Notes）。fixtureは契約と一緒に `packages/api-client/src/mock/` に置いている。
+`packages/experience-ui` と root の `fixtures/` は、必要になるまで作らない（#5 Notes）。fixtureは契約と一緒に `packages/api-client/src/fixtures/` に置いている。
 
 ## 環境変数
 
@@ -58,7 +58,8 @@ packages/api-client/      仮契約（zod）、HTTPクライアントの枠、�
 
 | 変数 | 既定 | 用途 |
 | --- | --- | --- |
-| `EXPERIENCE_API_MODE` | `mock` | `http` は契約確定（#7・連携A）まで意図的に失敗する |
+| `EXPERIENCE_API_MODE` | `mock` | `http` は NIHO 公開 Web origin の選別APIへ接続 |
+| `NEXT_PUBLIC_NIHO_WEB_ORIGIN` | `https://niho.life` | 公開Web APIのorigin。stgでは `https://app-stg.niho.life` |
 | `SITE_INDEXING` | 未設定＝検索除外 | `allow` かつ `EXPERIENCE_API_MODE=http` の時だけindex許可（合成データは設定を誤っても検索に出ない）。本番受入（#15）後に設定 |
 | `SITE_URL` | `http://localhost:3000` | canonical・sitemapの起点。正式ドメインは未定 |
 | `BOOKINGS_ENABLED` | `true` | `false` で新規予約を止める（障害時。#15の手順） |
@@ -67,23 +68,23 @@ packages/api-client/      仮契約（zod）、HTTPクライアントの枠、�
 
 ## プレビューで状態を確認する
 
-- `/preview/states`：カードの空き状況、空結果、読込、予約エラー、決済後の画面を一覧できる（mock時のみ存在）。
+- `/preview/states`：空結果と読込などの表示を確認できる（mock時のみ存在）。
 - `?mock=slow`・`?mock=empty`・`?mock=error`：読込中・掲載なし・API障害を再現（mock時のみ有効）。
-- 予約入力で次のメールを使うと、Checkout開始時の失敗を再現できる。`sold-out@example.com`、`price-changed@example.com`、`unavailable@example.com`、`expired@example.com`。
-- 決済は `/preview/checkout` の模擬ページで「完了」「取消」を選ぶ。カード情報は扱わない。
+- 選別mockのcheckoutエラーは `createMockExperienceFetch` の scenario で再現できる。メールアドレスをトリガーにしない。
+- 決済は `/preview/checkout` の模擬ページへ進む。カード情報は扱わない。
 
 ## データの扱い
 
 - fixtureは架空の提供者・日程・価格のみ。実在の人物・連絡先・住所・レビュー・販売実績を入れない。写真は抽象的なSVGの仮素材で、画面に「Sample」と表示する。
-- 予約入力（氏名・メール等）はServer Actionでサーバーへ送るだけ。URL、localStorage、ログ、計測、公開cacheへ入れない。予約関連ページは `Cache-Control: private, no-store` と `X-Robots-Tag: noindex`。
-- 価格・在庫・販売者はAPIの見積が正。ブラウザの金額は「Estimated」と表示する。
+- 予約入力（氏名・メール・備考・回答）はブラウザ内だけで保持し、ブラウザからNIHO公開APIへ直接送る。Next.js Server Action、URL、storage、ログ、計測、公開cacheへ入れない。予約関連ページは `Cache-Control: private, no-store` と `X-Robots-Tag: noindex`。
+- 価格・在庫・販売者の正はNIHO。画面は契約の料金式で合計を表示し、`expectedTotalYen` として照合用に送る。
 
 ## 担当範囲
 
 | ファイル | 窓口 |
 | --- | --- |
 | `package.json`、`package-lock.json`、`.nvmrc`、`tsconfig.base.json`、`.github/workflows/`、`apps/web/` の設定 | 担当1（サイト・デザイン） |
-| `packages/api-client/src/contract.ts`、fixtureの構造 | 担当2（契約・NIHO連携、#7）。現在の内容は担当1が置いた仮契約 |
+| `packages/api-client/contract/`、fixtureの構造 | 担当2（契約・NIHO連携、#7）。契約は `docs/api-contract.md` とOpenAPIを正とする |
 | 英語文言・商品の事実 | 担当3（商品・集客）。現在の文言は合成例 |
 
 依存を追加・更新する時は lockfile ごと担当1のPRにまとめる。`playwright-core` は `@axe-core/playwright` が別版を引き込まないよう root の `overrides` で `@playwright/test` と同じ版に揃えている。

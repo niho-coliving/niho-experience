@@ -14,7 +14,6 @@ export const FUNNEL_EVENTS = {
   booking_unavailable: ["experience", "error_code"],
   checkout_start: ["experience", "guests", "total_jpy"],
   checkout_error: ["experience", "error_code"],
-  payment_return: ["experience", "result"],
   host_view: ["signup_mode"],
   host_start: ["signup_mode"],
 } as const;

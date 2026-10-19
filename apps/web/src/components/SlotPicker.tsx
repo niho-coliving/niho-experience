@@ -1,178 +1,70 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
-import type { PriceUnit, Slot } from "@niho-experience/api-client";
+import { useEffect, useState } from "react";
+import { computeExpectedTotalYen, type ExperienceApiClient, type ExperienceOffer, type Occurrence } from "@niho-experience/api-client";
+import { getBrowserApi } from "@/lib/browser-api";
+import { formatDay, formatTimeRange, formatYen } from "@/lib/format";
 import { track } from "@/lib/analytics";
-import { formatDay, formatTimeRange, formatYen, jstDateKey, unitLabel } from "@/lib/format";
 import { buttonClass } from "./ui";
 
-const INITIAL_DATES = 6;
+export type BookingSelection = { offerId: string; date: string; adultCount: number; childCount: number };
+export function SlotPicker({ slug, offers, preview, nihoWebOrigin, onContinue }: { slug: string; offers: ExperienceOffer[]; preview: boolean; nihoWebOrigin: string; onContinue: (selection: BookingSelection) => void }) {
+  const [api, setApi] = useState<ExperienceApiClient | null>(null);
+  const [offerId, setOfferId] = useState(offers[0]?.id ?? "");
+  const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [date, setDate] = useState("");
+  const [adultCount, setAdultCount] = useState(1);
+  const [childCount, setChildCount] = useState(0);
+  const offer = offers.find((item) => item.id === offerId);
+  const selected = occurrences.find((item) => item.offerId === offerId && item.date === date);
+  const headCount = adultCount + childCount;
+  const total = offer ? computeExpectedTotalYen(offer.pricing, adultCount, childCount) : null;
+  const countsValid = !!offer && headCount >= offer.minimumParticipants && headCount <= offer.maxPartySize && adultCount >= 0 && childCount >= 0 && (!offer.pricing.child || !offer.pricing.child.adultRequired || childCount === 0 || adultCount > 0);
+  const canContinue = countsValid && total !== null && !!selected?.bookable && selected.seatsLeft >= headCount;
 
-/**
- * Date and party size selection. Works as a plain GET form without JS; with
- * JS it adds a stepper and a live estimate. The estimate is never the final
- * price: the next step asks the API for a quote.
- */
-export function SlotPicker({
-  slug,
-  slots,
-  groupSize,
-  unit,
-}: {
-  slug: string;
-  slots: Slot[];
-  groupSize: { min: number; max: number };
-  unit: PriceUnit;
-}) {
-  const [slotId, setSlotId] = useState<string | null>(null);
-  const [guests, setGuests] = useState(Math.max(groupSize.min, Math.min(2, groupSize.max)));
-  const ids = { guests: useId(), estimate: useId(), legend: useId() };
+  useEffect(() => {
+    let active = true;
+    getBrowserApi(preview, nihoWebOrigin).then((client) => { if (active) setApi(client); }).catch(() => { if (active) { setError(true); setLoading(false); } });
+    return () => { active = false; };
+  }, [preview, nihoWebOrigin]);
 
-  const selected = slots.find((s) => s.id === slotId) ?? null;
-  const max = selected ? Math.min(groupSize.max, selected.maxGuests) : groupSize.max;
-  const clamped = Math.min(Math.max(guests, groupSize.min), max);
+  useEffect(() => {
+    if (!api) return;
+    let active = true;
+    api.getAvailability(slug, { offerId }).then((result) => {
+      if (!active) return;
+      setLoading(false);
+      setError(!result.ok);
+      setOccurrences(result.ok ? result.data.occurrences : []);
+    });
+    return () => { active = false; };
+  }, [api, slug, offerId]);
 
-  const byDate = useMemo(() => {
-    const groups = new Map<string, Slot[]>();
-    for (const s of slots) {
-      const key = jstDateKey(s.startsAt);
-      groups.set(key, [...(groups.get(key) ?? []), s]);
-    }
-    return [...groups.values()];
-  }, [slots]);
-
-  const estimate = selected ? selected.price.unitAmount.amount * (selected.price.unit === "per_person" ? clamped : 1) : null;
-  const anyOpen = slots.some((s) => s.status === "open");
-  const firstDates = byDate.slice(0, INITIAL_DATES);
-  const moreDates = byDate.slice(INITIAL_DATES);
-
-  const renderDay = (daySlots: Slot[]) => (
-    <li key={daySlots[0]!.id}>
-      <p className="mb-1.5 text-sm font-bold text-ink-soft">{formatDay(daySlots[0]!.startsAt)}</p>
-      <ul className="space-y-2">
-        {daySlots.map((s) => {
-          const open = s.status === "open";
-          return (
-            <li key={s.id}>
-              <label
-                className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-2 has-[:checked]:border-moss has-[:checked]:bg-leaf-pale has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-moss ${
-                  open ? "border-line-strong bg-surface hover:border-ink" : "cursor-not-allowed border-line bg-sand text-muted"
-                }`}
-              >
-                <span className="flex min-w-0 items-center gap-3">
-                  <input
-                    type="radio"
-                    name="slot"
-                    value={s.id}
-                    required
-                    disabled={!open}
-                    checked={slotId === s.id}
-                    onChange={() => setSlotId(s.id)}
-                    className="size-5 shrink-0 accent-moss"
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-bold">{formatTimeRange(s.startsAt, s.endsAt)}</span>
-                    {!open ? <span className="block text-sm">{s.status === "sold_out" ? "Fully booked" : "Booking closed"}</span> : null}
-                  </span>
-                </span>
-                {open ? (
-                  <span className="shrink-0 text-sm">
-                    {formatYen(s.price.unitAmount)} <span className="text-muted">{unitLabel(s.price.unit)}</span>
-                  </span>
-                ) : null}
-              </label>
-            </li>
-          );
-        })}
-      </ul>
-    </li>
-  );
-
-  return (
-    <form
-      action={`/experiences/${slug}/book`}
-      method="get"
-      className="space-y-5"
-      onSubmit={() => track("slot_continue", { experience: slug, guests: clamped })}
-    >
-      <fieldset>
-        <legend id={ids.legend} className="mb-3 font-display text-xl font-semibold">
-          Choose a date
-        </legend>
-        <p className="-mt-2 mb-3 text-sm text-muted">All times are Japan time (JST).</p>
-        <ul className="space-y-4">{firstDates.map(renderDay)}</ul>
-        {moreDates.length ? (
-          <details className="mt-4">
-            <summary className="cursor-pointer font-bold text-moss">Show {moreDates.length} more dates</summary>
-            <ul className="mt-4 space-y-4">{moreDates.map(renderDay)}</ul>
-          </details>
-        ) : null}
-      </fieldset>
-
-      {anyOpen ? (
-        <>
-          <div>
-            <label htmlFor={ids.guests} className="mb-2 block font-bold">
-              Guests
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label="Fewer guests"
-                aria-controls={ids.guests}
-                disabled={clamped <= groupSize.min}
-                onClick={() => setGuests(clamped - 1)}
-                className="flex size-11 items-center justify-center rounded-full border border-line-strong bg-surface text-xl font-bold disabled:opacity-40"
-              >
-                −
-              </button>
-              <input
-                id={ids.guests}
-                name="guests"
-                type="number"
-                inputMode="numeric"
-                min={groupSize.min}
-                max={max}
-                value={clamped}
-                onChange={(e) => setGuests(Number(e.target.value) || groupSize.min)}
-                aria-describedby={ids.estimate}
-                className="min-h-11 w-16 rounded-xl border border-line-strong bg-surface text-center text-lg font-bold"
-              />
-              <button
-                type="button"
-                aria-label="More guests"
-                aria-controls={ids.guests}
-                disabled={clamped >= max}
-                onClick={() => setGuests(clamped + 1)}
-                className="flex size-11 items-center justify-center rounded-full border border-line-strong bg-surface text-xl font-bold disabled:opacity-40"
-              >
-                +
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-muted">
-              {groupSize.min === groupSize.max
-                ? `${groupSize.min} guests per booking.`
-                : `${groupSize.min}–${groupSize.max} guests per booking.`}
-              {unit === "per_group" ? " One price for the whole group." : ""}
-            </p>
-          </div>
-
-          <div id={ids.estimate} aria-live="polite" className="rounded-xl bg-sand p-3 text-sm">
-            {estimate !== null ? (
-              <p>
-                <span className="font-bold">Estimated total {formatYen({ amount: estimate, currency: "JPY" })}</span>
-                <span className="block text-muted">The final price is confirmed on the next step, before you pay.</span>
-              </p>
-            ) : (
-              <p className="text-muted">Choose a date to see the estimated total.</p>
-            )}
-          </div>
-
-          <button type="submit" className={buttonClass("primary", "w-full")}>
-            Continue
-          </button>
-        </>
-      ) : null}
-    </form>
-  );
+  if (!offers.length) return <p className="text-ink-soft">New dates are coming soon.</p>;
+  return <div className="space-y-5">
+    <div>
+      <label htmlFor="offer" className="mb-2 block font-bold">Experience option</label>
+      <select id="offer" value={offerId} onChange={(event) => { setOfferId(event.target.value); setDate(""); setLoading(true); setAdultCount(1); setChildCount(0); }} className="min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base">
+        {offers.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatYen(item.pricing.adultPriceYen)} per adult</option>)}
+      </select>
+      {offer?.shortDescription ? <p className="mt-2 text-sm text-muted">{offer.shortDescription}</p> : null}
+    </div>
+    <fieldset>
+      <legend className="mb-2 font-bold">Choose a date <span className="font-normal text-muted">(Japan time)</span></legend>
+       {loading ? <p role="status" className="text-muted">Checking dates…</p> : error ? <div role="alert" className="space-y-2"><p>Dates could not be loaded.</p><button type="button" className="font-bold text-moss underline" onClick={() => { setError(false); setLoading(true); if (api) { api.getAvailability(slug, { offerId }).then((result) => { setLoading(false); setError(!result.ok); setOccurrences(result.ok ? result.data.occurrences : []); }); } else { getBrowserApi(preview, nihoWebOrigin).then(setApi).catch(() => { setError(true); setLoading(false); }); } }}>Try again</button></div> :
+        occurrences.length ? <div className="max-h-80 space-y-2 overflow-y-auto pr-1">{occurrences.map((item) => <label key={`${item.offerId}-${item.date}`} className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 ${item.bookable ? "cursor-pointer border-line-strong" : "border-line bg-sand text-muted"}`}>
+          <input type="radio" name="occurrence" value={item.date} checked={date === item.date} disabled={!item.bookable} onChange={() => setDate(item.date)} className="size-5 accent-moss" />
+          <span><span className="block font-bold">{formatDay(item.startAt)} · {formatTimeRange(item.startAt, item.endAt)}</span><span className="block text-sm">{item.bookable ? `${item.seatsLeft} places currently available` : item.reason === "FULL" ? "Fully booked" : "Booking closed"}</span></span>
+        </label>)}</div> : <p className="text-muted">No dates are open yet.</p>}
+    </fieldset>
+    {offer ? <div className="grid grid-cols-2 gap-3">
+      <label className="font-bold">Adults<input type="number" inputMode="numeric" min={0} max={offer.maxPartySize} value={adultCount} onChange={(event) => setAdultCount(Number(event.target.value))} className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base" /></label>
+      {offer.pricing.child ? <label className="font-bold">Children ({offer.pricing.child.minAge}–{offer.pricing.child.maxAge})<input type="number" inputMode="numeric" min={0} max={offer.maxPartySize} value={childCount} onChange={(event) => setChildCount(Number(event.target.value))} className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base" /></label> : null}
+    </div> : null}
+    {offer ? <p className="text-sm text-muted">{offer.minimumParticipants}–{offer.maxPartySize} guests per booking. {offer.pricing.child ? `Children ${formatYen(offer.pricing.child.priceYen)} each.` : "This option is for adults only."}</p> : null}
+    <p aria-live="polite" className="rounded-xl bg-sand p-3 font-bold">Total: {total !== null && countsValid ? formatYen(total) : "Check guest counts"} <span className="block text-sm font-normal text-muted">Japanese yen, tax included. Availability is confirmed at checkout.</span></p>
+    {canContinue ? <button type="button" onClick={() => { track("slot_continue", { experience: slug, guests: headCount }); onContinue({ offerId, date, adultCount, childCount }); }} className={buttonClass("primary", "w-full text-center")}>Continue</button> : <p className="text-sm text-muted">Choose an available date and a valid party size to continue.</p>}
+  </div>;
 }

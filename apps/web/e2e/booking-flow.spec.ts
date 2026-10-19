@@ -1,103 +1,52 @@
 import { expect, test, type Page } from "@playwright/test";
-import type {} from "../src/lib/analytics";
 
-async function chooseFirstOpenSlot(page: Page) {
-  const radio = page.locator('input[name="slot"]:not([disabled])').first();
-  await radio.check();
-  return radio.inputValue();
+const dinner = "/experiences/home-cooked-dinner-with-locals";
+async function chooseFirstDate(page: Page) {
+  await page.locator('input[name="occurrence"]:not([disabled])').first().check();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
 }
 
-test("browse, choose a date and reach the mock payment page", async ({ page }) => {
+test("browse, review adult and child total, and reach browser-only mock checkout", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => { if (request.method() === "POST") requests.push(request.url()); });
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Kamakura");
-  await expect(page.getByRole("note")).toContainText("Preview with sample data");
-
   await page.getByRole("link", { name: "Find an experience" }).click();
-  await expect(page).toHaveURL(/\/experiences$/);
-  await page.getByRole("link", { name: "Home-style dinner at a neighborhood table" }).click();
-
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home-style dinner at a neighborhood table");
-  await expect(page.getByText("All times are Japan time (JST).")).toBeVisible();
-  await chooseFirstOpenSlot(page);
-  await page.getByRole("spinbutton", { name: "Guests" }).fill("2");
-  await expect(page.getByText("Estimated total ¥13,600")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  await expect(page).toHaveURL(/\/book\?slot=.+&guests=2/);
-  const summary = page.getByRole("complementary", { name: "Booking summary" });
-  await expect(summary).toContainText("¥13,600");
-  await expect(summary).toContainText("tax included");
-  await expect(summary).toContainText("JST");
-  await expect(summary).toContainText("Sold by Sample Seller (synthetic)");
-
-  await page.getByLabel("Full name").fill("Sample Guest");
-  await page.getByLabel("Email").fill("guest@example.com");
-  await page.getByRole("checkbox").check();
+  await page.getByRole("link", { name: /Home-cooked dinner/ }).click();
+  await page.getByRole("link", { name: "Check dates and book" }).click();
+  await expect(page).toHaveURL(/\/book$/);
+  await page.getByRole("spinbutton", { name: /Adults/ }).fill("2");
+  await page.getByRole("spinbutton", { name: /Children/ }).fill("1");
+  await page.locator('input[name="occurrence"]:not([disabled])').first().check();
+  await expect(page.getByText("Total: ¥16,000")).toBeVisible();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByText("Total ¥16,000")).toBeVisible();
+  await expect(page.getByText(/Sold by/)).toBeVisible();
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
   await page.getByRole("button", { name: "Continue to mock payment" }).click();
-
-  await expect(page).toHaveURL(/\/preview\/checkout\?/);
-  expect(page.url()).not.toContain("example.com");
-  expect(page.url()).not.toContain("Sample%20Guest");
+  await expect(page).toHaveURL(/\/preview\/checkout$/);
+  expect(requests).toEqual([]);
+  expect(page.url()).not.toContain("guest@example.com");
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
-
-  // Funnel events (preview keeps them in memory): identifiers only, nothing personal.
-  const events = await page.evaluate(() => window.__nihoEvents ?? []);
-  expect(events.map((e) => e.event)).toEqual(["booking_form_view", "checkout_start"]);
-  expect(events[1]!.props).toEqual({ experience: "neighborhood-dinner-table", guests: 2, total_jpy: 13600 });
-  expect(JSON.stringify(events)).not.toMatch(/example\.com|Sample Guest/);
-
-  await page.getByRole("link", { name: "Simulate completed payment" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("confirming your booking");
-  await expect(page.getByText("Your booking is not confirmed yet")).toBeVisible();
 });
 
-test("cancelled payment returns to the same selection", async ({ page }) => {
-  await page.goto("/experiences/morning-hill-walk-and-tea");
-  await chooseFirstOpenSlot(page);
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("complementary", { name: "Booking summary" })).toContainText("¥14,000");
-  await page.getByLabel("Full name").fill("Sample Guest");
-  await page.getByLabel("Email").fill("guest@example.com");
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Continue to mock payment" }).click();
-  await page.getByRole("link", { name: "Simulate cancel" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("No payment was taken");
-  await page.getByRole("link", { name: "Return to booking" }).click();
-  await expect(page.getByRole("complementary", { name: "Booking summary" })).toContainText("¥14,000");
+test("required booking answer and consent are shown before checkout", async ({ page }) => {
+  await page.goto("/experiences/indigo-dyeing-with-an-artisan/book");
+  await chooseFirstDate(page);
+  await expect(page.getByRole("heading", { name: "Your booking" })).toBeVisible();
+  await expect(page.getByLabel(/Which shade would you like to dye/)).toBeVisible();
+  await expect(page.getByText(/version 2026-10-01/)).toBeVisible();
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Request to book" }).click();
+  await expect(page.locator("main").getByRole("alert")).toContainText("required question");
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
 });
 
-test("validation and API failures keep the guest's input", async ({ page }) => {
-  await page.goto("/experiences/neighborhood-dinner-table");
-  await chooseFirstOpenSlot(page);
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  await page.getByRole("button", { name: "Continue to mock payment" }).click();
-  const alert = page.locator("main").getByRole("alert");
-  await expect(alert).toContainText("Please check your details");
-  await expect(alert).toContainText("Full name");
-  await expect(alert).toContainText("Agreement to the cancellation terms");
-
-  await page.getByLabel("Full name").fill("Sample Guest");
-  await page.getByLabel("Email").fill("unavailable@example.com");
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Continue to mock payment" }).click();
-  await expect(page.locator("main").getByRole("alert")).toContainText("couldn't reach the booking service");
-  await expect(page.getByLabel("Full name")).toHaveValue("Sample Guest");
-  await expect(page.getByLabel("Email")).toHaveValue("unavailable@example.com");
-
-  await page.getByLabel("Email").fill("sold-out@example.com");
-  await page.getByRole("button", { name: "Continue to mock payment" }).click();
-  await expect(page.locator("main").getByRole("alert")).toContainText("This time just filled up");
-  await expect(page.getByRole("link", { name: "Choose another date" })).toBeVisible();
-
-  const errors = await page.evaluate(() => (window.__nihoEvents ?? []).filter((e) => e.event === "checkout_error").map((e) => e.props.error_code));
-  expect(errors).toEqual(["invalid_contact", "unavailable", "slot_sold_out"]);
-});
-
-test("booking pages are private: no-store and noindex", async ({ request }) => {
-  const res = await request.get("/experiences/neighborhood-dinner-table/book?slot=x&guests=1", { maxRedirects: 0 });
+test("booking page is private", async ({ request }) => {
+  const res = await request.get(`${dinner}/book`);
   expect(res.headers()["cache-control"]).toContain("no-store");
   expect(res.headers()["x-robots-tag"]).toContain("noindex");
-  const robots = await (await request.get("/robots.txt")).text();
-  expect(robots).toContain("Disallow: /");
 });

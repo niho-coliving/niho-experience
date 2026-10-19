@@ -1,18 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createMockExperienceApi } from "@niho-experience/api-client/mock";
-import { fromJst } from "@niho-experience/api-client";
+import { buildFixtureExperiences } from "@niho-experience/api-client/mock";
 import { resolveConfig } from "./resolve-config";
 import { breadcrumbJsonLd, experienceJsonLd, serializeJsonLd } from "./structured-data";
 
-const api = createMockExperienceApi({ now: () => fromJst(2026, 10, 19, 9, 0) });
 const SITE = "https://experience.example.com";
+const experiences = buildFixtureExperiences({ imageBaseUrl: "https://images.example.com" });
+const dinner = { ...experiences[0]!, canonicalUrl: `${SITE}/experiences/home-cooked-dinner-with-locals` };
 
-async function realCopy(slug: string) {
-  const e = (await api.getExperience(slug))!;
-  return { ...e, synthetic: false, heroImage: { ...e.heroImage, url: "https://img.example.com/a.jpg", placeholder: false } };
-}
-
-describe("indexing guard", () => {
+describe("runtime config", () => {
   it("indexes only when explicitly allowed with the real API", () => {
     expect(resolveConfig({}).indexingAllowed).toBe(false);
     expect(resolveConfig({ SITE_INDEXING: "allow" }).indexingAllowed).toBe(false);
@@ -23,33 +18,37 @@ describe("indexing guard", () => {
     expect(resolveConfig({}).bookingsEnabled).toBe(true);
     expect(resolveConfig({ BOOKINGS_ENABLED: "false" }).bookingsEnabled).toBe(false);
   });
-  it("normalises the site URL", () => {
+  it("normalises the site URL and gives the public API a safe default", () => {
     expect(resolveConfig({ SITE_URL: "https://a.example/" }).siteUrl).toBe("https://a.example");
+    expect(resolveConfig({}).nihoWebOrigin).toBe("https://niho.life");
+    expect(resolveConfig({ NEXT_PUBLIC_NIHO_WEB_ORIGIN: "https://app-stg.niho.life" }).nihoWebOrigin).toBe("https://app-stg.niho.life");
   });
 });
 
 describe("structured data", () => {
-  it("is not emitted for synthetic listings", async () => {
-    expect(experienceJsonLd((await api.getExperience("neighborhood-dinner-table"))!, SITE)).toBeNull();
+  it("omits experience data in preview", () => {
+    expect(experienceJsonLd(dinner, SITE, true)).toBeNull();
   });
 
-  it("matches the page facts and never invents ratings", async () => {
-    const data = experienceJsonLd(await realCopy("neighborhood-dinner-table"), SITE)!;
+  it("describes public detail facts without inventing availability or ratings", () => {
+    const data = experienceJsonLd(dinner, SITE)!;
+    const expectedPrice = Math.min(...dinner.offers.map((offer) => offer.pricing.adultPriceYen));
     expect(data).toMatchObject({
       "@type": "TouristTrip",
-      name: "Home-style dinner at a neighborhood table",
-      url: `${SITE}/experiences/neighborhood-dinner-table`,
-      image: ["https://img.example.com/a.jpg"],
-      offers: { price: 6800, priceCurrency: "JPY", availability: "https://schema.org/InStock" },
+      name: dinner.title,
+      url: dinner.canonicalUrl,
+      image: [dinner.cover!.url, ...dinner.photos.map((image) => image.url)],
+      inLanguage: "en",
+      provider: { name: dinner.provider.name },
+      offers: { price: expectedPrice, priceCurrency: "JPY", seller: { name: dinner.seller.displayName } },
     });
     const text = JSON.stringify(data);
-    expect(text).not.toMatch(/aggregateRating|review/i);
-    expect(text).not.toContain("/placeholders/");
+    expect(text).not.toMatch(/aggregateRating|review|availability/i);
   });
 
-  it("marks sold out and drops the offer while paused", async () => {
-    expect(experienceJsonLd(await realCopy("fish-market-breakfast"), SITE)!.offers).toMatchObject({ availability: "https://schema.org/SoldOut" });
-    expect(experienceJsonLd(await realCopy("backyard-indigo-dyeing"), SITE)!.offers).toBeUndefined();
+  it("omits an offer when checkout is paused", () => {
+    const paused = experiences.find((experience) => !experience.booking.checkoutAvailable)!;
+    expect(experienceJsonLd(paused, SITE)?.offers).toBeUndefined();
   });
 
   it("builds breadcrumbs and escapes script breakouts", () => {
