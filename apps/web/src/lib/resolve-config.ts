@@ -18,5 +18,7 @@ export function resolveConfig(env: Env) {
     nihoHostStartUrl: env.NIHO_HOST_START_URL ?? "",
     hostPilotContactUrl: env.HOST_PILOT_CONTACT_URL ?? "",
     nihoBookingHelpUrl: env.NIHO_BOOKING_HELP_URL ?? "",
+    // Only the production runtime receives this public Umami website ID.
+    umamiWebsiteId: env.UMAMI_WEBSITE_ID?.trim() ?? "",
   } as const;
 }

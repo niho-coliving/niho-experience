@@ -28,13 +28,19 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const analyticsMode = isPreview
+    ? "debug"
+    : config.apiMode === "http" && config.siteUrl === "https://experience.niho.life" && config.umamiWebsiteId
+      ? "umami"
+      : "off";
+
   return (
     <html lang="en">
       <body className="flex min-h-dvh flex-col">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white">
           Skip to content
         </a>
-        <AnalyticsSetup mode={isPreview ? "debug" : "off"} />
+        <AnalyticsSetup mode={analyticsMode} websiteId={config.umamiWebsiteId} />
         {isPreview ? <PreviewBanner catalog={config.mockCatalog} /> : null}
         <SiteHeader />
         <main id="main" className="flex-1">

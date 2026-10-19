@@ -99,3 +99,5 @@ Actions → **Deploy preview** → Run workflow（branch: main）。5〜10分で
 3. **cacheの設定**：Cloudflareでcacheするのは `/_next/static/*` と画像だけ。予約入力・決済後ページはアプリが `no-store` を返すので、cacheしない設定を確認する。
 
 試験販売の前に、本番用のサービス（`niho-experience`、最小インスタンス1、実APIの設定）と配備workflowを追加する。その時にA・Bを決めてもらえれば、Claudeが設定手順をこの文書に追記する。
+
+Umami CloudのWebsite IDは `f7a8b3ed-ef71-4a35-969e-955b88f01902`（ドメイン `experience.niho.life`）。本番サービスを追加する際、プライバシーポリシーへの計測内容の追記後に、実行時環境変数 `UMAMI_WEBSITE_ID` として本番サービスだけへ設定する。previewには設定しない。サイトID自体は公開情報で、GitHub Secretではなくランタイム設定として扱う。
