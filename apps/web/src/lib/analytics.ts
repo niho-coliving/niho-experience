@@ -61,7 +61,15 @@ export function sanitizeUmamiPayload(
     if (currentOrigin !== "https://experience.niho.life" || url.origin !== currentOrigin || url.username || url.password) return false;
 
     const isBookingResult = url.pathname === "/booking" || url.pathname.startsWith("/booking/");
-    const detail = /^\/experiences\/([a-z0-9][a-z0-9-]{1,62}[a-z0-9])(\/book)?$/.exec(url.pathname);
+    const detail = /^\/experiences\/([^/]+)(\/book)?$/.exec(url.pathname);
+    if (detail) {
+      const slug = decodeURIComponent(detail[1]!);
+      const length = [...slug].length;
+      if (length < 3 || length > 64) return false;
+      // The contract limits length, not the alphabet. Keep every valid route's
+      // event; redact unusual/free-text slugs instead of exporting their text.
+      url.pathname = `/experiences/${/^[a-z0-9_-]{3,64}$/i.test(slug) ? slug : "_experience"}${detail[2] ?? ""}`;
+    }
     const isBookingForm = Boolean(detail?.[2]);
     const pageTitles: Record<string, string> = { "/": "NIHO Experience", "/experiences": "Experiences", "/host": "Host an experience", "/help": "Booking help" };
     if (!isBookingResult && !detail && !Object.hasOwn(pageTitles, url.pathname)) return false;
@@ -128,7 +136,7 @@ export function sanitize(event: FunnelEvent, props: EventProps): TrackedEvent {
     const value = props[key];
     if (typeof value === "boolean") clean[key] = value;
     else if (typeof value === "number" && Number.isFinite(value)) clean[key] = value;
-    else if (typeof value === "string" && SAFE_STRING.test(value)) clean[key] = value;
+    else if (typeof value === "string" && (key === "experience" ? /^[a-z0-9_-]{3,64}$/i : SAFE_STRING).test(value)) clean[key] = value;
   }
   return { event, props: clean };
 }

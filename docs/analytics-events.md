@@ -27,13 +27,14 @@
 ## 個人情報を送らない仕組み
 
 - イベントごとに許可した値だけを残し、それ以外は捨てる。
-- 文字列は英小文字・数字・`-`・`_` の64文字以内だけを通す。氏名・メール・電話・メモ・URL・tokenは形の時点で落ちる。
+- 文字列は英小文字・数字・`-`・`_` の64文字以内のコードだけを通す（公開体験slugは大文字も許可）。氏名・メール・メモ等をイベントへ渡さず、自由文やURLの形の値も除く。
 - 予約入力の値、見積ID、idempotency key、URLのquery はイベントに含めない。
 - v0.1の公開APIは一覧のテーマ/日付絞り込みやSSR残席を返さないため、それらを実行した扱いのイベント値を作らない。
 - 計測ツールを入れる時は、ページビューのURLから `/experiences/*/book` と `/booking/*` のqueryを取り除く。session replay（画面録画）は予約入力・決済復帰で使わない。
 - 計測の失敗や拒否で予約が止まらない（送信は投げっぱなしで、例外を握りつぶす）。
 - 送信直前にもDNTを確認する。読み込み待ちイベントは発生時の安全なURLを保持し、移動先の予約URLに付け替えない。待機中にDNTが有効なら送信せず破棄する。
 - Umami payloadを公開ルート・固定のページ種別タイトル・Website ID・hostname・screen・language・originのみのreferrer・許可イベントで再構成する。生のtitle・distinct ID・tag・未知の追加項目は捨てる。未対応ルート、異なるorigin、認証情報・別portを含むURLは送らない。
+- API契約のslug制約は3〜64文字。大文字やアンダースコアの体験も計測を止めない。それ以外の文字を含むslugは生の文字列を送らず、URLを `/experiences/_experience`（予約は末尾 `/book`）にまとめ、イベント自体は残す。
 
 送信項目とhookは [Umami公式の送信仕様](https://docs.umami.is/docs/api/sending-stats) と [Tracker設定](https://docs.umami.is/docs/tracker-configuration) を参照。外部scriptの固定SHA-384やCSP、計測サービスの設定はこの変更で更新しない。
 
