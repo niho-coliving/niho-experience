@@ -12,6 +12,8 @@ import type { CheckoutErrorCode, ExperienceCheckoutError, ExperienceDetail, Expe
 
 export const MOCK_SCENARIOS = [
   "default",
+  "gallery-single-photo",
+  "gallery-no-photos",
   "empty-catalog",
   "sold-out",
   "slow",
@@ -135,6 +137,12 @@ function toV11(experience: ExperienceDetail): ExperienceDetailV11 {
     hosts: experience.hosts.map((host) => ({ ...host, avatar: withAlt(host.avatar, null), bio: null })),
     provider: { ...experience.provider, logo: withAlt(experience.provider.logo, null) },
   };
+}
+
+function withGalleryScenario(experience: ExperienceDetail, scenario: MockScenario): ExperienceDetail {
+  if (scenario === "gallery-no-photos") return { ...experience, cover: null, photos: [] };
+  if (scenario === "gallery-single-photo") return { ...experience, photos: [] };
+  return experience;
 }
 
 function toV12Summary(experience: ExperienceDetail): ExperienceSummaryV12 {
@@ -333,7 +341,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
       }
       if (!SLUG_PATTERN.test(tail)) return validationError("experienceSlug is invalid");
       const experience = scenario === "empty-catalog" ? undefined : experiences.find((candidate) => candidate.slug === tail);
-      return experience ? json(200, { experience: toV11(experience) }, SHARED_CACHE) : notFound();
+      return experience ? json(200, { experience: toV11(withGalleryScenario(experience, scenario)) }, SHARED_CACHE) : notFound();
     }
 
     if (slug === "v1.2" && method === "GET") {
@@ -364,7 +372,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     const experience = scenario === "empty-catalog" ? undefined : experiences.find((candidate) => candidate.slug === slug);
 
     if (tail === "" && method === "GET") {
-      return experience ? json(200, { experience }, SHARED_CACHE) : notFound();
+      return experience ? json(200, { experience: withGalleryScenario(experience, scenario) }, SHARED_CACHE) : notFound();
     }
     if (tail === "availability" && method === "GET") {
       const offerId = url.searchParams.get("offerId");

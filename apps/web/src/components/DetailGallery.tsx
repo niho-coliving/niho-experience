@@ -32,7 +32,7 @@ export function MobileGallery({ photos, title, backHref = "/experiences" }: { ph
         role="region"
         aria-roledescription="carousel"
         aria-label={`Photos of ${title}`}
-        aria-describedby={`${galleryId}-help`}
+        aria-describedby={count > 1 ? `${galleryId}-help` : undefined}
         onKeyDown={(event) => {
           const next = event.key === "ArrowRight" ? index + 1 : event.key === "ArrowLeft" ? index - 1 : event.key === "Home" ? 0 : event.key === "End" ? count - 1 : null;
           if (next !== null) { event.preventDefault(); showPhoto(next); }
@@ -53,7 +53,7 @@ export function MobileGallery({ photos, title, backHref = "/experiences" }: { ph
           <div role="img" aria-label={`Photos of ${title} are not available`} className="aspect-[16/10] w-full bg-sand" />
         )}
       </div>
-      <p id={`${galleryId}-help`} className="sr-only">Use the left and right arrow keys to browse photos.</p>
+      {count > 1 ? <p id={`${galleryId}-help`} className="sr-only">Use the left and right arrow keys to browse photos.</p> : null}
       <Link
         href={backHref}
         aria-label="All experiences"

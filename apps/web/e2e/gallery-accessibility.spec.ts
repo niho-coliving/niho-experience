@@ -23,6 +23,25 @@ test("photo navigation is operable by buttons and keyboard, with a spoken positi
   await expect(gallery).toBeFocused();
 });
 
+test("single-photo and empty galleries do not announce unavailable navigation help", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+
+  for (const scenario of ["gallery-single-photo", "gallery-no-photos"]) {
+    await page.goto(`${dinner}?mock=${scenario}`);
+    const gallery = page.getByRole("region", { name: /^Photos of/ });
+    await expect(gallery).not.toHaveAttribute("aria-describedby");
+    await expect(page.getByText("Use the left and right arrow keys to browse photos.")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Previous photo" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Next photo" })).toHaveCount(0);
+
+    if (scenario === "gallery-single-photo") {
+      await expect(gallery.getByRole("img")).toHaveCount(1);
+    } else {
+      await expect(gallery.getByRole("img", { name: /Photos of .* are not available/ })).toBeVisible();
+    }
+  }
+});
+
 test("a failed photo keeps its description and does not disable navigation", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.route("**/broken-photo-for-test.jpg", (route) => route.abort());
