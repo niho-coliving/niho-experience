@@ -7,7 +7,7 @@ import { pluralize } from "@/lib/format";
 import { HandIcon } from "./HandIcon";
 import { buttonClass } from "./ui";
 
-/** Date and party size, sent as a plain GET to the list (works without JavaScript). */
+/** Date and party size (2 adults unless changed), sent as a plain GET to the list (works without JavaScript). */
 export function HomeFinder({ days }: { days: DayOption[] }) {
   const router = useRouter();
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -47,9 +47,8 @@ export function HomeFinder({ days }: { days: DayOption[] }) {
         <HandIcon name="people" className="size-[30px]" />
         <span className="flex min-w-0 flex-1 flex-col">
           <small className="text-xs font-extrabold text-muted">Guests</small>
-          <select name="guests" defaultValue="" className={select}>
-            <option value="">Any group</option>
-            {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{pluralize(n, "guest")}</option>)}
+          <select name="guests" defaultValue="2" className={select}>
+            {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{pluralize(n, "adult")}</option>)}
           </select>
         </span>
       </label>

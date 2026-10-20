@@ -19,9 +19,6 @@
   --color-leaf: #b2d67c;
   --color-leaf-hover: #a3c86b;
   --color-leaf-pale: #eef5e3;
-  /* Only for the "Sample" pill on preview listings. */
-  --color-persimmon: #a8552a;
-  --color-persimmon-pale: #fbede2;
   --color-danger: #a8321e;
   --color-danger-pale: #fcece8;
   --color-warn: #7a4b00;
@@ -82,7 +79,7 @@
     width: 100%;
     max-width: 75rem;
     margin-inline: auto;
-    padding-inline: 1rem;
+    padding-inline: 1.25rem;
   }
   @media (min-width: 40rem) {
     .container-page {
@@ -175,5 +172,12 @@
   .arch {
     overflow: hidden;
     border-radius: 999px 999px 1.625rem 1.625rem;
+  }
+}
+
+/* Phones: the detail page's bottom bar sits right on top of the footer. Unlayered so it wins over the footer's margin utility. */
+@media (max-width: 63.98rem) {
+  main:has(> [data-sticky-bar]:last-child) + footer {
+    margin-top: 0;
   }
 }

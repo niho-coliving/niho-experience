@@ -1,14 +1,9 @@
 import NextImage from "next/image";
 import type { PublicImageForSite } from "@/lib/experience-types";
 
-/** Small, quiet tag on provisional photos so they are never mistaken for the real place or people. */
-export function SampleTag({ className = "bottom-2.5 left-2.5" }: { className?: string }) {
-  return <span className={`pointer-events-none absolute z-[1] rounded-full bg-ink/70 px-2 py-0.5 text-xs font-bold text-white ${className}`}>Sample photo</span>;
-}
-
 /**
- * Fixed-ratio photo (no layout shift). `sampleTag` is for large photos only (card covers, hero, one per gallery block);
- * small thumbnails never get it.
+ * Fixed-ratio photo (no layout shift). Provisional photos carry no tag (owner decision 2026-10-20):
+ * previews say so once, at the bottom of the footer.
  */
 export function Photo({
   image,
@@ -18,8 +13,6 @@ export function Photo({
   className = "",
   rounded = "rounded-[var(--radius-card)]",
   aspect = "aspect-[4/3]",
-  sampleTag = false,
-  preview = false,
   imgClassName = "",
 }: {
   image: PublicImageForSite | null;
@@ -29,9 +22,6 @@ export function Photo({
   className?: string;
   rounded?: string;
   aspect?: string;
-  sampleTag?: boolean;
-  /** Compatibility alias for consumers that use the main branch's preview prop. */
-  preview?: boolean;
   imgClassName?: string;
 }) {
   return (
@@ -43,7 +33,6 @@ export function Photo({
           Image coming soon
         </span>
       ) : null}
-      {(sampleTag || preview) && image ? <SampleTag /> : null}
     </div>
   );
 }

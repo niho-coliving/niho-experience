@@ -42,13 +42,13 @@ test("the home finder carries the date and party size to the list", async ({ pag
   await expect(page.getByRole("group", { name: "Date (Japan time)" }).getByRole("button", { pressed: true })).toHaveAccessibleName(new RegExp(`^${labels[3]}`));
 });
 
-test("the home finder defaults to Any group and omits guests from the URL", async ({ page }) => {
+test("the home finder starts at two adults and carries them to the list", async ({ page }) => {
   await page.goto("/");
   const finder = page.getByRole("search", { name: "Find experiences" });
-  await expect(finder.getByRole("combobox", { name: /Guests/ })).toHaveValue("");
+  await expect(finder.getByRole("combobox", { name: /Guests/ })).toHaveValue("2");
   await finder.getByRole("button", { name: "Find experiences" }).click();
-  await expect(page).toHaveURL("/experiences");
-  await expect(page.getByRole("combobox", { name: /Guests/ })).toHaveValue("");
+  await expect(page).toHaveURL("/experiences?guests=2");
+  await expect(page.getByRole("combobox", { name: /Guests/ })).toHaveValue("2");
 });
 
 test("an explicit one guest filter excludes experiences that require two guests", async ({ page }) => {

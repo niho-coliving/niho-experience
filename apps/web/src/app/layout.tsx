@@ -7,7 +7,6 @@ import { AnalyticsSetup } from "@/components/Analytics";
 import { AttributionCapture } from "@/components/AttributionCapture";
 import { HandIconSprite } from "@/components/HandIcon";
 import { analyticsModeForRuntime } from "@/lib/analytics";
-import { PreviewBanner } from "@/components/SiteChrome";
 import { DocumentChrome } from "@/components/DocumentChrome";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { config, isPreview } from "@/lib/config";
@@ -46,8 +45,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <HandIconSprite />
         <AnalyticsSetup mode={analyticsMode} websiteId={config.umamiWebsiteId} />
         <AttributionCapture enabled={config.publicApiVersion === "1.2"} />
-        {isPreview ? <PreviewBanner catalog={config.mockCatalog} /> : null}
-        <DocumentChrome document={chrome}>{children}</DocumentChrome>
+        <DocumentChrome document={chrome} preview={isPreview ? config.mockCatalog : null}>
+          {children}
+        </DocumentChrome>
       </body>
     </html>
   );

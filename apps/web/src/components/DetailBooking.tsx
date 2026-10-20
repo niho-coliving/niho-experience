@@ -54,6 +54,9 @@ const sessionLabel = (summary: BookingSummary, occurrence: Occurrence) => {
   const offer = offerFor(summary, occurrence);
   return `${dayOption(occurrence.date).label} · ${formatTime(occurrence.startAt)} · ${offer?.name ?? "Option"}`;
 };
+/** The bottom bar names the option only when there is more than one. */
+const nextLabel = (summary: BookingSummary, occurrence: Occurrence) =>
+  summary.offers.length > 1 ? sessionLabel(summary, occurrence) : `${dayOption(occurrence.date).label} · ${formatTime(occurrence.startAt)}`;
 
 function Price({ summary, size = "lg" }: { summary: BookingSummary; size?: "lg" | "sm" }) {
   return (
@@ -145,9 +148,9 @@ export function BookingCard({ summary, label = "Check dates and book" }: { summa
 export function MobileBookingBar({ summary }: { summary: BookingSummary }) {
   const dates = useNextDates(summary);
   const next = Array.isArray(dates) ? dates[0] : undefined;
-  const line = next ? `Next: ${sessionLabel(summary, next)}` : summary.schedule;
+  const line = next ? `Next: ${nextLabel(summary, next)}` : summary.schedule;
   return (
-    <div className="sticky bottom-0 z-20 mt-14 border-t border-line bg-white/95 backdrop-blur lg:hidden">
+    <div data-sticky-bar className="sticky bottom-0 z-20 mt-14 border-t border-line bg-white/95 backdrop-blur lg:hidden">
       <div className="container-page flex items-center justify-between gap-3 py-3">
         <div className="min-w-0 leading-tight">
           <Price summary={summary} size="sm" />

@@ -2,6 +2,7 @@ import type { ExperienceOffer } from "@niho-experience/api-client";
 import type { ExperienceDetailForSite, ExperienceSummaryForSite, PublicImageForSite } from "./experience-types";
 import { formatDuration, formatYen } from "./format";
 import { joinAnd, scheduleSummary } from "./schedule";
+import { editorialOf } from "./themes";
 
 /**
  * Card display model. The catalog summary has no hosts, weekdays or capacity, so the
@@ -19,7 +20,7 @@ export type CardModel = {
   title: string;
   lead: string;
   cover: PublicImageForSite | null;
-  /** "with Takuya, Hasami & わか", or the provider name when no hosts are listed. */
+  /** "with Takuya, Hasami & わか", the provider name when no hosts are listed, or the editor's words (lib/themes.ts). */
   withLabel: string;
   face: Face;
   /** "Up to 8 guests" / "Private · 2–4 guests". Null without the detail. */
@@ -45,6 +46,13 @@ export function faceOf(e: Pick<ExperienceDetailForSite, "hosts" | "provider">): 
   const host = e.hosts[0];
   if (host) return { name: host.displayName, initial: initialOf(host.displayName), image: host.avatar };
   return { name: e.provider.name, initial: initialOf(e.provider.name), image: e.provider.logo };
+}
+
+/** Cards and the home host row: the data's face, or the editor's stand-in face when the data lists no hosts. */
+export function cardFaceOf(e: Pick<ExperienceDetailForSite, "slug" | "hosts" | "provider">): Face {
+  const face = faceOf(e);
+  const stand = e.hosts.length ? undefined : editorialOf(e)?.face;
+  return stand ? { ...face, image: { url: stand } } : face;
 }
 
 export function hostNames(e: Pick<ExperienceDetailForSite, "hosts" | "provider">): string {
@@ -95,10 +103,11 @@ export function buildCardModel(summary: ExperienceSummaryForSite, detail: Experi
     durationLabel: durationLabel(summary),
     priceLabel: formatYen(summary.priceFrom.amountYen),
   };
+  const withOverride = editorialOf(summary)?.withLabel;
   if (!detail) {
     return {
       ...base,
-      withLabel: `with ${summary.provider.name}`,
+      withLabel: `with ${withOverride ?? summary.provider.name}`,
       face: { name: summary.provider.name, initial: initialOf(summary.provider.name), image: null },
       groupLabel: null,
       language: null,
@@ -109,8 +118,8 @@ export function buildCardModel(summary: ExperienceSummaryForSite, detail: Experi
   }
   return {
     ...base,
-    withLabel: `with ${hostNames(detail)}`,
-    face: faceOf(detail),
+    withLabel: `with ${withOverride ?? hostNames(detail)}`,
+    face: cardFaceOf(detail),
     groupLabel: groupSizeLabel(detail.offers),
     language: { short: shortLanguageNote(detail.languageNote), full: detail.languageNote },
     scheduleLabel: scheduleSummary(detail.offers),

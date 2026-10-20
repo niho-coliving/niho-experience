@@ -16,7 +16,7 @@ const state = vi.hoisted(() => ({ documents: {} as Partial<Record<PageId, PageDo
 } }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/navigation")>()), useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("./config", () => ({ config: state.config, isPreview: false, previewListingLabel: "Sample listing" }));
+vi.mock("./config", () => ({ config: state.config, isPreview: false }));
 vi.mock("./page-documents", () => ({ getPublishedPageDocument: async (pageId: PageId) => state.documents[pageId] ?? null }));
 vi.mock("./api", () => ({
   getApi: async () => createExperienceApiClient({ nihoWebOrigin: "https://niho.example", fetch: createMockExperienceFetch() }),
@@ -78,7 +78,9 @@ describe("published documents use the existing server-rendered business componen
     expect(paused).toContain("Online booking is paused for now");
     expect(paused).not.toContain("Continue to checkout");
     state.documents.booking = undefined;
-    expect(renderToStaticMarkup(await BookPage(props))).toContain("Review and book");
+    // Without a document the experience title is the page's only h1 (the published heading replaces it otherwise).
+    for (const html of [published, paused]) expect(html.match(/<h1[ >]/g)).toHaveLength(1);
+    expect(renderToStaticMarkup(await BookPage(props))).toMatch(/<h1[^>]*>Home-cooked dinner with locals in a shared living room<\/h1>/);
   });
   it("文書なしの全ページは現行の本文と導線を維持する", async () => {
     expect(renderToStaticMarkup(await Home({ searchParams: Promise.resolve({}) }))).toContain("Meet the people who make Kamakura");

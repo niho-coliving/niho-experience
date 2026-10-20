@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildFixtureExperiences, buildPilotExperiences } from "@niho-experience/api-client/mock";
-import { iconForText, shortTitle, themeEntries, themeOf } from "./themes";
+import { CALLIGRAPHY_VIDEO, GUIDE_FACE } from "./site-media";
+import { editorialOf, FEATURED_HOST, FEATURED_STORY, iconForText, shortName, shortTitle, themeEntries, themeOf, topicsLine } from "./themes";
 
 describe("home themes", () => {
   it("maps each pilot experience to its theme, icon and short label", () => {
@@ -32,6 +33,28 @@ describe("home themes", () => {
       { slug: "home-cooked-dinner-with-locals", title: "Another dinner" },
     ]);
     expect(entries).toEqual([{ key: "cook", icon: "bowl", label: "Cook & eat", slug: "kamakura-community-dinner" }]);
+  });
+
+  it("keeps editorial words for the pilot slugs only (names, the card's with-line, a face, a video)", () => {
+    const pilot = buildPilotExperiences();
+    expect(pilot.map(shortName)).toEqual(["Community dinner", "Coffee roasting", "Zazen at Engakuji", "Ceramic mending", "Calligraphy"]);
+    expect(editorialOf({ slug: "kamakura-community-dinner" })?.withLabel).toBe("Takuya & neighbors");
+    expect(editorialOf({ slug: "engakuji-zen-meditation" })).toMatchObject({ withLabel: "a Zen priest & guide", face: GUIDE_FACE });
+    expect(editorialOf({ slug: "kamakura-calligraphy" })?.video).toBe(CALLIGRAPHY_VIDEO);
+    expect([FEATURED_STORY.slug, FEATURED_HOST.slug].every((slug) => pilot.some((experience) => experience.slug === slug))).toBe(true);
+    // Synthetic slugs keep their theme and nothing else; their names come from the title.
+    for (const experience of buildFixtureExperiences()) {
+      const entry = editorialOf(experience);
+      if (entry) expect(Object.keys(entry)).toEqual(["theme"]);
+      expect(shortName(experience)).toBe(shortTitle(experience.title));
+    }
+  });
+
+  it("lists the topics only when every listed experience has a theme", () => {
+    expect(topicsLine(buildPilotExperiences())).toBe("Food, coffee, Zen, mending and calligraphy.");
+    expect(topicsLine([{ slug: "kamakura-calligraphy" }])).toBe("Calligraphy.");
+    expect(topicsLine(buildFixtureExperiences())).toBeNull();
+    expect(topicsLine([])).toBeNull();
   });
 
   it("shortens titles at the first connecting word", () => {

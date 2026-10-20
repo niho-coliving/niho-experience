@@ -5,6 +5,15 @@
 
 2026-10-20 に UI を刷新した（オーナー承認のモック「改善版」）。白基調のニュートラル、手描きのアイコンと手書きのアクセント、切手の縁と丸スタンプで「近所の人に会いに行く」温度を出す。
 
+同日、オーナー承認のスマホ用モック v2（niho-app の `idea/mock/experience-site-refine-v2.html`）に見た目をできるだけ近づけた（オーナー判断 2026-10-20：「このモックの見た目にできるだけ本番実装を近づける。アセットもそのまま使ってよい」）。あわせて次を決めた。
+
+- プレビューの表記は上部の黒い帯をやめ、フッター最下部の小さな1行に移す（プレビューだけ。pilot と合成で文言を分け、契約版を添える）。
+- 写真の「Sample photo」タグと、カード・詳細の「Sample listing / Details to be confirmed」ピルは出さない。
+- NIHO の自前の写真（`niho-*.jpg`）とホストの顔（`host-*.jpg`）を仮に使う（§6）。
+- 詳細の「Your host(s)」の切手の写真は photos[1]（無ければ表紙）。
+
+モックと意図して違えた点：カードの開催日・一覧の件数・予約の日程は実データ（ブラウザで読んだ availability）で示す。予約入力は既存の2画面（日時・人数 → 入力・確認）を保ち、日付と人数を自動で選ばない。
+
 ## 1. 表現の考え方
 
 - 主役は写真と人。地は白、区切りは淡いグレーの面（sand）と細い線。色は少なく、写真の色を邪魔しない。
@@ -28,7 +37,6 @@
 | `moss` | `#355e1f` | リンク・focus（3px）・手書きの文字・✓ | 7.6:1（白）/ 6.9:1（sand）/ 6.8:1（leaf-pale） |
 | `leaf` / `leaf-hover` | `#b2d67c` / `#a3c86b` | 主ボタンの地（文字は ink）、下線・波線 | ink 文字 10.4:1 / 9.0:1 |
 | `leaf-pale` | `#eef5e3` | 頭文字の丸、日付の強調、選択の背景 | — |
-| `persimmon` / `-pale` | `#a8552a` / `#fbede2` | プレビューの「Sample listing / Details to be confirmed」表示だけ | 4.6:1 |
 | `danger` / `warn` / `info` + `-pale` | 赤・琥珀・青 | 状態表示。必ずアイコンと文言を併用 | 5.8 / 6.7 / 6.9:1 |
 
 `viewport` の `themeColor` は `#ffffff`。
@@ -45,25 +53,27 @@
 
 文字：本文 16.5px / 行間 1.6。h1 はモバイル 34–42px、デスクトップ 52–78px。補足でも 12px 未満にしない。
 角丸：カード・写真 22px、入力 12px、ボタン・チップは pill。影はカードと予約カードだけ。
-余白：画面端 16px（モバイル）/ 24px / 40px。セクション間 72px（モバイル）/ 104px（デスクトップ）。最大幅 1200px。
+余白：画面端 20px（モバイル。モック v2 に合わせた）/ 24px / 40px。セクション間 72px（モバイル）/ 104px（デスクトップ）。最大幅 1200px。
 
 ## 3. 部品
 
 | 部品 | ファイル | 決まり |
 | --- | --- | --- |
 | ボタン | `ui.tsx` `buttonClass` | primary＝leaf の地＋ink 文字（pill、高さ 48px）。secondary＝透明＋ink の 1.5px 枠。1画面の主操作は1つ |
-| 手描きアイコン | `HandIcon.tsx` | sprite（`HandIconSprite`）を layout で1回だけ描き、`<use>` で参照。stroke は currentColor。19種（bowl, bean, enso, mend, brush, clock, chat, people, train, pin, cal, check, cross, card, mail, table, house, umbrella, arrow）。常に `aria-hidden` |
+| 手描きアイコン | `HandIcon.tsx` | sprite（`HandIconSprite`）を layout で1回だけ描き、`<use>` で参照。stroke は currentColor。20種（bowl, bean, enso, mend, brush, clock, chat, people, train, pin, cal, check, cross, card, mail, table, house, umbrella, arrow, search）と、操作用の線（back, plus, minus）。常に `aria-hidden` |
 | 丸スタンプ | `HandIcon.tsx` `RubberStamp` | "NIHO · KAMAKURA · NEIGHBORS ·" と中央「鎌倉」。ヒーロー（白）、ホスト紹介・詳細のホスト・フッター（moss）。`aria-hidden` |
 | 切手の縁 / アーチ | `globals.css` `.postage` `.postage-paper` / `.arch` | 切手の縁は mask（Safari 用に `-webkit-mask` も）。ホスト紹介・詳細のホスト・絵はがきに使う。アーチは集合場所の外観とホスト募集の動画 |
 | Notice | `ui.tsx` | info / warn / danger / success / neutral。アイコン + 読み上げ用ラベル + 見出し + 次の行動 |
-| Pill | `ui.tsx` | 状態（満席・停止）と、プレビュー掲載の「Sample listing / Details to be confirmed」。人気・残りわずか等の演出には使わない |
-| 写真 | `Photo.tsx` | 比率固定でレイアウトのずれを防ぐ。`sizes` 指定。プレビューでは大きい写真（カードの表紙、詳細のギャラリー＝ブロックに1つ、ヒーロー、ホスト紹介の写真）にだけ小さな「Sample photo」タグ。小さいサムネイルには出さない |
+| Pill | `ui.tsx` | 状態（満席・停止）だけ。プレビュー掲載のピルは出さない。人気・残りわずか等の演出には使わない |
+| 写真 | `Photo.tsx` | 比率固定でレイアウトのずれを防ぐ。`sizes` 指定。仮の写真にもタグを付けない（プレビューであることはフッターの1行で伝える） |
+| プレビュー表記 | `SiteChrome.tsx` `PreviewNote` | プレビュー（mock）だけ、フッター最下部に小さな1行（`role="note"`）。pilot は「real hosts; dates, prices and photos are provisional · nothing can be booked」、合成は「hosts, dates and prices are invented · nothing can be booked」、どちらも契約版を添える。公開文書の共通枠（chrome）を使うときも同じ |
 | 顔 | `Face.tsx` | ホストの顔写真。無ければ頭文字の丸（leaf-pale 地＋moss 文字）。名前は必ず隣に書くので `aria-hidden` |
-| 体験カード | `ExperienceCard.tsx` | 表紙（4:5。一覧のスマホは 4:3）→ 左上に定員チップ（"Up to 8 guests" / 全商品が 2 人以上なら "Private · 2–4 guests"）→ 右下にはみ出すホストの顔 → "with ホスト名"（いなければ提供者名）→ 題名 →（一覧だけ）2行のリード → 所要時間・言語の略記 → 開催曜日と時刻（JST）→ "¥X / adult"。日付を選んだ一覧では曜日の代わりに "Sat 24 Oct · 6:00 PM" を強調。カード全体が1つのリンク。人気・残りわずか・レビューは出さない |
+| 体験カード | `ExperienceCard.tsx` `CardDates.tsx` | 表紙（4:5。一覧のスマホは 4:3）→ 左上に定員チップ（"Up to 8 guests" / 全商品が 2 人以上なら "Private · 2–4 guests"）→ 右下にはみ出すホストの顔（写真、無ければ頭文字）→ "with ホスト名"（いなければ提供者名。`lib/themes.ts` の上書きがあればその語）→ 題名 →（一覧だけ）2行のリード → 所要時間・言語の略記 → "Next" と次の開催日3つのピル（"Thu 22"）→ "¥X / adult"。開催日はブラウザで読んだ availability から作る（一覧は一覧の読み取り結果を共有、トップはカードが読む）。読めるまで・読めないときは開催曜日と時刻（JST）の要約を同じ1行の高さで出し、レイアウトを跳ねさせない。日付を選んだ一覧では "Sat 24 Oct · 6:00 PM" を強調。カード全体が1つのリンク。人気・残りわずか・レビュー・残席は出さない |
 | 動画 | `AmbientVideo.tsx` | muted・loop・playsInline・poster・`preload="metadata"`、`aria-hidden`。画面に入っている間だけ再生し、`prefers-reduced-motion: reduce` では再生しない（poster のまま）。LCP はヒーローの画像で、動画に依存しない |
-| 日時・人数選択 | `SlotPicker.tsx` | 日付ごとにまとめ、満席・締切は理由付きで無効化。詳細ページから渡された日付（`?date=&offer=`）は予約可能なときだけ選択済みにする |
-| 予約フォーム | `BookingForm.tsx` | ラベル・説明・エラーを近接。失敗しても入力を保持 |
-| 取消条件 | `Policy.tsx` | 期間ごとの返金率を示し、天候・最少催行を併記 |
+| 日時・人数選択 | `SlotPicker.tsx` | 画面1。サマリーカード → （商品が複数のときだけ）商品の選択 → 手書き "step 1" と "Choose a date"：2列の日付カード（ラジオは見えないが focus・読み上げ・キーボードで操作できる。満席・締切は理由付きで無効化。最初の6件＋"Show N more dates"）→ "step 2" と "Who's coming"：大人・子どもの行に −/+（中身は数値入力なので直接入力もできる）→ 下端の固定バーに合計・日付と Continue。詳細ページから渡された日付（`?date=&offer=`）は予約可能なときだけ選択済みにする |
+| 予約フォーム | `BookingForm.tsx` | 画面2。同じサマリーカード → "step 3" と "Your details"（`.fld` の見た目の入力欄、申込時の質問）→ "step 4" と "Check and pay"（承認制は "Check and send"）：日付・人数・内訳・合計の行カード、取消・受付方式・Stripe と販売者の注記（アイコン付き）、規約リンクと同意 → 下端の固定バーに合計と送信ボタン。ラベル・説明・エラーを近接。失敗しても入力を保持 |
+| 予約の部品 | `BookingParts.tsx` | サマリーカード（表紙の小さな写真・題名・"所要時間 · 開始時刻 JST · 商品名"。公開文書が無いとき題名が h1）、手書きの step 見出し、下端の固定バー。表示だけで業務の判断を持たない |
+| 取消条件 | `Policy.tsx` | 取消条件の見出し（"Free cancellation until 48 hours before the start" / "Non-refundable"） |
 
 カードの表示モデルは `lib/card-model.ts`。一覧の要約（契約の `ExperienceSummary`）にはホスト・曜日・定員が無いので、SSR で各体験の詳細を並列に読み（HTTP では 60 秒の共有キャッシュ）合成する。詳細を読めなかった体験は要約だけでカードを描き、落とさない。
 
@@ -71,27 +81,28 @@
 
 ### トップ（`/`）
 
-上から：1行のプレビュー帯（プレビューだけ）→ ヘッダー → ヒーロー → テーマ → カード → 特集 → 動画の帯 → ホスト紹介 → 数字 → 予約の流れ → 絵はがき → ホスト募集の帯 → フッター。
+上から：ヘッダー → ヒーロー → テーマ → カード → 特集 → 動画の帯 → ホスト紹介 → 数字 → 予約の流れ → 絵はがき → ホスト募集の帯 → フッター（プレビューだけ最下部に1行の表記）。
 
 | 節 | 内容 |
 | --- | --- |
-| ヘッダー | 白。ロゴ、Experiences、Host with NIHO（スマホは Experiences だけ）、"EN · ¥"（操作ではない表示。読み上げは "In English, prices in Japanese yen"） |
-| ヒーロー | 全面の写真（`lib/site-media.ts`、priority）、h1 "Meet the people who make Kamakura *home*"（home を手書き）、リード、右上に白い丸スタンプ。下端に重なる検索（GET で `/experiences` へ。`date`＝Any day＋今日から14日（JST）、`guests`＝1〜8）。JS なしでも動く |
-| テーマ | 掲載中の体験から作る（空のテーマを作らない）。slug・題名の語でアイコンと短いラベルを決める（`lib/themes.ts`：Cook & eat / Roast coffee / Sit zazen / Mend a bowl / Write kanji、該当なしは家のアイコン＋題名の短縮）。各テーマはその体験の詳細へ |
+| ヘッダー | 白。ロゴ、Experiences（一覧では淡い面で選択状態、`aria-current="page"`）、Host with NIHO（スマホは Experiences だけ）、"EN · ¥"（操作ではない表示。読み上げは "In English, prices in Japanese yen"） |
+| ヒーロー | 全面の写真（NIHO のディナーの長いテーブル、`lib/site-media.ts`、priority）、h1 "Meet the people who make Kamakura *home*"（home を手書き）、リード "Cook, sit, mend and write with people who live here. Small groups, booked in minutes, no account needed."、右上に白い丸スタンプ。下端に重なる検索（GET で `/experiences` へ。`date`＝Any day＋今日から14日（JST）、`guests`＝1〜8、既定は "2 adults"）。JS なしでも動く |
+| テーマ | 掲載中の体験から作る（空のテーマを作らない）。slug を明示した編集用の表でアイコンと短いラベルを決める（`lib/themes.ts`：Cook & eat / Roast coffee / Sit zazen / Mend a bowl / Write kanji）。題名からは推測しない（#36）。各テーマはその体験の詳細へ |
 | カード | 手書き "N to choose from"、h2 "Experiences hosted by neighbors"、See all。スマホは横スクロールの snap、PC は3列。最後に "Your experience here?"（`/host` へ） |
-| 特集 | 写真が5枚以上ある最初の体験。手書きの開催曜日と時刻、題名、リード、"See details"、写真のモザイク |
-| 動画の帯 | "Slow down, you're among neighbors" と手書きの副題。下に縦長の動画カード（掲載中のテーマだけ）。ラベルは手書きの動詞＋体験の短い名前。ホストの実名は書かない |
-| ホスト紹介 | sand の面。個人の提供者（`provider.kind = INDIVIDUAL`）の体験を1つ選び、手書きの名前、`provider.tagline`、リード、その体験の表紙を切手の縁＋丸スタンプで。動画は使わない（実在の人とストック映像の人物を結び付けない）。下に他のホストの顔／頭文字をリンクで並べる |
-| 数字 | "Small on purpose"：駅からの分数（静的）、最大定員（計算）、体験数（計算）、言語数（静的）。Fraunces 300 の数字＋手書きの単位 |
-| 予約の流れ | Pick a date / Pay securely（Stripe、円、税込）/ Get the details by email、手書き "no account needed — book as a guest" |
+| 特集 | コミュニティディナーの slug が掲載中なら編集用の内容（`lib/themes.ts` の `FEATURED_STORY`）：データの曜日・時刻の手書き（"Tue, Thu & Sat · 6 PM"）、h2 "One long table, eight guests and a few neighbors"、本文、"See the dinner"、NIHO の自前の写真5枚のモザイク。掲載されていなければ写真が5枚以上ある最初の体験（題名、リード、"See details"、その写真） |
+| 動画の帯 | "Slow down, you're among neighbors" と手書きの副題。下に縦長の動画カード（掲載中のテーマだけ）。ラベルは手書きの動詞＋編集用の短い名前（"Cook / Community dinner"。表に無ければ題名の短縮）。書道は書道の動画で上書き。ホストの実名は書かない |
+| ホスト紹介 | sand の面。書道の slug が掲載中ならモックどおり（`FEATURED_HOST`）：データの hosts[0] の名前を手書き、役割 "Calligrapher, MC and event producer"、本文、切手の縁の中に書道の動画＋丸スタンプ、"See Shiryu's workshop"。掲載されていなければ個人の提供者（`provider.kind = INDIVIDUAL`）の体験の表紙・`provider.tagline`・リード。下にホストの顔（写真、無ければ頭文字。名前のあるホストを先に、ホストのいない体験は編集用の顔）を各体験へのリンクで並べ、紹介中の人を緑の縁で強調 |
+| 数字 | "Small on purpose"：駅からの分数（"From Kamakura Station West Exit to the living room door."）、最大定員（計算）、体験数（計算。掲載中の全体験にテーマがあれば "Food, coffee, Zen, mending and calligraphy." のように並べる）、言語数（"English and Japanese, often both at the same table."）。Fraunces 300 の数字＋手書きの単位 |
+| 予約の流れ | Pick a date（"See the next dates on every card. Times are Japan time."）/ Pay securely（"Checkout by Stripe in Japanese yen, tax included."）/ Meet your hosts（"The meeting point and your booking arrive by email."）、手書き "no account needed — book as a guest" |
 | 絵はがき | "Kamakura is small. Walk it."。切手の縁で少し傾け、手書きの地名。リンクなし |
 | ホスト募集 | アーチ形の動画、"Share what you love about Kamakura"、`/host` へ |
-| フッター | 白、丸スタンプ、既存ルート（`/experiences`、`/host`）だけ |
+| フッター | 白、丸スタンプ、説明 "Small experiences hosted by people who live in Kamakura. Made by NIHO, a shared living room two minutes from Kamakura Station."、既存ルート（`/experiences`、`/host`）だけ。プレビューだけ最下部に1行の表記 |
 
 ### 一覧（`/experiences`）
 
-- 手書き "small groups · local hosts"、h1 "Experiences in Kamakura"、円・税込・JST の補足、共有できる検索（`q`）。
-- ヘッダーの下に固定する絞り込み：Any day と今日から7日の日付チップ（曜日＋日、JST。トップから8日目以降の日付が来たらそのチップを足す）と人数（1〜8）。
+- 手書き "small groups · local hosts"、h1 "Experiences in Kamakura"、円・税込・JST の補足。
+- ヘッダーの下に固定する絞り込み：上の行に人数のピル（Any group／1〜8）、下の行に Any day と今日から7日の日付チップ（曜日＋日、JST。トップから8日目以降の日付が来たらそのチップを足す）。チップの行の右端に小さな丸い検索ボタン（虫眼鏡）。
+- 検索（`q`。API 1.2 ではテーマも）は `<details>/<summary>` の中の GET フォームで、押すと入力欄がチップの下に開く。JS なしでも開閉・送信できる。`q`（やテーマ）が URL にあるときは開いた状態で語を表示する。0件や日程を読めないときは同じ検索を独立した行に出す。
 - 日付・人数の絞り込みはブラウザから各体験の availability を1回ずつ読み、その日に予約可能で残席 ≥ 人数、かつ商品の1組の上限 ≥ 人数の開催回がある体験だけを出す（`lib/date-filter.ts`）。残席数そのものは表示しない。読込後はチップの下に件数、0件の日は無効。読込中は控えめな文言、失敗したら絞り込みを出さず全件と短い案内。
 - URL の `date`・`guests` を読み、変更は `history.replaceState` で同期する。`date` 付きの URL は noindex（canonical は `/experiences`）。
 - 0件と通信失敗はそれぞれ行動できる表示にする（検索を消す、Any day に戻す、人数を減らす、再試行）。
@@ -99,14 +110,15 @@
 ### 詳細（`/experiences/[slug]`）
 
 - スマホ：先頭に横スワイプのギャラリー（"1 / N"、一覧へ戻る丸ボタン）。PC：パンくず → タイトル → 表紙＋4枚のモザイク、"Show all N photos"（`<dialog>`。Esc・閉じるボタン、読み上げ見出し付き）。
-- タイトル部：手書きの開催曜日と時刻、h1、ホストの行（顔／頭文字の重なり＋"Hosted by …"＋提供者名）、手描きアイコン付きの事実（所要時間と時刻 JST、言語、人数と子どもの条件、集合を公開している場合は accessNote の要約）。
-- 本文：リード、highlights（語でアイコンを選ぶ）、What you'll do（3段落目以降は畳む）、行程（写真付き、時刻は手書きの12時間表記、写真なしはアイコンのタイル）、ホスト（切手の縁の写真＝photos[1] か表紙、丸スタンプ、`provider.tagline` を手書きの引用、ホストのチップ）、含む／含まない（手描きの ✓ / ×）、集合場所、Good to know（3件＋"Show all N"）、Not suitable for、取消（全商品共通の条件のときだけ要約）、販売者と Seller information。決済取消からの戻りは案内を出す。
+- タイトル部：手書きの開催曜日と時刻、h1（題名の下にピルは出さない）、ホストの行（顔写真／頭文字の重なり＋"Hosted by …"＋提供者名）、手描きアイコン付きの事実（所要時間と時刻 JST、言語、人数と子どもの条件、集合を公開している場合は accessNote の要約）。
+- 本文：リード、highlights（語でアイコンを選ぶ）、What you'll do（3段落目以降は畳む）、行程（写真付き、時刻は手書きの12時間表記、写真なしはアイコンのタイル）、ホスト（見出しは Your host(s)、ホストがいなければ Who runs it。切手の縁の写真＝photos[1] か表紙（オーナー判断 2026-10-20）、丸スタンプ、`provider.tagline` を手書きの引用、顔写真付きのホストのチップ）、含む／含まない（手描きの ✓ / ×）、集合場所、Good to know（3件＋"Show all N"）、Not suitable for、取消（全商品共通の条件のときだけ要約。補足は全商品が承認制なら "Your hosts confirm each request. You are only charged if they accept."、即時確定なら "Your booking is confirmed as soon as you pay."、混在なら "This policy applies to the option and date you select."）、販売者と Seller information。決済取消からの戻りは案内を出す。
 - 集合場所：PUBLIC なら名前・住所・アクセス・入口の案内・"Open in Maps"（https のみ）と、`exteriorPhotoIndex` の写真をアーチ形で。AFTER_BOOKING は「予約確定後に案内」。
-- 予約：PC は右の固定カード（"¥X / adult"、子ども料金、税込、開催曜日と時刻、ブラウザで読んだ次の開催日を最大3つ＝押すと `/book?date=&offer=` でその日を選んだ状態から、"Check dates and book"、取消の時間、承認制なら "Your hosts confirm each request — you're only charged if they accept"、"No account needed"、"Secure payment by Stripe"）。人数・合計は置かない（予約入力の役割）。スマホは下端の固定バー（価格＋次回日 or 曜日の要約＋"Check dates"）。予約停止中（`BOOKINGS_ENABLED=false` か `checkoutAvailable=false`）は停止の案内だけで、予約の入口を出さない。
+- 予約：PC は右の固定カード（"¥X / adult"、子ども料金、税込、開催曜日と時刻、ブラウザで読んだ次の開催日を最大3つ＝押すと `/book?date=&offer=` でその日を選んだ状態から、"Check dates and book"、取消の時間、承認制なら "Your hosts confirm each request — you're only charged if they accept"、"No account needed"、"Secure payment by Stripe"）。人数・合計は置かない（予約入力の役割）。スマホは下端の固定バー（価格＋次回日 or 曜日の要約＋"Check dates"。次回日は商品が1つなら "Next: Thu 22 Oct · 6:00 PM" と商品名を付けない）。予約停止中（`BOOKINGS_ENABLED=false` か `checkoutAvailable=false`）は停止の案内だけで、予約の入口を出さない。
 - NIHO の公開 DTO から表示する。正規 URL は API の `canonicalUrl`。プレビューの fixture は構造化データとして出さない。
 
 ### 予約入力（`/experiences/[slug]/book`）
 
+- 見た目はモック v2（pBook）。2画面の流れ（SlotPicker → Continue → BookingForm）はそのまま。戻るリンク "‹ 短い名前"、サマリーカード（公開文書が無いとき題名が h1）、手書きの step 1〜4、下端の固定バー（§3）。公開文書（`booking` / `BookingPanel`）を使うときは文書の見出しがあるので題名は h1 にしない。
 - ブラウザから `getAvailability` を読み、商品・開催日・大人/子どもの人数を選ぶ。連絡先・回答は URL や Server Action へ送らない。詳細ページから来た `date`・`offer`（公開の日程だけ）は選択の初期値にする。
 - 送信前に開催日（JST）、商品、料金内訳・税込総額、販売者、取消条件、同意文書と版を表示する。
 - 入力は氏名・メール・任意の備考と、商品に定義された申込時の質問だけ。未対応の電話・国は収集しない。
@@ -119,7 +131,7 @@
 
 ### 提供者入口（`/host`）
 
-- 流れ4段、提供者がすること / NIHO がすること、料金と支払い（数字は合意まで載せない）。
+- 見た目はモック v2（pHost）：ヒーローの下にアーチ形の動画（`HOST_BAND_VIDEO`）、案内は leaf-pale の面＋家のアイコン、流れ4段は Caveat の数字と点線の区切りの行、"who does what" / "You host. We help." の YOU（sand）と NIHO（leaf-pale）の2つの面（✓）、料金と支払い（同じトーンの sand の面。数字は合意まで載せない）、最後に "See the experiences"（登録が開いているときは登録ボタンを主操作に残すため二次ボタン）。文言と登録の分岐は従来どおり。
 - `HOST_SIGNUP_MODE=pilot`（既定）：少数の提供者から始めていると説明し、動かないセルフ登録ボタンは出さない。
 - `open`：固定 URL で NIHO のログインへ。戻り先や商品を利用者が書き換えられるパラメータを付けない。Stripe の本人確認が必要な場合があると明記。
 
@@ -138,8 +150,11 @@
 
 ## 6. 仮素材（撮影前）
 
-- サイトが持つ装飾素材（ヒーロー、動画の帯、テーマの動画、絵はがき、ホスト募集の動画）は `apps/web/src/lib/site-media.ts` に集め、`SAMPLE_MEDIA = true` の間は「Sample photo」タグを出す（動画の帯は帯全体で1つ、絵はがきは列で1つ）。出典は `apps/web/public/sample/CREDITS.md`。
-- pilot fixture（`MOCK_CATALOG=pilot`）の写真は同じ仮写真を使う（オーナー判断 2026-10-20）。実在の会員・提供者の写真としては使わない：ホストの顔は頭文字で代替し（`avatar: null`）、集合場所の外観は実物と違う建物を見せないよう SVG の仮素材のまま。
+- サイトが持つ装飾素材（ヒーロー、特集のモザイク、動画の帯、テーマの動画、絵はがき、ホスト募集の動画、編集用の顔）は `apps/web/src/lib/site-media.ts` に集める。`SAMPLE_MEDIA = true` は撮り直し前の目印で、画面にタグは出さない（オーナー判断 2026-10-20。プレビューであることはフッター最下部の1行で伝える）。出典は `apps/web/public/sample/CREDITS.md`。
+- オーナー判断（2026-10-20、モック v2 に合わせる）で次を仮に使う。
+  - NIHO の自前の写真（`niho-*.jpg`）：ヒーロー、特集のモザイク、コミュニティディナーの写真、NIHO の集合場所の外観（実物の建物）。
+  - ホストの顔（`host-*.jpg`）：pilot fixture の hosts[].avatar（Takuya は本人。Yukino・Shiryu は顔の代わりの写真で本人ではない）と、ホストのいない体験の編集用の顔（`lib/themes.ts`。円覚寺のガイド）。写真の無いホストは頭文字。
+  - 円覚寺の集合場所の外観は参道の写真（`temple-path.jpg`）。ほかの体験の写真は出典を残した無料素材。
 - 合成 fixture（既定）は従来どおり SVG の仮素材。
 - 本番公開の前に撮り直した写真・動画へ置き換え、`SAMPLE_MEDIA` を外す（[release-acceptance.md](release-acceptance.md)）。
 
@@ -157,5 +172,5 @@
 - 英語は短く、具体的に、次に何が起こるかを書く。CTA は結果を表す動詞（Check dates and book、Find experiences、Continue to secure payment）。
 - 価格は「¥6,800 / adult」（商品で違えば「From」）。子ども料金があれば別に示す。総額には「Japanese yen, tax included」。時刻は「6:00 PM – 8:30 PM JST」、日付は「Sat 24 Oct」。
 - 開催曜日は契約上「表示の要約用」。実際の日付はブラウザで読んだ availability だけで示す。
-- レビュー、人気、残席わずか、販売実績は実データがあるまで表示しない。合成例は「Sample」と表示する。
+- レビュー、人気、残席わずか、販売実績は実データがあるまで表示しない。プレビュー（合成例・pilot）であることはフッター最下部の1行で示す。
 - 現在の英語文言・提供者の人物像は合成例か推奨値。実商品の原稿は担当3（#13）が事実確認したものに差し替える。

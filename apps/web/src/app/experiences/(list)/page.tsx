@@ -7,7 +7,7 @@ import { EmptyResults, ErrorState } from "@/components/States";
 import { getApi, listExperiencesForSite } from "@/lib/api";
 import { buildCardModels } from "@/lib/card-model";
 import { loadDetails } from "@/lib/catalog";
-import { config, isPreview, previewListingLabel } from "@/lib/config";
+import { config, isPreview } from "@/lib/config";
 import { dayOption, parseDateParam, parseGuestsParam, upcomingDays } from "@/lib/date-filter";
 import { filterExperienceSummaries, normalizeExperienceDate, normalizeExperienceQuery, normalizeExperienceTheme, type SearchParams } from "@/lib/filters";
 import { getPublishedPageDocument } from "@/lib/page-documents";
@@ -47,19 +47,19 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
   const days = upcomingDays(now, CHIP_DAYS);
   if (initialDate && !days.some((day) => day.key === initialDate)) days.push(dayOption(initialDate));
 
+  const searchProps = {
+    searchQuery,
+    theme,
+    date,
+    filtersEnabled: config.publicApiVersion === "1.2",
+    filtersActive: Boolean(searchQuery || theme || date || initialGuests !== null),
+  };
   const listContent = (props: BlockProps = {}) => (
     <div className="pt-9 sm:pt-14">
       <header className="container-page">
         <p className="eyebrow">small groups · local hosts</p>
         <h1 className="mt-1.5 text-[2.5rem] sm:text-[3.625rem]">{blockText(props, "heading", "Experiences in Kamakura")}</h1>
         <p className="mt-2.5 text-[0.9375rem] text-muted">Prices in Japanese yen, tax included. Times in Japan time (JST).</p>
-        <ExperienceFiltersForm
-          searchQuery={searchQuery}
-          theme={theme}
-          date={date}
-          filtersEnabled={config.publicApiVersion === "1.2"}
-          filtersActive={Boolean(searchQuery || theme || date || initialGuests !== null)}
-        />
       </header>
       <ExperienceList
         key={`${initialDate ?? "any"}:${initialGuests ?? "any"}`}
@@ -69,8 +69,9 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
         initialGuests={initialGuests}
         catalogDateFiltered={config.publicApiVersion === "1.2" && Boolean(date)}
         preview={isPreview}
-        previewLabel={previewListingLabel}
         nihoWebOrigin={config.nihoWebOrigin}
+        search={<ExperienceFiltersForm {...searchProps} placement="bar" />}
+        inlineSearch={<ExperienceFiltersForm {...searchProps} placement="inline" />}
         columns={props.columns === "two" ? "two" : "three"}
         empty={<><EmptyResults clearHref={searchQuery || theme || date || initialGuests !== null ? "/experiences" : null} searchActive={Boolean(searchQuery)} />{props.emptyMessage ? <p>{String(props.emptyMessage)}</p> : null}</>}
       />

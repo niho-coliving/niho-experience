@@ -1,10 +1,10 @@
 import type { PublicImage } from "../types.ts";
 
 /**
- * 仮素材の画像（SVG の data URI）。合成 fixture の写真と、pilot fixture のうち仮写真を当てない画像（集合場所の外観・ロゴ）に使う。
+ * 仮素材の画像（SVG の data URI）。合成 fixture の写真と、pilot fixture のうち仮写真を当てない画像（ロゴ）に使う。
  * 画面に「Sample」と描くので実物と誤認させない。
- * 写真の扱い（オーナー判断 2026-10-20）：pilot のプレビューは、出典を残した無料素材の仮写真（apps/web/public/sample/、CREDITS.md）を
- * 「Sample photo」表示付きで使ってよい（fixtures/pilot-experiences.ts）。実在の会員・提供者の写真としては使わない。
+ * 写真の扱い（オーナー判断 2026-10-20）：pilot のプレビューは apps/web/public/sample/ の仮写真（出典・内容は CREDITS.md）を使い、
+ * 仮の表示であることはフッターのプレビュー表記で伝える（fixtures/pilot-experiences.ts）。
  * `imageBaseUrl` を渡すと `mock-assets/` の同名 SVG を配信する前提の URL にする（Next.js の画像最適化を通したい場合）。
  */
 export type PlaceholderImageOptions = { imageBaseUrl?: string };

@@ -7,18 +7,19 @@ import { ExperienceCard, InviteCard } from "@/components/ExperienceCard";
 import { FaceBadge } from "@/components/Face";
 import { HomeFinder } from "@/components/HomeFinder";
 import { HandIcon, RubberStamp, type HandIconName } from "@/components/HandIcon";
-import { Photo, SampleTag } from "@/components/Photo";
+import { Photo } from "@/components/Photo";
 import { EmptyResults, ErrorState } from "@/components/States";
 import { ButtonLink, SectionHeading } from "@/components/ui";
 import { getApi, listExperiencesForSite } from "@/lib/api";
-import { buildCardModels, faceOf, type Face } from "@/lib/card-model";
+import { buildCardModels, cardFaceOf, type Face } from "@/lib/card-model";
 import { loadDetails } from "@/lib/catalog";
-import { config, isPreview, previewListingLabel } from "@/lib/config";
+import { config, isPreview } from "@/lib/config";
 import { upcomingDays } from "@/lib/date-filter";
 import type { SearchParams } from "@/lib/filters";
 import { scheduleLine } from "@/lib/schedule";
-import { BANNER_VIDEO, HERO_PHOTO, HOST_BAND_VIDEO, POSTCARDS, SAMPLE_MEDIA, STRIP_VIDEOS } from "@/lib/site-media";
-import { shortTitle, themeEntries, themeOf, type Theme } from "@/lib/themes";
+import { BANNER_VIDEO, HERO_PHOTO, HOST_BAND_VIDEO, POSTCARDS, STRIP_VIDEOS, type SiteVideo } from "@/lib/site-media";
+import { editorialOf, FEATURED_HOST, FEATURED_STORY, shortName, themeEntries, themeOf, topicsLine, type Theme } from "@/lib/themes";
+import type { CardDatesSource } from "@/components/CardDates";
 import type { ExperienceDetailForSite } from "@/lib/experience-types";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 
@@ -26,9 +27,9 @@ const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven
 const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
 
 const STEPS: { icon: HandIconName; title: string; body: string }[] = [
-  { icon: "cal", title: "Pick a date", body: "Choose a date and how many of you are coming. Times are Japan time (JST)." },
+  { icon: "cal", title: "Pick a date", body: "See the next dates on every card. Times are Japan time." },
   { icon: "card", title: "Pay securely", body: "Checkout by Stripe in Japanese yen, tax included." },
-  { icon: "mail", title: "Get the details by email", body: "NIHO emails your confirmation and the meeting details." },
+  { icon: "mail", title: "Meet your hosts", body: "The meeting point and your booking arrive by email." },
 ];
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -46,16 +47,24 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   const listed = summaries.map((summary) => details.get(summary.slug)).filter((detail): detail is ExperienceDetailForSite => Boolean(detail));
 
   const themes = themeEntries(summaries);
-  const featured = listed.find((experience) => experience.photos.length >= 5) ?? null;
+  // Editorial features while their slug is listed (lib/themes.ts); otherwise the data decides.
+  const story = listed.find((experience) => experience.slug === FEATURED_STORY.slug) ?? null;
+  const featured = story ? null : (listed.find((experience) => experience.photos.length >= 5) ?? null);
   // One clip per listed theme; the label is the verb and the experience's short name (never a host's name).
-  const strips: { theme: Theme; slug: string; name: string }[] = [];
+  const strips: { theme: Theme; slug: string; name: string; video: SiteVideo }[] = [];
   for (const summary of summaries) {
     const theme = themeOf(summary);
-    if (theme && !strips.some((strip) => strip.theme.key === theme.key)) strips.push({ theme, slug: summary.slug, name: shortTitle(summary.title) });
+    if (theme && !strips.some((strip) => strip.theme.key === theme.key)) {
+      strips.push({ theme, slug: summary.slug, name: shortName(summary), video: editorialOf(summary)?.video ?? STRIP_VIDEOS[theme.key] });
+    }
   }
-  const hostFeature = listed.find((experience) => experience.provider.kind === "INDIVIDUAL") ?? null;
+  const hostFeature =
+    listed.find((experience) => experience.slug === FEATURED_HOST.slug && experience.hosts.length) ??
+    listed.find((experience) => experience.provider.kind === "INDIVIDUAL") ??
+    null;
   const capacities = listed.flatMap((experience) => experience.offers.map((offer) => offer.capacity));
   const days = upcomingDays(new Date(), 14);
+  const cardDates: CardDatesSource = { kind: "read", preview: isPreview, nihoWebOrigin: config.nihoWebOrigin };
 
   const fallback = (
     <>
@@ -81,12 +90,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                 Meet the people who make Kamakura <span className="hand inline-block -rotate-3 text-[1.22em] text-leaf">home</span>
               </h1>
               <p className="mt-3.5 max-w-[30rem] text-[1.0625rem] text-white/90 lg:text-[1.1875rem]">
-                Spend a few hours with people who live here. Small groups, prices in yen, and no account needed to book.
+                Cook, sit, mend and write with people who live here. Small groups, booked in minutes, no account needed.
               </p>
             </div>
           </div>
           <RubberStamp className="absolute top-[18px] right-4 z-[2] size-24 -rotate-12 text-white opacity-90 lg:top-11 lg:right-14 lg:size-[134px]" />
-          {SAMPLE_MEDIA ? <SampleTag className="top-3 left-3" /> : null}
         </div>
         <HomeFinder days={days} />
       </section>
@@ -124,10 +132,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
           }
         />
         {cards.length ? (
-          <ul className="scrollbar-none -mx-4 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-[18px] overflow-x-auto px-4 pt-1 pb-7 sm:-mx-6 sm:auto-cols-[44%] sm:px-6 lg:mx-0 lg:grid-flow-row lg:grid-cols-3 lg:gap-x-7 lg:gap-y-[52px] lg:overflow-visible lg:p-0">
+          <ul className="scrollbar-none -mx-5 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-[18px] overflow-x-auto px-5 pt-1 pb-7 sm:-mx-6 sm:auto-cols-[44%] sm:px-6 lg:mx-0 lg:grid-flow-row lg:grid-cols-3 lg:gap-x-7 lg:gap-y-[52px] lg:overflow-visible lg:p-0">
             {cards.map((card, index) => (
               <li key={card.slug} className="snap-center">
-                <ExperienceCard card={card} priority={index === 0} preview={isPreview} previewLabel={previewListingLabel} />
+                <ExperienceCard card={card} priority={index === 0} dates={cardDates} />
               </li>
             ))}
             <li className="snap-center">
@@ -139,7 +147,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         )}
       </section>
 
-      {featured ? <Featured experience={featured} preview={isPreview} /> : null}
+      {story ? <FeaturedStory experience={story} /> : featured ? <Featured experience={featured} /> : null}
 
       {strips.length ? (
         <section className="pt-[72px] lg:pt-[104px]" aria-labelledby="strips-heading">
@@ -155,13 +163,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                 {strips.length === 1 ? "one small way into Kamakura" : `${numberWord(strips.length)} small ways into Kamakura`}
               </span>
             </h2>
-            {SAMPLE_MEDIA ? <SampleTag className="top-3 left-3" /> : null}
           </div>
           <ul className="scrollbar-none relative z-[2] -mt-[110px] grid snap-x snap-mandatory auto-cols-[46%] grid-flow-col gap-2.5 overflow-x-auto px-5 sm:auto-cols-[30%] lg:mx-auto lg:-mt-[190px] lg:flex lg:max-w-[75rem] lg:justify-center lg:gap-3.5 lg:overflow-visible lg:px-10">
             {strips.map((strip) => (
               <li key={strip.theme.key} className="snap-start lg:w-[calc((100%_-_4*0.875rem)/5)]">
                 <Link href={`/experiences/${strip.slug}`} className="relative block aspect-[1/2] overflow-hidden rounded-[20px] bg-[#333] text-white">
-                  <AmbientVideo video={STRIP_VIDEOS[strip.theme.key]} />
+                  <AmbientVideo video={strip.video} />
                   <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0)_50%,rgb(0_0_0/0.66))]" />
                   <span className="absolute right-3 bottom-4 left-4 z-[1]">
                     <b className="hand block text-[2.375rem] text-white">{strip.theme.verb}</b>
@@ -174,18 +181,22 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         </section>
       ) : null}
 
-      {hostFeature ? <HostFeature experience={hostFeature} others={listed.filter((item) => item !== hostFeature)} preview={isPreview} /> : null}
+      {hostFeature ? <HostFeature experience={hostFeature} listed={listed} /> : null}
 
       {cards.length ? (
         <section className="container-page pt-[72px] lg:pt-[104px]" aria-labelledby="numbers-heading">
           <SectionHeading align="center" eyebrow="why it feels different" title="Small on purpose" id="numbers-heading" />
           <ul className="grid grid-cols-2 gap-x-3 gap-y-11 text-center lg:grid-cols-4">
-            <Figure value="2" unit="minutes" note="From Kamakura Station West Exit to NIHO." />
+            <Figure value="2" unit="minutes" note="From Kamakura Station West Exit to the living room door." />
             {capacities.length ? (
               <Figure value={String(Math.max(...capacities))} unit="guests at most" note="Small enough for one table and real conversation." />
             ) : null}
-            <Figure value={String(cards.length)} unit={cards.length === 1 ? "way to start" : "ways to start"} note="Each one hosted by people who live here." />
-            <Figure value="2" unit="languages" note="English & Japanese, often at the same table." />
+            <Figure
+              value={String(cards.length)}
+              unit={cards.length === 1 ? "way to start" : "ways to start"}
+              note={topicsLine(summaries) ?? "Each one hosted by people who live here."}
+            />
+            <Figure value="2" unit="languages" note="English and Japanese, often both at the same table." />
           </ul>
         </section>
       ) : null}
@@ -214,14 +225,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
           <SectionHeading align="center" eyebrow="make a day of it" title="Kamakura is small. Walk it." id="walk-heading" />
         </div>
         <ul tabIndex={0} aria-label="Places around Kamakura" className="scrollbar-none flex gap-[18px] overflow-x-auto px-5 pt-4 pb-7 lg:justify-center lg:gap-[26px] lg:pt-6">
-          {POSTCARDS.map((card, index) => (
+          {POSTCARDS.map((card) => (
             <li key={card.src} className="w-40 shrink-0 lg:w-45" style={{ transform: `rotate(${card.rotate}deg)` }}>
               <figure>
                 <div className="postage postage-sm aspect-[3/4]">
                   <div className="postage-paper">
                     <div className="relative h-full w-full overflow-hidden">
                       <NextImage src={card.src} alt={card.alt} fill unoptimized sizes="180px" className="object-cover" style={{ objectPosition: card.position }} />
-                      {SAMPLE_MEDIA && index === 0 ? <SampleTag className="bottom-1.5 left-1.5" /> : null}
                     </div>
                   </div>
                 </div>
@@ -246,7 +256,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
           </div>
           <div className="arch relative aspect-[3/4] w-[min(100%,260px)] justify-self-center bg-line">
             <AmbientVideo video={HOST_BAND_VIDEO} />
-            {SAMPLE_MEDIA ? <SampleTag className="bottom-5 left-1/2 -translate-x-1/2" /> : null}
           </div>
         </div>
       </section>
@@ -261,7 +270,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
       />
       {cards.length ? (
         <ul className={`grid gap-x-6 gap-y-11 sm:grid-cols-2 ${props.columns === "two" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
-          {cards.map((card, index) => <li key={card.slug}><ExperienceCard card={card} priority={index === 0} preview={isPreview} previewLabel={previewListingLabel} /></li>)}
+          {cards.map((card, index) => <li key={card.slug}><ExperienceCard card={card} priority={index === 0} dates={cardDates} /></li>)}
           <li><InviteCard /></li>
         </ul>
       ) : <><EmptyResults clearHref={null} />{props.emptyMessage ? <p>{String(props.emptyMessage)}</p> : null}</>}
@@ -269,7 +278,44 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   ) }} />;
 }
 
-function Featured({ experience: e, preview }: { experience: ExperienceDetailForSite; preview: boolean }) {
+/** The editor's feature for the community dinner: words from lib/themes.ts, NIHO's own photos, the schedule from the data. */
+function FeaturedStory({ experience: e }: { experience: ExperienceDetailForSite }) {
+  const line = scheduleLine(e.offers, { compact: true });
+  return (
+    <section className="container-page pt-[72px] lg:pt-[104px]" aria-labelledby="featured-heading">
+      <div className="grid items-center gap-7 lg:grid-cols-[0.9fr_1.3fr] lg:gap-16">
+        <div>
+          {line ? <p className="eyebrow">{line}</p> : null}
+          <h2 id="featured-heading" className="mt-2 text-[2rem] lg:text-[2.75rem]">
+            {FEATURED_STORY.heading}
+          </h2>
+          <p className="mt-3.5 max-w-[30rem] text-ink-soft">{FEATURED_STORY.body}</p>
+          <ButtonLink href={`/experiences/${e.slug}`} variant="secondary" className="mt-[22px]">
+            {FEATURED_STORY.cta}
+          </ButtonLink>
+        </div>
+        <div className="grid h-80 grid-cols-[1fr_1fr_1.3fr] grid-rows-2 gap-1 overflow-hidden rounded-[22px] lg:h-[480px]">
+          {FEATURED_STORY.photos.map((photo, index) => (
+            <div key={photo.src} className={`relative min-h-0 ${index === 2 ? "col-start-3 row-span-2 row-start-1" : ""}`}>
+              <NextImage
+                src={photo.src}
+                alt={photo.alt}
+                fill
+                unoptimized
+                sizes="(min-width: 64rem) 320px, 40vw"
+                className="object-cover"
+                style={{ objectPosition: photo.position }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Without the editor's feature: the first experience with five or more photos. */
+function Featured({ experience: e }: { experience: ExperienceDetailForSite }) {
   const [a, b, c, d, f] = e.photos;
   const line = scheduleLine(e.offers);
   const tile = (image: typeof a, className = "") => (
@@ -294,21 +340,28 @@ function Featured({ experience: e, preview }: { experience: ExperienceDetailForS
           {tile(a, "col-start-3 row-span-2 row-start-1")}
           {tile(d)}
           {tile(f)}
-          {preview ? <SampleTag /> : null}
         </div>
       </div>
     </section>
   );
 }
 
-function HostFeature({ experience: e, others, preview }: { experience: ExperienceDetailForSite; others: ExperienceDetailForSite[]; preview: boolean }) {
-  const name = e.hosts[0]?.displayName ?? e.provider.name;
-  const faces: { face: Face; slug: string; title: string; current: boolean }[] = [];
-  for (const item of [e, ...others]) {
-    const face = faceOf(item);
-    if (faces.some((entry) => entry.face.name === face.name)) continue;
-    faces.push({ face, slug: item.slug, title: item.title, current: item === e });
+/** Hosts with names first (catalog order), then experiences run without named hosts; one face per person. */
+function hostRow(listed: ExperienceDetailForSite[], current: ExperienceDetailForSite) {
+  const rows: { face: Face; slug: string; name: string; current: boolean }[] = [];
+  for (const item of [...listed.filter((e) => e.hosts.length), ...listed.filter((e) => !e.hosts.length)]) {
+    const face = cardFaceOf(item);
+    if (rows.some((row) => row.face.name === face.name)) continue;
+    rows.push({ face, slug: item.slug, name: shortName(item), current: item.slug === current.slug });
   }
+  return rows;
+}
+
+function HostFeature({ experience: e, listed }: { experience: ExperienceDetailForSite; listed: ExperienceDetailForSite[] }) {
+  const name = e.hosts[0]?.displayName ?? e.provider.name;
+  // The editor's words and clip while the featured slug is listed; otherwise the provider's own line and cover.
+  const editorial = e.slug === FEATURED_HOST.slug && e.hosts.length ? FEATURED_HOST : null;
+  const faces = hostRow(listed, e);
   return (
     <section className="mt-[72px] bg-sand pt-16 pb-[76px] lg:mt-[104px] lg:pt-24 lg:pb-[104px]" aria-labelledby="hosts-heading">
       <div className="container-page">
@@ -316,14 +369,24 @@ function HostFeature({ experience: e, others, preview }: { experience: Experienc
         <div className="grid items-center gap-11 lg:grid-cols-2 lg:gap-[72px]">
           <div className="postage aspect-[4/5] w-[min(100%,380px)] justify-self-center lg:order-2 lg:w-[min(100%,420px)]">
             <div className="postage-paper">
-              <Photo image={e.cover} alt="" aspect="" rounded="" className="h-full w-full" sampleTag={preview} sizes="(min-width: 64rem) 420px, 90vw" />
+              {editorial ? (
+                <div className="h-full w-full overflow-hidden">
+                  <AmbientVideo video={editorial.video} />
+                </div>
+              ) : (
+                <Photo image={e.cover} alt="" aspect="" rounded="" className="h-full w-full" sizes="(min-width: 64rem) 420px, 90vw" />
+              )}
             </div>
             <RubberStamp className="absolute -bottom-[30px] -left-6 size-[124px] -rotate-[14deg] text-moss" />
           </div>
           <div>
             <p className="hand text-[3.5rem]">{name}</p>
-            {e.provider.tagline ? <p className="mt-2 font-extrabold text-ink-soft">{e.provider.tagline}</p> : null}
-            <p className="mt-3.5 max-w-[30rem] text-ink-soft">{e.lead}</p>
+            {editorial ? (
+              <p className="mt-2 font-extrabold text-ink-soft">{editorial.role}</p>
+            ) : e.provider.tagline ? (
+              <p className="mt-2 font-extrabold text-ink-soft">{e.provider.tagline}</p>
+            ) : null}
+            <p className="mt-3.5 max-w-[30rem] text-ink-soft">{editorial ? editorial.story : e.lead}</p>
             <ButtonLink href={`/experiences/${e.slug}`} variant="secondary" className="mt-6">
               See {name}&apos;s workshop
             </ButtonLink>
@@ -331,10 +394,10 @@ function HostFeature({ experience: e, others, preview }: { experience: Experienc
               <ul className="mt-7 flex flex-wrap items-center gap-2.5" aria-label="More hosts">
                 {faces.map((entry) => (
                   <li key={entry.slug}>
-                    <Link href={`/experiences/${entry.slug}`} aria-label={`${entry.face.name}: ${entry.title}`} className="block rounded-full">
+                    <Link href={`/experiences/${entry.slug}`} aria-label={`${entry.face.name}: ${entry.name}`} className="block rounded-full">
                       <FaceBadge
                         face={entry.face}
-                        className={`size-[46px] rounded-full border-[3px] text-lg ${entry.current ? "border-leaf" : "border-transparent"}`}
+                        className={`size-[46px] rounded-full border-[3px] text-lg ${entry.current ? "border-leaf" : `border-transparent ${entry.face.image ? "opacity-50 hover:opacity-100" : ""}`}`}
                         sizes="46px"
                       />
                     </Link>
@@ -356,7 +419,7 @@ function Figure({ value, unit, note }: { value: string; unit: string; note: stri
         <b className="block font-display text-[3.875rem] leading-none font-light tracking-[-0.03em] lg:text-[5.5rem]">{value}</b>
         <span className="hand mt-0.5 block text-[1.875rem]">{unit}</span>
       </p>
-      <p className="mx-auto mt-2 max-w-[15rem] text-sm text-muted">{note}</p>
+      <p className="mx-auto mt-2 max-w-[15rem] text-sm leading-[1.6] text-muted">{note}</p>
     </li>
   );
 }

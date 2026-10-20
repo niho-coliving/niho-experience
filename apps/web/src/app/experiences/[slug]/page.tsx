@@ -8,11 +8,11 @@ import { AllPhotosButton, MobileGallery } from "@/components/DetailGallery";
 import { FaceBadge } from "@/components/Face";
 import { HandIcon, RubberStamp, type HandIconName } from "@/components/HandIcon";
 import { JsonLd } from "@/components/JsonLd";
-import { Photo, SampleTag } from "@/components/Photo";
-import { Notice, Pill } from "@/components/ui";
+import { Photo } from "@/components/Photo";
+import { Notice } from "@/components/ui";
 import { getExperienceForSite } from "@/lib/api";
 import { faceOf, groupSizeLabel, hostNames, initialOf } from "@/lib/card-model";
-import { config, isPreview, previewListingLabel } from "@/lib/config";
+import { config, isPreview } from "@/lib/config";
 import { imageAlt } from "@/lib/experience-copy";
 import type { ExperienceDetailForSite, PublicImageForSite } from "@/lib/experience-types";
 import type { SearchParams } from "@/lib/filters";
@@ -80,6 +80,12 @@ function shorten(text: string, max: number): string {
   return `${clean.slice(0, space > 0 ? space : max - 1)}…`;
 }
 
+/** "English, with an English-speaking guide" → "English" / "with an English-speaking guide"; otherwise the note and "language". */
+function languageFact(note: string): { main: string; sub: string } {
+  const split = /^(.+?),\s+(with .+)$/i.exec(note.trim());
+  return split ? { main: split[1]!, sub: split[2]! } : { main: note, sub: "language" };
+}
+
 /** "2-minute walk from Kamakura Station West Exit." → "2-minute walk" / "from Kamakura Station West Exit". */
 function accessFact(accessNote: string, placeName: string): { main: string; sub: string } {
   const split = /^(.{3,24}?)\s+(from .+)$/i.exec(accessNote.replace(/\.$/, ""));
@@ -111,9 +117,16 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const exterior = meeting && meeting.exteriorPhotoIndex !== null ? (e.photos[meeting.exteriorPhotoIndex] ?? null) : null;
   const mapUrl = meeting?.mapUrl ? safeHttpsUrl(meeting.mapUrl) : null;
   const paragraphs = e.description.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
-  // Only a host's own photo goes next to their name. A gallery photo may show other people (or sample stock), so it is never used here.
-  const hostWithPhoto = e.hosts.find((host) => host.avatar) ?? null;
-  const hostPhoto = hostWithPhoto?.avatar ?? null;
+  // Owner decision 2026-10-20 (the approved mock): the second photo, or the cover, inside the stamp edge.
+  // Hosts' own faces stay on the chips next to their names.
+  const hostPhoto = e.photos[1] ?? e.cover ?? null;
+  const modes = new Set(e.offers.map((offer) => offer.acceptanceMode));
+  const acceptanceNote =
+    modes.size === 1 && modes.has("APPROVAL")
+      ? "Your hosts confirm each request. You are only charged if they accept."
+      : modes.size === 1 && modes.has("INSTANT")
+        ? "Your booking is confirmed as soon as you pay."
+        : "This policy applies to the option and date you select.";
   const adultPrices = e.offers.map((offer) => offer.pricing.adultPriceYen);
   const canBook = config.bookingsEnabled && e.booking.checkoutAvailable;
   const approval = e.offers.filter((offer) => offer.acceptanceMode === "APPROVAL").length;
@@ -157,7 +170,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const renderDetail = (props: BlockProps = {}, includeBooking = true) => (
     // clip (not hidden) keeps the tilted stamp from widening the page without breaking the sticky card and bar.
     <div className="overflow-x-clip">
-      <MobileGallery photos={photos} title={e.title} preview={isPreview} />
+      <MobileGallery photos={photos} title={e.title} />
 
       <div className="container-page">
         <nav aria-label="Breadcrumb" className="hidden pt-7 text-sm text-muted lg:block">
@@ -184,11 +197,6 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
 
         <header className="pt-5 lg:pt-3.5">
           {line ? <p className="eyebrow">{line}</p> : null}
-          {isPreview ? (
-            <p className="mt-2">
-              <Pill tone="sample">{previewListingLabel}</Pill>
-            </p>
-          ) : null}
           <h1 className="mt-1.5 text-[2.125rem] leading-[1.1] lg:max-w-[20ch] lg:text-[3.25rem]">{e.title}</h1>
           <div className="mt-4 flex flex-wrap items-center gap-2.5 text-[0.9375rem] text-ink-soft">
             <span className="flex">
@@ -203,13 +211,13 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
           </div>
           <ul className="mt-[18px] grid grid-cols-2 gap-x-3 gap-y-4 border-y border-line py-[18px] lg:mt-[22px] lg:flex lg:flex-wrap lg:gap-x-9 lg:border-0 lg:py-0">
             <Fact icon="clock" label="Duration" main={duration.main} sub={duration.sub} />
-            <Fact icon="chat" label="Language" main={e.languageNote} />
-            {group ? <Fact icon="people" label="Group size" main={group} sub={children.fact} /> : null}
+            <Fact icon="chat" label="Language" {...languageFact(e.languageNote)} />
+            {group ? <Fact icon="people" label="Group size" main={group} sub={children.fact ?? "small group"} /> : null}
             {meeting?.accessNote ? <Fact icon="train" label="Getting there" {...accessFact(meeting.accessNote, meeting.name)} /> : null}
           </ul>
         </header>
 
-        <DesktopGallery photos={photos} title={e.title} preview={isPreview} />
+        <DesktopGallery photos={photos} title={e.title} />
 
         <div className={includeBooking ? "grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4" : "grid gap-10 pt-6 lg:pt-4"}>
           <div className="min-w-0">
@@ -228,7 +236,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
             </section>
 
             <Section title={blockText(props, "overviewHeading", "What you'll do")}>
-              <div className="space-y-4">
+              <div className="space-y-3.5 text-ink-soft">
                 {paragraphs.slice(0, 2).map((paragraph, i) => (
                   <p key={i}>{paragraph}</p>
                 ))}
@@ -239,7 +247,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
                     <span className="group-open:hidden">Read more</span>
                     <span className="hidden group-open:inline">Show less</span>
                   </summary>
-                  <div className="mt-4 space-y-4">
+                  <div className="mt-3.5 space-y-3.5 text-ink-soft">
                     {paragraphs.slice(2).map((paragraph, i) => (
                       <p key={i}>{paragraph}</p>
                     ))}
@@ -267,7 +275,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
                         )}
                         <div>
                           {step.time ? <p className="hand text-[1.5625rem]">{formatClock(step.time)}</p> : null}
-                          <h3 className="mt-1 font-sans text-[1.0625rem] leading-snug font-extrabold tracking-normal">{step.title}</h3>
+                          <h3 className="mt-1 font-sans text-[1.0625rem] leading-[1.6] font-extrabold tracking-normal">{step.title}</h3>
                           <p className="mt-0.5 text-[0.9375rem] text-ink-soft">{step.text}</p>
                         </div>
                       </li>
@@ -277,12 +285,12 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
               </Section>
             ) : null}
 
-            <Section title={e.hosts.length > 1 ? "Your hosts" : "Your host"}>
+            <Section title={e.hosts.length > 1 ? "Your hosts" : e.hosts.length ? "Your host" : "Who runs it"}>
               <div className={`grid items-center gap-[30px] sm:gap-10 ${hostPhoto ? "sm:grid-cols-[300px_1fr]" : "sm:grid-cols-[140px_1fr]"}`}>
                 {hostPhoto ? (
                   <div className="postage aspect-[5/4] w-[min(100%,320px)] justify-self-center">
                     <div className="postage-paper [--pad:11px]">
-                      <Photo image={hostPhoto} alt={imageAlt(hostPhoto, hostWithPhoto?.displayName ?? e.provider.name)} aspect="" rounded="" className="h-full w-full" sampleTag={isPreview} sizes="320px" />
+                      <Photo image={hostPhoto} alt="" aspect="" rounded="" className="h-full w-full" sizes="320px" />
                     </div>
                     <RubberStamp className="absolute -right-3 -bottom-[26px] size-[100px] -rotate-[14deg] text-moss" />
                   </div>
@@ -380,7 +388,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
                   <HandIcon name="umbrella" className="size-[38px] text-moss" />
                   <div>
                     <p className="text-[1.0625rem] font-extrabold">{policyTitle}</p>
-                    <p className="mt-1 text-[0.9375rem] text-ink-soft">This policy applies to the option and date you select.</p>
+                    <p className="mt-1 text-[0.9375rem] text-ink-soft">{acceptanceNote}</p>
                   </div>
                 </div>
               ) : (
@@ -420,7 +428,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
 }
 
 /** Desktop: the cover and up to four more photos, with every photo one click away. */
-function DesktopGallery({ photos, title, preview }: { photos: PublicImageForSite[]; title: string; preview: boolean }) {
+function DesktopGallery({ photos, title }: { photos: PublicImageForSite[]; title: string }) {
   if (!photos.length) return null;
   const [cover, ...rest] = photos;
   const small = rest.slice(0, 4);
@@ -439,8 +447,7 @@ function DesktopGallery({ photos, title, preview }: { photos: PublicImageForSite
           sizes="(min-width: 64rem) 300px, 50vw"
         />
       ))}
-      {preview ? <SampleTag className="bottom-4 left-4" /> : null}
-      {photos.length > 1 ? <AllPhotosButton photos={photos} title={title} preview={preview} /> : null}
+      {photos.length > 1 ? <AllPhotosButton photos={photos} title={title} /> : null}
     </div>
   );
 }

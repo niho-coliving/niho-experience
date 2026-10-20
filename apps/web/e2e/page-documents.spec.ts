@@ -19,6 +19,7 @@ test("公開本文・スタイル・業務ブロックをSSRし、一覧の検�
     await expect(page.locator("main")).toHaveCount(1);
   }
   await page.goto("/experiences");
+  await page.locator("summary").filter({ hasText: "Search" }).click();
   await page.getByRole("searchbox", { name: "Search experiences and hosts" }).fill("pottery");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByRole("heading", { name: "Evening pottery session", exact: true })).toBeVisible();

@@ -8,7 +8,7 @@ const publicDir = join(__dirname, "../../public");
 const credits = readFileSync(join(publicDir, "sample/CREDITS.md"), "utf8");
 
 describe("provisional media", () => {
-  it("is flagged as sample media until NIHO's own photos replace it", () => {
+  it("is flagged as provisional media until the reshoot replaces it", () => {
     expect(SAMPLE_MEDIA).toBe(true);
   });
 
@@ -23,7 +23,7 @@ describe("provisional media", () => {
 
   it("serves every pilot sample photo from public/sample with a credit", () => {
     const urls = buildPilotExperiences()
-      .flatMap((experience) => [experience.cover, ...experience.photos])
+      .flatMap((experience) => [experience.cover, ...experience.photos, ...experience.hosts.map((host) => host.avatar)])
       .filter((image) => image !== null)
       .map((image) => image.url)
       .filter((url) => url.startsWith(`${PILOT_SAMPLE_PHOTO_PATH}/`));
