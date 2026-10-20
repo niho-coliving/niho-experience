@@ -28,8 +28,11 @@ export function validatePublishedDocument(input: unknown, pageId: PageId): PageD
   const document = parsePageDocument(input, DOCUMENT_BLOCKS);
   if (document.siteId !== "experience" || document.pageId !== pageId || document.locale !== "en") throw new Error("Document identity mismatch");
   const components = documentComponents(document.body);
+  const allowed = new Set(required[pageId].map(([, block]) => block));
+  if (components.some((node) => !allowed.has(node.block as DocumentBlock))) throw new Error("Block unavailable on this page");
   for (const [id, block] of required[pageId]) {
     if (!components.some((node) => node.id === id && node.block === block)) throw new Error("Required document block missing");
+    if (components.filter((node) => node.block === block).length !== 1) throw new Error("Duplicate business block");
   }
   if (pageId === "chrome" && (components.some((node) => node.block !== "SiteHeader" && node.block !== "SiteFooter") || components.findIndex((node) => node.id === "site-header") > components.findIndex((node) => node.id === "site-footer"))) throw new Error("Chrome context invalid");
   return document;

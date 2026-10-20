@@ -61,5 +61,7 @@ describe("published page document boundary", () => {
     const booking = publishedDocument("booking");
     expect(() => validatePublishedDocument({ ...booking, body: booking.body.filter((node) => node.type !== "component") }, "booking")).toThrow();
     expect(() => validatePublishedDocument({ ...booking, body: booking.body.map((node) => node.type === "component" ? { ...node, props: { checkoutUrl: "https://evil.example" } } : node) }, "booking")).toThrow();
+    expect(() => validatePublishedDocument({ ...booking, body: [...booking.body, { type: "component", id: "extra-grid", block: "ExperienceGrid", props: {} }] }, "booking")).toThrow();
+    expect(() => validatePublishedDocument({ ...booking, body: [...booking.body, { type: "component", id: "extra-booking", block: "BookingPanel", props: {} }] }, "booking")).toThrow();
   });
 });
