@@ -259,7 +259,8 @@ jobs:
           for path in / /experiences /host; do
             curl -fsS -o /dev/null --retry 5 --retry-all-errors "${URL}${path}"
           done
-          curl -fsS "${URL}/host" | grep -qF 'href="https://niho.life/experiences/provider"'
+          host_page="$(curl -fsS --retry 5 --retry-all-errors "${URL}/host")"
+          grep -qF 'href="https://niho.life/experiences/provider"' <<< "$host_page"
           page="$(curl -fsS "${URL}/experiences")"
           if grep -qF 'Preview with sample data' <<< "$page"; then exit 1; fi
           if grep -qF 'Details to be confirmed' <<< "$page"; then exit 1; fi
