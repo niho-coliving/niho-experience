@@ -25,6 +25,29 @@ test("公開本文・スタイル・業務ブロックをSSRし、一覧の検�
   await expect(page.getByRole("heading", { name: "Evening pottery session", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Home-cooked dinner with locals in a shared living room" })).toHaveCount(0);
 });
+test("公開版の更新とロールバックを次のSSRへ反映し、古い本文を残さない", async ({ request }) => {
+  const renderHome = async () => {
+    const response = await request.get("/");
+    expect(response.ok()).toBe(true);
+    return response.text();
+  };
+  const setVersion = async (version: "updated" | "rollback") => {
+    const response = await request.get(`http://127.0.0.1:3251/__test/version?page=home&version=${version}`);
+    expect(response.ok()).toBe(true);
+  };
+
+  expect(await renderHome()).toContain("Published home text");
+
+  await setVersion("updated");
+  const updatedHtml = await renderHome();
+  expect(updatedHtml).toContain("Updated published home text");
+  expect(updatedHtml).not.toContain("Published home text");
+
+  await setVersion("rollback");
+  const rolledBackHtml = await renderHome();
+  expect(rolledBackHtml).toContain("Published home text");
+  expect(rolledBackHtml).not.toContain("Updated published home text");
+});
 test("未公開・エラー・不正文書は現行ページへ戻り、業務リンクは固定する", async ({ page, request }) => {
   for (const mode of ["missing", "error", "invalid"]) {
     await request.get(`http://127.0.0.1:3251/__test/mode?page=home&mode=${mode}`);

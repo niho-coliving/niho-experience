@@ -6,15 +6,28 @@ import { publishedDocument } from "../../src/lib/testing/page-document-fixtures.
 const port = Number(process.env.DOCUMENT_API_PORT ?? 3251);
 const mockFetch = createMockExperienceFetch({ imageBaseUrl: "http://127.0.0.1:3250" });
 const modes = new Map();
+const versions = new Map();
 createServer(async (request, response) => {
   const url = new URL(request.url, `http://127.0.0.1:${port}`);
-  if (url.pathname === "/__test/reset") { modes.clear(); response.end("ok"); return; }
+  if (url.pathname === "/__test/reset") { modes.clear(); versions.clear(); response.end("ok"); return; }
   if (url.pathname === "/__test/mode") { modes.set(url.searchParams.get("page"), url.searchParams.get("mode")); response.end("ok"); return; }
+  if (url.pathname === "/__test/version") {
+    const page = url.searchParams.get("page"), version = url.searchParams.get("version");
+    if (page !== "home" || !["updated", "rollback"].includes(version)) { response.writeHead(400); response.end("invalid test version"); return; }
+    versions.set(page, version); response.end("ok"); return;
+  }
   const page = /^\/api\/public\/experiences\/pages\/(home|experiences|experience-detail|booking|host|chrome)\/en$/.exec(url.pathname)?.[1];
   let result;
   if (page) {
     const mode = modes.get(page);
     const document = publishedDocument(page);
+    const version = versions.get(page) ?? "initial";
+    if (version === "updated") {
+      document.revision = 3;
+      document.body = document.body.map((node) => node.type === "element" && node.tag === "h1" ? { ...node, children: [{ type: "text", text: "Updated published home text" }] } : node);
+    } else if (version === "rollback") {
+      document.revision = 4;
+    }
     if (mode === "missing") result = new Response("not found", { status: 404 });
     else if (mode === "error") result = new Response("private diagnostic must not appear", { status: 503 });
     else if (mode === "invalid") result = Response.json({ ...document, siteId: "wrong-site" });
