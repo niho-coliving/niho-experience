@@ -17,7 +17,7 @@ describe("card display model", () => {
     expect(card.priceLabel).toBe("¥30,000");
     expect(card.priceIsFrom).toBe(false);
     expect(card.language).toEqual({ short: "EN · JA", full: "English & Japanese" });
-    expect(card.offers).toEqual([{ id: dinner.offers[0]!.id, maxPartySize: 8 }]);
+    expect(card.offers).toEqual([{ id: dinner.offers[0]!.id, minimumParticipants: dinner.offers[0]!.minimumParticipants, maxPartySize: 8 }]);
   });
 
   it("uses the host's initial when there is no face photo, and the provider when no hosts are listed", () => {
@@ -61,8 +61,8 @@ describe("display helpers", () => {
     expect(shortLanguageNote("English")).toBe("English");
   });
 
-  it("describes group size from capacity, or as private when every option needs two or more", () => {
-    expect(groupSizeLabel([{ capacity: 6, maxPartySize: 2, minimumParticipants: 1 }])).toBe("Up to 6 guests");
+  it("describes group size from the per-party limit, or as private when every option needs two or more", () => {
+    expect(groupSizeLabel([{ capacity: 6, maxPartySize: 2, minimumParticipants: 1 }])).toBe("Up to 2 guests");
     expect(groupSizeLabel([{ capacity: 4, maxPartySize: 4, minimumParticipants: 2 }])).toBe("Private · 2–4 guests");
     expect(groupSizeLabel([])).toBeNull();
   });

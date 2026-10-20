@@ -7,12 +7,16 @@
 import type {
   ExperienceAvailabilityResponse,
   ExperienceCatalogResponse,
+  ExperienceCatalogResponseV11,
+  ExperienceCatalogResponseV12,
   ExperienceCheckoutError,
   ExperienceCheckoutRequest,
   ExperienceDetailResponse,
+  ExperienceDetailResponseV11,
   CheckoutErrorCode,
   OfferId,
   RegionKey,
+  ExperienceSiteTheme,
 } from "./types.ts";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -135,6 +139,36 @@ function hasExperienceDetailShape(value: unknown): boolean {
     value.experience.offers.every(isObject);
 }
 
+function hasV11ImageObject(value: unknown): boolean {
+  return isObject(value) && typeof value.url === "string" && isNullableString(value.alt);
+}
+
+function hasV11Image(value: unknown): boolean {
+  return value === null || hasV11ImageObject(value);
+}
+
+function hasExperienceCatalogV11Shape(value: unknown): boolean {
+  return hasExperienceCatalogShape(value) && isObject(value) && Array.isArray(value.experiences) &&
+    value.experiences.every((experience) => isObject(experience) && hasV11Image(experience.cover));
+}
+
+const EXPERIENCE_SITE_THEMES: readonly ExperienceSiteTheme[] = ["FOOD", "CULTURE", "CRAFT", "OUTDOORS", "LOCAL_LIFE"];
+
+function hasExperienceCatalogV12Shape(value: unknown): boolean {
+  return hasExperienceCatalogShape(value) && isObject(value) && Array.isArray(value.experiences) &&
+    value.experiences.every((experience) => isObject(experience) && hasV11Image(experience.cover) &&
+      Array.isArray(experience.themes) && experience.themes.every((theme) => EXPERIENCE_SITE_THEMES.includes(theme as ExperienceSiteTheme)));
+}
+
+function hasExperienceDetailV11Shape(value: unknown): boolean {
+  if (!hasExperienceDetailShape(value) || !isObject(value) || !isObject(value.experience)) return false;
+  const experience = value.experience;
+  return hasV11Image(experience.cover) && Array.isArray(experience.photos) && experience.photos.every(hasV11ImageObject) &&
+    Array.isArray(experience.hosts) && experience.hosts.every((host) =>
+      isObject(host) && typeof host.displayName === "string" && isNullableString(host.bio) && hasV11Image(host.avatar)) &&
+    isObject(experience.provider) && hasV11Image(experience.provider.logo);
+}
+
 function hasAvailabilityShape(value: unknown): boolean {
   return isObject(value) && Array.isArray(value.occurrences) && value.occurrences.every((occurrence) =>
     isObject(occurrence) && typeof occurrence.offerId === "string" && typeof occurrence.date === "string" &&
@@ -189,9 +223,30 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
       return readJson(`/api/public/experiences${query}`, true, hasExperienceCatalogShape);
     },
 
+    /** 写真の説明を含む v1.1 の一覧。旧版の閉じた応答とは別 path。 */
+    listExperiencesV11(params: { region?: RegionKey } = {}): Promise<ReadResult<ExperienceCatalogResponseV11>> {
+      const query = params.region ? `?region=${encodeURIComponent(params.region)}` : "";
+      return readJson(`/api/public/experiences/v1.1/catalog${query}`, true, hasExperienceCatalogV11Shape);
+    },
+
+    /** テーマ・日本時間の開催予定日で絞る v1.2 一覧。開催・残席を保証しない。 */
+    listExperiencesV12(params: { region?: RegionKey; theme?: ExperienceSiteTheme; availableOn?: string } = {}): Promise<ReadResult<ExperienceCatalogResponseV12>> {
+      const query = new URLSearchParams();
+      if (params.region) query.set("region", params.region);
+      if (params.theme) query.set("theme", params.theme);
+      if (params.availableOn) query.set("availableOn", params.availableOn);
+      const suffix = query.size ? `?${query.toString()}` : "";
+      return readJson(`/api/public/experiences/v1.2/catalog${suffix}`, true, hasExperienceCatalogV12Shape);
+    },
+
     /** 体験の詳細（SSR 可）。 */
     getExperience(slug: string): Promise<ReadResult<ExperienceDetailResponse>> {
       return readJson(`/api/public/experiences/${encodeURIComponent(slug)}`, true, hasExperienceDetailShape);
+    },
+
+    /** 提供者の紹介と写真の説明を含む v1.1 の詳細。 */
+    getExperienceV11(slug: string): Promise<ReadResult<ExperienceDetailResponseV11>> {
+      return readJson(`/api/public/experiences/v1.1/${encodeURIComponent(slug)}`, true, hasExperienceDetailV11Shape);
     },
 
     /** 開催回と残席（ブラウザから。キャッシュしない）。 */

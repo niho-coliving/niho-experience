@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import type { Occurrence } from "@niho-experience/api-client";
 import { readAvailability } from "@/lib/browser-availability";
 import type { CardModel } from "@/lib/card-model";
@@ -15,14 +16,15 @@ type Availability = { state: "loading" } | { state: "failed" } | { state: "ready
 /**
  * The list with date chips and a party-size filter. Cards are server-rendered for
  * every experience; the browser reads each experience's availability once and then
- * shows only those with a bookable session that fits the party on the chosen day.
- * If availability cannot be read, every experience stays visible.
+ * shows only those with a bookable session that fits the chosen day and group.
+ * If availability cannot be read, the date filter fails open.
  */
 export function ExperienceList({
   cards,
   days,
   initialDate,
   initialGuests,
+  catalogDateFiltered,
   preview,
   previewLabel,
   nihoWebOrigin,
@@ -31,15 +33,17 @@ export function ExperienceList({
   cards: CardModel[];
   days: DayOption[];
   initialDate: string | null;
-  initialGuests: number;
+  initialGuests: number | null;
+  catalogDateFiltered: boolean;
   preview: boolean;
   previewLabel: string;
   nihoWebOrigin: string;
   /** Shown instead of the list when the server returned no experiences (search or empty catalog). */
   empty: ReactNode;
 }) {
+  const router = useRouter();
   const [date, setDate] = useState<string | null>(initialDate);
-  const [guests, setGuests] = useState(initialGuests);
+  const [guests, setGuests] = useState<number | null>(initialGuests);
   const [availability, setAvailability] = useState<Availability>({ state: "loading" });
   const chips = useRef<HTMLDivElement>(null);
 
@@ -90,28 +94,28 @@ export function ExperienceList({
 
   if (!cards.length) return <div className="container-page mt-8">{empty}</div>;
 
-  const visible = failed ? cards : cards.filter((card) => fitsPartySize(card.offers, guests) && (!matches || matches.has(card.slug)));
+  const visible = cards.filter((card) => fitsPartySize(card.offers, guests) && (failed || !matches || matches.has(card.slug)));
   const chosenDay = date ? (days.find((day) => day.key === date) ?? dayOption(date)) : null;
 
-  function syncUrl(nextDate: string | null, nextGuests: number) {
+  function syncUrl(nextDate: string | null, nextGuests: number | null) {
     const params = new URLSearchParams(window.location.search);
     if (nextDate) params.set("date", nextDate);
     else params.delete("date");
-    if (nextGuests !== 1) params.set("guests", String(nextGuests));
+    if (nextGuests !== null) params.set("guests", String(nextGuests));
     else params.delete("guests");
     const query = params.toString();
-    window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+    router.push(query ? `${window.location.pathname}?${query}` : window.location.pathname, { scroll: false });
   }
   function chooseDate(next: string | null) {
     setDate(next);
     syncUrl(next, guests);
   }
-  function chooseGuests(next: number) {
+  function chooseGuests(next: number | null) {
     setGuests(next);
     syncUrl(date, next);
   }
 
-  const party = guests > 1 ? ` for ${guests} guests` : "";
+  const party = guests === null ? "" : ` for ${guests} guest${guests === 1 ? "" : "s"}`;
   let status: string;
   if (chosenDay && !failed && !ready) status = `Checking which experiences run on ${chosenDay.label}…`;
   else if (chosenDay && !failed) status = `${pluralize(visible.length, "experience")} on ${chosenDay.label}${party}`;
@@ -123,7 +127,7 @@ export function ExperienceList({
         <div className="container-page mt-6">
           <p className="flex items-start gap-2 rounded-2xl bg-sand p-4 text-ink-soft">
             <HandIcon name="cal" className="size-6 text-moss" />
-            <span>We couldn&apos;t check dates just now, so every experience is shown. You can still choose a date on each experience.</span>
+            <span>We couldn&apos;t check dates just now, so date filtering is paused. Known group-size limits still apply; you can choose a date on each experience.</span>
           </p>
         </div>
       ) : (
@@ -140,8 +144,8 @@ export function ExperienceList({
               </button>
               {days.map((day) => {
                 const selected = date === day.key;
-                const count = counts?.get(day.key);
-                const disabled = count === 0 && !selected;
+                const count = catalogDateFiltered && !selected ? undefined : counts?.get(day.key);
+                const disabled = !catalogDateFiltered && count === 0 && !selected;
                 return (
                   <button
                     key={day.key}
@@ -165,10 +169,11 @@ export function ExperienceList({
               <HandIcon name="people" className="size-[22px]" />
               <span className="sr-only">Guests</span>
               <select
-                value={guests}
-                onChange={(event) => chooseGuests(Number(event.target.value))}
+                value={guests ?? ""}
+                onChange={(event) => chooseGuests(event.target.value ? Number(event.target.value) : null)}
                 className="h-full cursor-pointer appearance-none bg-transparent pr-1"
               >
+                <option value="">Any group</option>
                 {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
                   <option key={n} value={n}>
                     {pluralize(n, "guest")}
@@ -212,7 +217,7 @@ export function ExperienceList({
                   Show any day
                 </button>
               ) : (
-                <button type="button" className={buttonClass("primary")} onClick={() => chooseGuests(1)}>
+                <button type="button" className={buttonClass("primary")} onClick={() => chooseGuests(null)}>
                   Show all experiences
                 </button>
               )}

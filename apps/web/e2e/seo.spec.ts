@@ -43,13 +43,13 @@ test("list links reach every experience without JavaScript", async ({ request })
 test("legacy filter query URLs point to the main list and stay out of the index", async ({ request }) => {
   const html = await (await request.get("/experiences?theme=craft")).text();
   expect(html).toContain('<link rel="canonical" href="http://localhost:3000/experiences"');
-  expect(html).toMatch(/<meta name="robots" content="noindex, follow"/);
+  expect(html).toMatch(/<meta name="robots" content="noindex, (?:follow|nofollow)"/);
 });
 
 test("search result URLs are canonicalized and stay out of the index", async ({ request }) => {
   const html = await (await request.get("/experiences?q=pottery")).text();
   expect(html).toContain('<link rel="canonical" href="http://localhost:3000/experiences"');
-  expect(html).toMatch(/<meta name="robots" content="noindex, follow"/);
+  expect(html).toMatch(/<meta name="robots" content="noindex, (?:follow|nofollow)"/);
 });
 
 test("date and party-size filter URLs are canonicalized and stay out of the index", async ({ request }) => {

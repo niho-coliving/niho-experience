@@ -11,7 +11,7 @@
 | イメージ | 本リポのレビュー済み `main` の40文字SHA。資格情報なしで build と smoke を行い、SHA256確認済みのイメージだけを配備jobへ渡す |
 | 配備権限 | 本番プロジェクト専用の `experience-deployer`。専用 Workload Identity Pool は GitHub repository ID `1425500695`、`refs/heads/main`、`production` environment、手動起動、`deploy-production.yml` の同時一致を要求 |
 | GitHub | `production` environment に `main` のみの branch rule と required reviewer を設定。repository variable `PRODUCTION_DEPLOY_ENABLED=true` は設定が揃うまで付けない |
-| 初期revision | `EXPERIENCE_API_MODE=http`、`SITE_URL=https://experience.niho.life`、`NEXT_PUBLIC_NIHO_WEB_ORIGIN=https://niho.life`、`SITE_INDEXING=block`、`BOOKINGS_ENABLED=false`、`HOST_SIGNUP_MODE=pilot`。`MOCK_CATALOG` と `UMAMI_WEBSITE_ID` は渡さない |
+| 初期revision | `EXPERIENCE_API_MODE=http`、`EXPERIENCE_PUBLIC_API_VERSION=1.0`、`SITE_URL=https://experience.niho.life`、`NEXT_PUBLIC_NIHO_WEB_ORIGIN=https://niho.life`、`SITE_INDEXING=block`、`BOOKINGS_ENABLED=false`、`HOST_SIGNUP_MODE=pilot`。`MOCK_CATALOG` と `UMAMI_WEBSITE_ID` は渡さない |
 
 本番プロジェクトの新設・請求先連結・ロードバランサーの利用料金はオーナー判断事項。推奨は**専用本番プロジェクト＋global external Application Load Balancer＋Cloudflare proxy**。Googleは Cloud Run domain mapping を production に推奨していないため、DNS only の domain mapping は採らない。Cloud Run は候補段階で公開 `run.app` URL を使うが、販売開始前に ALB 経由だけを受ける ingress と候補revisionの検証経路を整える。プレビュー用 deployer に本番プロジェクトの権限を付けない。
 
@@ -22,7 +22,18 @@
 3. `.github/workflows/deploy-production.yml` を `main` から `action=candidate` で手動起動し、入力 `commit_sha` を起動時の `main` SHA と完全一致させる。workflow は資格情報なしで build/smoke → 保護環境で image push → digest固定の `--no-traffic --tag candidate-<sha12>` → NIHO本番公開APIの一覧・revision専用URL・runtime env・robots・preview 404 を確認する。APIが未配備で404なら候補を受け入れない。実行結果に出るSHA・revision・image digest・候補URLを確認する。
 4. 候補URLを確認して受け入れた後、別の手動実行で `action=promote` を選び、候補実行の同じ `commit_sha`、`candidate_revision`、`candidate_image_digest` を入力する。保護環境で既存revisionのcommit label・不変image digest・停止設定・候補URLを再検証し、そのrevision自体を昇格する。promotionではbuild・image push・再配備を行わない。候補SHA・revision・digest・配備run・環境変数・HTTP結果を #15 に記録する。予約停止と検索除外は維持する。
 
-`--set-env-vars` に渡す6項目は本サービスの初期 runtime 設定全量である。運用で値を足す際は workflow を同時に更新し、Cloud Run画面での一時変更を正本としない。`UMAMI_WEBSITE_ID` はポリシーの追記後、別PRで本番だけに追加する。
+`--set-env-vars` に渡す7項目は本サービスの初期 runtime 設定全量である。運用で値を足す際は workflow を同時に更新し、Cloud Run画面での一時変更を正本としない。`UMAMI_WEBSITE_ID` はポリシーの追記後、別PRで本番だけに追加する。
+
+`EXPERIENCE_PUBLIC_API_VERSION` は初期値 `1.0` を固定する。`1.1` はNIHO側のAPI契約PR #31 と連携Bが取り込まれた後、stgとprodのv1.1エンドポイントを `verify:live -- --api-version 1.1` で確認し、提供者bio・写真altを合成データで確認してから、専用の変更PRでだけ有効化する。`1.2` はNIHO側の公開カタログ・checkout契約（niho-app #19160/#19161）が取り込まれた後、stgとprodでテーマ・開催日フィルターを `verify:live -- --api-version 1.2 --region kamakura --theme FOOD --available-on <開催予定日> --expect-slug <当日開催の合成slug> --expect-theme-excluded-slug <別テーマで当日開催のslug> --expect-date-excluded-slug <同テーマで別日開催のslug>` で確認し、UTM・DNT・checkoutエラーを合成E2Eで検証してから、専用の変更PRでだけ有効化する。API未配備の環境では `1.0` のままにする。
+
+`verify:live` は認証なしの公開GETだけを呼び、Checkoutを作成しない。v1.2を切り替える前に、さらにstg限定の安全な予約検証を行う。
+
+1. NIHO stgに検証専用の合成体験・開催枠（本番・一般公開には出さない）と、Stripe test modeのテスト用PaymentEntityを準備する。本番口座・実旅行者の情報を使わない。
+2. DNTを無効にしたブラウザで、4つの許可済みUTM値がある体験URLから予約を送る。予約リクエストにUTM4項目だけが含まれ、NIHO stgの合成予約行で同じ値を確認する。URL・Checkout応答・Umami送信・ログにUTMや予約情報が混ざらないことも確認する。
+3. DNTを有効にして別の合成予約を送り、リクエストと予約行のどちらにもUTMがないこと、通常どおり予約導線が進むことを確認する。
+4. Stripe test mode上の予約をstg運用手順で取り消し、必要な返金まで確認する。確認結果はSHA・合成slug・操作結果だけを非公開の受入記録に残し、予約token・Checkout URL・ゲスト情報は記録しない。
+
+このstg確認が完了するまで、公開API版を `1.2` に切り替えない。テスト予約ができない環境では、v1.2の公開GET確認だけを根拠に切り替えず、NIHO側の安全な予約検証経路を整えてから再開する。
 
 ## `experience.niho.life` の入口案（有料の ALB を承認後）
 

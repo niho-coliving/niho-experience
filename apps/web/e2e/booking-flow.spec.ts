@@ -16,7 +16,7 @@ test("browse, review adult and child total, and reach browser-only mock checkout
   page.on("request", (request) => { if (request.method() === "POST") requests.push(request.url()); });
   await page.goto("/");
   await page.getByRole("button", { name: "Find experiences" }).click();
-  await expect(page).toHaveURL(/\/experiences\?/);
+  await expect(page).toHaveURL(/\/experiences$/);
   await page.getByRole("link", { name: /Home-cooked dinner/ }).click();
   // Desktop: the sticky booking card. Phones: the bottom bar. Only one is shown at a time.
   await page.getByRole("link", { name: /^Check dates/ }).click();
@@ -169,4 +169,34 @@ test("a failing analytics sink never blocks a preview booking", async ({ page })
   await expect(page).toHaveURL(/\/preview\/checkout$/);
   const trackedEvents = await page.evaluate(() => (window as Window & { __nihoEvents?: { event: string }[] }).__nihoEvents?.map(({ event }) => event) ?? []);
   expect(trackedEvents).toContain("checkout_start");
+});
+
+test("DNT suppresses first-touch attribution without blocking a preview booking", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "doNotTrack", { configurable: true, get: () => "1" });
+  });
+  await page.goto(`${dinner}?utm_source=niho_site&utm_campaign=pilot_2026q4`);
+  await expect.poll(() => page.evaluate(() => sessionStorage.length)).toBe(0);
+  await page.getByRole("link", { name: /^Check dates/ }).click();
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page).toHaveURL(/\/preview\/checkout$/);
+});
+
+test("an unavailable checkout keeps details and lets the guest return to availability", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-unavailable`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.locator("main").getByRole("alert")).toContainText("couldn't reach checkout");
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
+  await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeEnabled();
+  await page.getByRole("button", { name: "Change date or guest count" }).click();
+  await page.locator('input[name="occurrence"]:not([disabled])').first().check();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
 });

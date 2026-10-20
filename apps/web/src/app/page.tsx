@@ -1,23 +1,23 @@
 import NextImage from "next/image";
 import Link from "next/link";
-import type { ExperienceDetail } from "@niho-experience/api-client";
 import { AmbientVideo } from "@/components/AmbientVideo";
 import { ExperienceCard, InviteCard } from "@/components/ExperienceCard";
 import { FaceBadge } from "@/components/Face";
+import { HomeFinder } from "@/components/HomeFinder";
 import { HandIcon, RubberStamp, type HandIconName } from "@/components/HandIcon";
 import { Photo, SampleTag } from "@/components/Photo";
 import { EmptyResults, ErrorState } from "@/components/States";
-import { ButtonLink, buttonClass, SectionHeading } from "@/components/ui";
-import { getApi } from "@/lib/api";
+import { ButtonLink, SectionHeading } from "@/components/ui";
+import { getApi, listExperiencesForSite } from "@/lib/api";
 import { buildCardModels, faceOf, type Face } from "@/lib/card-model";
 import { loadDetails } from "@/lib/catalog";
-import { isPreview, previewListingLabel } from "@/lib/config";
-import { MAX_GUESTS, upcomingDays, type DayOption } from "@/lib/date-filter";
+import { config, isPreview, previewListingLabel } from "@/lib/config";
+import { upcomingDays } from "@/lib/date-filter";
 import type { SearchParams } from "@/lib/filters";
-import { pluralize } from "@/lib/format";
 import { scheduleLine } from "@/lib/schedule";
 import { BANNER_VIDEO, HERO_PHOTO, HOST_BAND_VIDEO, POSTCARDS, SAMPLE_MEDIA, STRIP_VIDEOS } from "@/lib/site-media";
 import { shortTitle, themeEntries, themeOf, type Theme } from "@/lib/themes";
+import type { ExperienceDetailForSite } from "@/lib/experience-types";
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
@@ -29,13 +29,14 @@ const STEPS: { icon: HandIconName; title: string; body: string }[] = [
 ];
 
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const api = await getApi(await searchParams);
-  const result = await api.listExperiences({ region: "kamakura" });
+  const query = await searchParams;
+  const api = await getApi(query);
+  const result = await listExperiencesForSite("kamakura", query);
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const summaries = result.ok ? result.data.experiences : [];
-  const details = await loadDetails(api, summaries);
+  const details = await loadDetails(api, summaries, config.publicApiVersion !== "1.0");
   const cards = buildCardModels(summaries, details);
-  const listed = summaries.map((summary) => details.get(summary.slug)).filter((detail): detail is ExperienceDetail => Boolean(detail));
+  const listed = summaries.map((summary) => details.get(summary.slug)).filter((detail): detail is ExperienceDetailForSite => Boolean(detail));
 
   const themes = themeEntries(summaries);
   const featured = listed.find((experience) => experience.photos.length >= 5) ?? null;
@@ -80,7 +81,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
           <RubberStamp className="absolute top-[18px] right-4 z-[2] size-24 -rotate-12 text-white opacity-90 lg:top-11 lg:right-14 lg:size-[134px]" />
           {SAMPLE_MEDIA ? <SampleTag className="top-3 left-3" /> : null}
         </div>
-        <Finder days={days} />
+        <HomeFinder days={days} />
       </section>
 
       {themes.length ? (
@@ -246,53 +247,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   );
 }
 
-/** Date and party size, sent as a plain GET to the list (works without JavaScript). */
-function Finder({ days }: { days: DayOption[] }) {
-  const cell = "flex min-w-0 items-center gap-2.5 rounded-2xl px-3 py-2.5 hover:bg-sand lg:rounded-full";
-  const select = "w-full min-w-0 cursor-pointer appearance-none truncate bg-transparent text-[0.9375rem] leading-tight font-bold text-ink";
-  return (
-    <form
-      action="/experiences"
-      method="get"
-      role="search"
-      aria-label="Find experiences"
-      className="relative z-[3] mx-4 -mt-9 grid grid-cols-2 gap-1 rounded-[22px] bg-white p-2 shadow-[0_10px_30px_rgb(0_0_0/0.12),0_1px_2px_rgb(0_0_0/0.06)] lg:absolute lg:bottom-[-38px] lg:left-1/2 lg:mx-0 lg:mt-0 lg:w-[min(780px,calc(100%_-_80px))] lg:-translate-x-1/2 lg:grid-cols-[1fr_1fr_auto] lg:rounded-full lg:py-2 lg:pr-2 lg:pl-3.5"
-    >
-      <label className={cell}>
-        <HandIcon name="cal" className="size-[30px]" />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <small className="text-xs font-extrabold text-muted">When</small>
-          <select name="date" defaultValue="" className={select}>
-            <option value="">Any day</option>
-            {days.map((day) => (
-              <option key={day.key} value={day.key}>
-                {day.label}
-              </option>
-            ))}
-          </select>
-        </span>
-      </label>
-      <label className={cell}>
-        <HandIcon name="people" className="size-[30px]" />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <small className="text-xs font-extrabold text-muted">Guests</small>
-          <select name="guests" defaultValue="1" className={select}>
-            {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {pluralize(n, "guest")}
-              </option>
-            ))}
-          </select>
-        </span>
-      </label>
-      <button type="submit" className={buttonClass("primary", "col-span-2 lg:col-span-1 lg:min-h-14 lg:px-[30px]")}>
-        Find experiences
-      </button>
-    </form>
-  );
-}
-
-function Featured({ experience: e, preview }: { experience: ExperienceDetail; preview: boolean }) {
+function Featured({ experience: e, preview }: { experience: ExperienceDetailForSite; preview: boolean }) {
   const [a, b, c, d, f] = e.photos;
   const line = scheduleLine(e.offers);
   const tile = (image: typeof a, className = "") => (
@@ -324,7 +279,7 @@ function Featured({ experience: e, preview }: { experience: ExperienceDetail; pr
   );
 }
 
-function HostFeature({ experience: e, others, preview }: { experience: ExperienceDetail; others: ExperienceDetail[]; preview: boolean }) {
+function HostFeature({ experience: e, others, preview }: { experience: ExperienceDetailForSite; others: ExperienceDetailForSite[]; preview: boolean }) {
   const name = e.hosts[0]?.displayName ?? e.provider.name;
   const faces: { face: Face; slug: string; title: string; current: boolean }[] = [];
   for (const item of [e, ...others]) {

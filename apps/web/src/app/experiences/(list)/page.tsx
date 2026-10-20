@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { TrackView } from "@/components/Analytics";
 import { ExperienceList } from "@/components/ExperienceList";
+import { ExperienceFiltersForm } from "@/components/ExperienceFiltersForm";
 import { EmptyResults, ErrorState } from "@/components/States";
-import { buttonClass } from "@/components/ui";
-import { getApi } from "@/lib/api";
+import { getApi, listExperiencesForSite } from "@/lib/api";
 import { buildCardModels } from "@/lib/card-model";
 import { loadDetails } from "@/lib/catalog";
 import { config, isPreview, previewListingLabel } from "@/lib/config";
 import { dayOption, parseDateParam, parseGuestsParam, upcomingDays } from "@/lib/date-filter";
-import { filterExperienceSummaries, normalizeExperienceQuery, type SearchParams } from "@/lib/filters";
+import { filterExperienceSummaries, normalizeExperienceDate, normalizeExperienceQuery, normalizeExperienceTheme, type SearchParams } from "@/lib/filters";
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParams> }): Promise<Metadata> {
   const query = await searchParams;
@@ -30,57 +29,48 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
   const query = await searchParams;
   const searchQuery = normalizeExperienceQuery(query.q);
   const api = await getApi(query);
-  const result = await api.listExperiences({ region: "kamakura" });
+  const result = await listExperiencesForSite("kamakura", query);
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const catalog = result.ok ? result.data.experiences : [];
   const items = filterExperienceSummaries(catalog, searchQuery);
-  const cards = buildCardModels(items, await loadDetails(api, items));
+  const cards = buildCardModels(items, await loadDetails(api, items, config.publicApiVersion !== "1.0"));
 
   const now = new Date();
   const finderDays = upcomingDays(now, FINDER_DAYS);
-  const initialDate = parseDateParam(query.date, finderDays);
+  const catalogDate = config.publicApiVersion === "1.2" ? normalizeExperienceDate(query.date) : undefined;
+  const initialDate = catalogDate ?? parseDateParam(query.date, finderDays);
+  const theme = config.publicApiVersion === "1.2" ? normalizeExperienceTheme(query.theme) : undefined;
+  const date = config.publicApiVersion === "1.2" ? normalizeExperienceDate(query.date) : undefined;
+  const initialGuests = parseGuestsParam(query.guests);
   const days = upcomingDays(now, CHIP_DAYS);
   if (initialDate && !days.some((day) => day.key === initialDate)) days.push(dayOption(initialDate));
 
   return (
     <div className="pt-9 sm:pt-14">
-      <TrackView event="list_view" props={{ theme: "all", date_filtered: initialDate !== null, result_count: items.length }} />
+      <TrackView event="list_view" props={{ theme: theme ?? "all", date_filtered: initialDate !== null, result_count: items.length }} />
       <header className="container-page">
         <p className="eyebrow">small groups · local hosts</p>
         <h1 className="mt-1.5 text-[2.5rem] sm:text-[3.625rem]">Experiences in Kamakura</h1>
         <p className="mt-2.5 text-[0.9375rem] text-muted">Prices in Japanese yen, tax included. Times in Japan time (JST).</p>
-        <form role="search" action="/experiences" method="get" className="mt-5 flex max-w-xl flex-wrap items-center gap-2">
-          <label htmlFor="experience-search" className="sr-only">
-            Search experiences and hosts
-          </label>
-          <input
-            id="experience-search"
-            name="q"
-            type="search"
-            maxLength={80}
-            defaultValue={searchQuery}
-            placeholder="Try pottery, coffee or dinner"
-            className="min-h-12 min-w-0 flex-1 basis-56 rounded-full border border-line-strong bg-surface px-4 text-base"
-          />
-          <button type="submit" className={buttonClass("secondary", "min-h-12")}>
-            Search
-          </button>
-          {searchQuery && items.length ? (
-            <Link href="/experiences" className="link-leaf px-2 text-sm">
-              Clear search
-            </Link>
-          ) : null}
-        </form>
+        <ExperienceFiltersForm
+          searchQuery={searchQuery}
+          theme={theme}
+          date={date}
+          filtersEnabled={config.publicApiVersion === "1.2"}
+          filtersActive={Boolean(searchQuery || theme || date || initialGuests !== null)}
+        />
       </header>
       <ExperienceList
+        key={`${initialDate ?? "any"}:${initialGuests ?? "any"}`}
         cards={cards}
         days={days}
         initialDate={initialDate}
-        initialGuests={parseGuestsParam(query.guests)}
+        initialGuests={initialGuests}
+        catalogDateFiltered={config.publicApiVersion === "1.2" && Boolean(date)}
         preview={isPreview}
         previewLabel={previewListingLabel}
         nihoWebOrigin={config.nihoWebOrigin}
-        empty={<EmptyResults clearHref={searchQuery ? "/experiences" : null} searchActive={Boolean(searchQuery)} />}
+        empty={<EmptyResults clearHref={searchQuery || theme || date || initialGuests !== null ? "/experiences" : null} searchActive={Boolean(searchQuery)} />}
       />
     </div>
   );

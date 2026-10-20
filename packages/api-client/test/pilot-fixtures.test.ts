@@ -33,9 +33,9 @@ describe("pilot fixture（テストサイト用・推奨値）", () => {
 
   it("詳細と一覧が契約の schema を満たす", () => {
     for (const experience of experiences) {
-      expect(validator.validateSchema("ExperienceDetailResponse", { experience })).toEqual({ ok: true });
+      expect(validator.validateSchema("PublicExperienceDetailResponse", { experience })).toEqual({ ok: true });
     }
-    expect(validator.validateSchema("ExperienceCatalogResponse", { experiences: experiences.map(toExperienceSummary) })).toEqual({ ok: true });
+    expect(validator.validateSchema("PublicExperienceCatalogResponse", { experiences: experiences.map(toExperienceSummary) })).toEqual({ ok: true });
   });
 
   it("開催回の mock が契約の schema を満たす", () => {
@@ -44,7 +44,7 @@ describe("pilot fixture（テストサイト用・推奨値）", () => {
       const occurrences = buildMockOccurrences({ experience, now });
       expect(occurrences.length).toBeGreaterThan(0);
       const response = { generatedAt: now.toISOString(), timeZone: "Asia/Tokyo", windowDays: MOCK_AVAILABILITY_WINDOW_DAYS, occurrences };
-      expect(validator.validateSchema("ExperienceAvailabilityResponse", response)).toEqual({ ok: true });
+      expect(validator.validateSchema("PublicExperienceAvailabilityResponse", response)).toEqual({ ok: true });
     }
   });
 

@@ -1,5 +1,5 @@
 import NextImage from "next/image";
-import type { PublicImage } from "@niho-experience/api-client";
+import type { PublicImageForSite } from "@/lib/experience-types";
 
 /** Small, quiet tag on provisional photos so they are never mistaken for the real place or people. */
 export function SampleTag({ className = "bottom-2.5 left-2.5" }: { className?: string }) {
@@ -19,9 +19,10 @@ export function Photo({
   rounded = "rounded-[var(--radius-card)]",
   aspect = "aspect-[4/3]",
   sampleTag = false,
+  preview = false,
   imgClassName = "",
 }: {
-  image: PublicImage | null;
+  image: PublicImageForSite | null;
   alt: string;
   sizes: string;
   priority?: boolean;
@@ -29,6 +30,8 @@ export function Photo({
   rounded?: string;
   aspect?: string;
   sampleTag?: boolean;
+  /** Compatibility alias for consumers that use the main branch's preview prop. */
+  preview?: boolean;
   imgClassName?: string;
 }) {
   return (
@@ -40,7 +43,7 @@ export function Photo({
           Image coming soon
         </span>
       ) : null}
-      {sampleTag && image ? <SampleTag /> : null}
+      {(sampleTag || preview) && image ? <SampleTag /> : null}
     </div>
   );
 }

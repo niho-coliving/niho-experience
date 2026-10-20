@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { TrackView } from "@/components/Analytics";
 import { BookingFlow } from "@/components/BookingFlow";
 import { ButtonLink, Notice } from "@/components/ui";
-import { getApi } from "@/lib/api";
+import { getExperienceForSite } from "@/lib/api";
 import { config, isPreview } from "@/lib/config";
 import type { SearchParams } from "@/lib/filters";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Your booking", robots: { index: fals
 export default async function BookPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> }) {
   const { slug } = await params;
   const query = await searchParams;
-  const result = await (await getApi()).getExperience(slug);
+  const result = await getExperienceForSite(slug, query);
   if (!result.ok) { if (result.kind === "not_found") notFound(); throw new Error("Public experience unavailable"); }
   const experience = result.data.experience;
   if (!config.bookingsEnabled || !experience.booking.checkoutAvailable) {
@@ -21,5 +21,5 @@ export default async function BookPage({ params, searchParams }: { params: Promi
   // A date picked on the detail page (public schedule data only; guest details never travel in the URL).
   const initialDate = typeof query.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : undefined;
   const initialOfferId = typeof query.offer === "string" && experience.offers.some((offer) => offer.id === query.offer) ? query.offer : undefined;
-  return <div className="container-page max-w-5xl pt-6"><Link href={`/experiences/${slug}`} className="text-sm font-bold text-moss hover:underline">← Back to {experience.title}</Link><h1 className="mt-4 text-3xl sm:text-4xl">Review and book</h1><p className="mt-2 max-w-2xl text-ink-soft">Choose a date and party size, then review the full price and terms. No account is needed.</p><div className="mt-8 max-w-2xl"><BookingFlow experience={experience} preview={isPreview} availabilityIsProvisional={isPreview && config.mockCatalog === "pilot"} nihoWebOrigin={config.nihoWebOrigin} initialOfferId={initialOfferId} initialDate={initialDate} /></div></div>;
+  return <div className="container-page max-w-5xl pt-6"><Link href={`/experiences/${slug}`} className="text-sm font-bold text-moss hover:underline">← Back to {experience.title}</Link><h1 className="mt-4 text-3xl sm:text-4xl">Review and book</h1><p className="mt-2 max-w-2xl text-ink-soft">Choose a date and party size, then review the full price and terms. No account is needed.</p><div className="mt-8 max-w-2xl"><BookingFlow experience={experience} preview={isPreview} availabilityIsProvisional={isPreview && config.mockCatalog === "pilot"} nihoWebOrigin={config.nihoWebOrigin} attributionEnabled={config.publicApiVersion === "1.2"} initialOfferId={initialOfferId} initialDate={initialDate} /></div></div>;
 }

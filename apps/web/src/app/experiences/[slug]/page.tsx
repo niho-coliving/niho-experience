@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { ExperienceDetail, PublicImage } from "@niho-experience/api-client";
 import { TrackView } from "@/components/Analytics";
 import { BookingCard, MobileBookingBar, type BookingSummary } from "@/components/DetailBooking";
 import { AllPhotosButton, MobileGallery } from "@/components/DetailGallery";
@@ -10,9 +9,11 @@ import { HandIcon, RubberStamp, type HandIconName } from "@/components/HandIcon"
 import { JsonLd } from "@/components/JsonLd";
 import { Photo, SampleTag } from "@/components/Photo";
 import { Notice, Pill } from "@/components/ui";
-import { getApi } from "@/lib/api";
+import { getExperienceForSite } from "@/lib/api";
 import { faceOf, groupSizeLabel, hostNames, initialOf } from "@/lib/card-model";
 import { config, isPreview, previewListingLabel } from "@/lib/config";
+import { imageAlt } from "@/lib/experience-copy";
+import type { ExperienceDetailForSite, PublicImageForSite } from "@/lib/experience-types";
 import type { SearchParams } from "@/lib/filters";
 import { formatDuration, formatYen } from "@/lib/format";
 import { safeHttpsUrl } from "@/lib/safe-url";
@@ -23,7 +24,7 @@ import { iconForText } from "@/lib/themes";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
 async function readExperience(slug: string, query: SearchParams) {
-  const result = await (await getApi(query)).getExperience(slug);
+  const result = await getExperienceForSite(slug, query);
   if (!result.ok) {
     if (result.kind === "not_found") notFound();
     throw new Error("Public experience unavailable");
@@ -39,16 +40,16 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 }
 
 /** Cover first, then the other photos, without repeating the cover. */
-function galleryPhotos(e: ExperienceDetail): PublicImage[] {
+function galleryPhotos(e: ExperienceDetailForSite): PublicImageForSite[] {
   const seen = new Set<string>();
-  return [e.cover, ...e.photos].filter((photo): photo is PublicImage => {
+  return [e.cover, ...e.photos].filter((photo): photo is PublicImageForSite => {
     if (!photo || seen.has(photo.url)) return false;
     seen.add(photo.url);
     return true;
   });
 }
 
-function durationFact(e: ExperienceDetail): { main: string; sub: string | null } {
+function durationFact(e: ExperienceDetailForSite): { main: string; sub: string | null } {
   const durations = [...new Set(e.offers.map((offer) => offer.durationMinutes))].sort((a, b) => a - b);
   const main = durations.length ? (durations.length === 1 ? formatDuration(durations[0]!) : `${formatDuration(durations[0]!)}–${formatDuration(durations.at(-1)!)}`) : "Ask your host";
   const first = e.offers[0];
@@ -57,7 +58,7 @@ function durationFact(e: ExperienceDetail): { main: string; sub: string | null }
   return { main, sub };
 }
 
-function childNote(e: ExperienceDetail): { fact: string | null; price: string | null } {
+function childNote(e: ExperienceDetailForSite): { fact: string | null; price: string | null } {
   const children = e.offers.map((offer) => offer.pricing.child).filter((child) => child !== null);
   if (!children.length) return { fact: null, price: null };
   const minAge = Math.min(...children.map((child) => child.minAge));
@@ -89,7 +90,11 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const checkoutCancelled = query.checkout === "cancelled";
   const sellerLegalUrl = safeHttpsUrl(e.seller.legalNoticeUrl);
   // One policy for every option: show it here so travelers see it before choosing a date.
-  const sharedPolicy = e.offers.every((offer) => offer.cancellationPolicy.code === e.offers[0]?.cancellationPolicy.code) ? (e.offers[0]?.cancellationPolicy ?? null) : null;
+  const firstPolicy = e.offers[0]?.cancellationPolicy;
+  const sharedPolicy = firstPolicy && e.offers.every((offer) =>
+    offer.cancellationPolicy.code === firstPolicy.code &&
+    offer.cancellationPolicy.freeCancellationHoursBefore === firstPolicy.freeCancellationHoursBefore
+  ) ? firstPolicy : null;
   const policyTitle = sharedPolicy
     ? sharedPolicy.code === "NONE"
       ? "Non-refundable"
@@ -105,7 +110,8 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const mapUrl = meeting?.mapUrl ? safeHttpsUrl(meeting.mapUrl) : null;
   const paragraphs = e.description.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
   // Only a host's own photo goes next to their name. A gallery photo may show other people (or sample stock), so it is never used here.
-  const hostPhoto = e.hosts.find((host) => host.avatar)?.avatar ?? null;
+  const hostWithPhoto = e.hosts.find((host) => host.avatar) ?? null;
+  const hostPhoto = hostWithPhoto?.avatar ?? null;
   const adultPrices = e.offers.map((offer) => offer.pricing.adultPriceYen);
   const canBook = config.bookingsEnabled && e.booking.checkoutAvailable;
   const approval = e.offers.filter((offer) => offer.acceptanceMode === "APPROVAL").length;
@@ -254,7 +260,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
                           <span aria-hidden className="absolute top-[102px] bottom-1 left-12 border-l-2 border-dashed border-line-strong lg:top-[136px] lg:left-[65px]" />
                         ) : null}
                         {photo ? (
-                          <Photo image={photo} alt="" aspect="" rounded="rounded-[18px]" className="size-24 lg:size-[130px]" sizes="130px" />
+                          <Photo image={photo} alt={imageAlt(photo, `${e.title}, ${step.title}`)} aspect="" rounded="rounded-[18px]" className="size-24 lg:size-[130px]" sizes="130px" />
                         ) : (
                           <span className="grid size-24 place-items-center rounded-[18px] bg-sand lg:size-[130px]">
                             <HandIcon name={iconForText(`${step.title} ${step.text}`, "clock")} className="size-[42px]" />
@@ -277,7 +283,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
                 {hostPhoto ? (
                   <div className="postage aspect-[5/4] w-[min(100%,320px)] justify-self-center">
                     <div className="postage-paper [--pad:11px]">
-                      <Photo image={hostPhoto} alt="" aspect="" rounded="" className="h-full w-full" sampleTag={isPreview} sizes="320px" />
+                      <Photo image={hostPhoto} alt={imageAlt(hostPhoto, hostWithPhoto?.displayName ?? e.provider.name)} aspect="" rounded="" className="h-full w-full" sampleTag={isPreview} sizes="320px" />
                     </div>
                     <RubberStamp className="absolute -right-3 -bottom-[26px] size-[100px] -rotate-[14deg] text-moss" />
                   </div>
@@ -315,7 +321,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
                 <div className={`grid items-start gap-5 ${exterior ? "sm:grid-cols-[200px_1fr] sm:gap-7" : ""}`}>
                   {exterior ? (
                     <div className="arch relative aspect-[3/4] w-[190px] sm:w-[200px]">
-                      <Photo image={exterior} alt={`${meeting.name} from outside`} aspect="" rounded="" className="h-full w-full" sizes="200px" />
+                      <Photo image={exterior} alt={imageAlt(exterior, `${meeting.name} from outside`)} aspect="" rounded="" className="h-full w-full" sizes="200px" />
                     </div>
                   ) : null}
                   <div>
@@ -407,19 +413,19 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
 }
 
 /** Desktop: the cover and up to four more photos, with every photo one click away. */
-function DesktopGallery({ photos, title, preview }: { photos: PublicImage[]; title: string; preview: boolean }) {
+function DesktopGallery({ photos, title, preview }: { photos: PublicImageForSite[]; title: string; preview: boolean }) {
   if (!photos.length) return null;
   const [cover, ...rest] = photos;
   const small = rest.slice(0, 4);
   const columns = small.length >= 3 ? "grid-cols-[2fr_1fr_1fr]" : small.length ? "grid-cols-[2fr_1fr]" : "grid-cols-1";
   return (
     <div className={`relative mt-7 hidden h-[466px] grid-rows-2 gap-1.5 overflow-hidden rounded-3xl lg:grid ${columns}`} role="group" aria-label="Experience photos">
-      <Photo image={cover ?? null} alt={title} priority aspect="" rounded="" className="row-span-2 h-full" sizes="(min-width: 64rem) 780px, 100vw" />
+      <Photo image={cover ?? null} alt={imageAlt(cover ?? null, title)} priority aspect="" rounded="" className="row-span-2 h-full" sizes="(min-width: 64rem) 780px, 100vw" />
       {small.map((photo, i) => (
         <Photo
           key={`${photo.url}-${i}`}
           image={photo}
-          alt={`${title}, photo ${i + 2} of ${photos.length}`}
+          alt={imageAlt(photo, `${title}, photo ${i + 2} of ${photos.length}`)}
           aspect=""
           rounded=""
           className={`h-full min-h-0 ${small.length === 1 ? "row-span-2" : small.length === 3 && i === 2 ? "col-span-2" : ""}`}

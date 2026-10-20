@@ -49,34 +49,34 @@ export function parseDateParam(value: string | string[] | undefined, allowed: re
   return allowed.some((day) => day.key === value) ? value : null;
 }
 
-/** `guests` query value: 1–8, otherwise 1. */
-export function parseGuestsParam(value: string | string[] | undefined): number {
-  if (typeof value !== "string" || !/^\d{1,2}$/.test(value)) return 1;
+/** `guests` query value: an explicitly selected group size from 1–8, otherwise no group filter. */
+export function parseGuestsParam(value: string | string[] | undefined): number | null {
+  if (typeof value !== "string" || !/^\d{1,2}$/.test(value)) return null;
   const guests = Number(value);
-  return guests >= 1 && guests <= MAX_GUESTS ? guests : 1;
+  return guests >= 1 && guests <= MAX_GUESTS ? guests : null;
 }
 
 /**
- * The first bookable session on `date` that fits the party: seats left and the
- * option's party-size limit both cover `guests`. Options unknown to the card (its
- * detail could not be read) are judged by seats alone. A minimum party size is not
- * checked here: one guest is also the list's "not chosen" state, and cards already
- * show private sessions as "Private · 2–4 guests" (the booking form enforces it).
+ * The first bookable session on `date` that fits the selected group. With no group
+ * selected, a known option needs enough seats for its minimum party. Options unknown
+ * to the card (its detail could not be read) are judged by seats alone.
  */
-export function matchingOccurrence(occurrences: readonly Occurrence[], offers: readonly CardOffer[], date: string, guests: number): Occurrence | null {
-  const limits = new Map(offers.map((offer) => [offer.id, offer.maxPartySize]));
+export function matchingOccurrence(occurrences: readonly Occurrence[], offers: readonly CardOffer[], date: string, guests: number | null): Occurrence | null {
+  const byId = new Map(offers.map((offer) => [offer.id, offer]));
   return (
     occurrences.find((occurrence) => {
-      if (occurrence.date !== date || !occurrence.bookable || occurrence.seatsLeft < guests) return false;
-      const limit = limits.get(occurrence.offerId);
-      return limit === undefined ? offers.length === 0 : limit >= guests;
+      if (occurrence.date !== date || !occurrence.bookable) return false;
+      const offer = byId.get(occurrence.offerId);
+      if (!offer) return offers.length === 0 && occurrence.seatsLeft >= (guests ?? 1);
+      const minimum = guests ?? offer.minimumParticipants;
+      return occurrence.seatsLeft >= minimum && offer.minimumParticipants <= minimum && offer.maxPartySize >= minimum;
     }) ?? null
   );
 }
 
-/** With no date chosen, the party size alone narrows the list (some options are small). */
-export function fitsPartySize(offers: readonly CardOffer[], guests: number): boolean {
-  return offers.length === 0 || offers.some((offer) => offer.maxPartySize >= guests);
+/** With no group selected, every experience is eligible. Unknown details fail open. */
+export function fitsPartySize(offers: readonly CardOffer[], guests: number | null): boolean {
+  return guests === null || offers.length === 0 || offers.some((offer) => offer.minimumParticipants <= guests && offer.maxPartySize >= guests);
 }
 
 /** Next bookable sessions (one per date and option), soonest first. */

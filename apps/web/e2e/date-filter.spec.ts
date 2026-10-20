@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("date chips show only experiences with a session that fits the party, and keep the URL in sync", async ({ page }) => {
+test("date chips show experiences with available sessions and keep the URL in sync", async ({ page }) => {
   await page.goto("/experiences");
   const status = page.getByRole("status");
   await expect(status).toContainText("4 experiences");
@@ -42,10 +42,26 @@ test("the home finder carries the date and party size to the list", async ({ pag
   await expect(page.getByRole("group", { name: "Date (Japan time)" }).getByRole("button", { pressed: true })).toHaveAccessibleName(new RegExp(`^${labels[3]}`));
 });
 
+test("the home finder defaults to Any group and omits guests from the URL", async ({ page }) => {
+  await page.goto("/");
+  const finder = page.getByRole("search", { name: "Find experiences" });
+  await expect(finder.getByRole("combobox", { name: /Guests/ })).toHaveValue("");
+  await finder.getByRole("button", { name: "Find experiences" }).click();
+  await expect(page).toHaveURL("/experiences");
+  await expect(page.getByRole("combobox", { name: /Guests/ })).toHaveValue("");
+});
+
+test("an explicit one guest filter excludes experiences that require two guests", async ({ page }) => {
+  await page.goto("/experiences?guests=1");
+  await expect(page.getByRole("combobox", { name: /Guests/ })).toHaveValue("1");
+  await expect(page.getByRole("link", { name: /seaside cycling and a fish market breakfast/i })).toHaveCount(0);
+});
+
 test("a party larger than every option's limit gets a clear way back", async ({ page }) => {
   await page.goto("/experiences?guests=8");
   await expect(page.getByRole("heading", { name: "No experiences for 8 guests" })).toBeVisible();
   await page.getByRole("button", { name: "Show all experiences" }).click();
   await expect(page.getByRole("status")).toContainText("4 experiences");
   await expect(page).not.toHaveURL(/guests=/);
+  await expect(page.getByRole("combobox", { name: /Guests/ })).toHaveValue("");
 });

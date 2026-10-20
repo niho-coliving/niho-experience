@@ -35,10 +35,33 @@ describe("契約の文書", () => {
     expect(auditContractDocument()).toEqual([]);
   });
 
+  it("NIHO が書き出した契約を変更せずに置いている（sha256 が一致する）", async () => {
+    const body = await readFile(new URL("../contract/experience-public-api.openapi.json", import.meta.url));
+    const recorded = await readFile(new URL("../contract/experience-public-api.openapi.json.sha256", import.meta.url), "utf8");
+    expect(recorded.trim()).toBe(`${createHash("sha256").update(body).digest("hex")}  experience-public-api.openapi.json`);
+  });
+
+  it("画像の操作は不透明な URL の版（v）を必須にし、本文は WebP の派生だけ", () => {
+    const paths = EXPERIENCE_CONTRACT_DOCUMENT.paths as Record<string, Record<string, any>>;
+    const media = paths["/api/public/experiences/{experienceSlug}/media/{mediaKey}"]?.get;
+    expect(media?.operationId).toBe("getPublicExperienceMedia");
+    expect(media?.parameters.find((parameter: { name: string }) => parameter.name === "v")).toMatchObject({ in: "query", required: true });
+    expect(Object.keys(media?.responses["200"].content ?? {})).toEqual(["image/webp"]);
+  });
+
   it("版と状態が contract-meta と一致する", () => {
     const info = EXPERIENCE_CONTRACT_DOCUMENT.info as Record<string, unknown>;
     expect(info.version).toBe(EXPERIENCE_API_CONTRACT.version);
     expect(info["x-niho-contract-status"]).toBe(EXPERIENCE_API_CONTRACT.status);
+  });
+
+  it("v1.2 adds explicit theme/date filters and only four optional checkout UTM fields", () => {
+    const document = EXPERIENCE_CONTRACT_DOCUMENT as Record<string, any>;
+    expect(document.paths["/api/public/experiences/v1.2/catalog"]?.get?.operationId).toBe("listPublicExperiencesV12");
+    const checkout = document.components.schemas.PublicExperienceCheckoutRequest.properties;
+    expect(Object.keys(checkout).filter((key) => key.startsWith("utm"))).toEqual(["utmSource", "utmMedium", "utmCampaign", "utmContent"]);
+    expect(checkout).not.toHaveProperty("attributionId");
+    expect(checkout).not.toHaveProperty("landingPageType");
   });
 
   it("生成した型が契約と一致する（drift が無い）", async () => {
@@ -48,13 +71,13 @@ describe("契約の文書", () => {
 
   it("禁止項目を足すと監査が失敗する（guard の自己検査）", () => {
     const leaked = structuredClone(EXPERIENCE_CONTRACT_DOCUMENT) as Record<string, any>;
-    leaked.components.schemas.Host.properties.email = { type: "string" };
-    leaked.components.schemas.Host.required.push("email");
-    leaked.components.schemas.Provider.properties.stripeAccountId = { type: "string" };
-    leaked.components.schemas.Provider.required.push("stripeAccountId");
-    leaked.components.schemas.Seller.additionalProperties = true;
-    leaked.components.schemas.Region.properties.photoObjectKey = { type: "string" };
-    leaked.components.schemas.Region.required.push("photoObjectKey");
+    leaked.components.schemas.PublicExperienceHost.properties.email = { type: "string" };
+    leaked.components.schemas.PublicExperienceHost.required.push("email");
+    leaked.components.schemas.PublicExperienceProvider.properties.stripeAccountId = { type: "string" };
+    leaked.components.schemas.PublicExperienceProvider.required.push("stripeAccountId");
+    leaked.components.schemas.PublicExperienceSeller.additionalProperties = true;
+    leaked.components.schemas.PublicExperienceRegion.properties.photoObjectKey = { type: "string" };
+    leaked.components.schemas.PublicExperienceRegion.required.push("photoObjectKey");
     const violations = auditContractDocument(leaked);
     expect(violations).toEqual(
       expect.arrayContaining([
@@ -68,8 +91,8 @@ describe("契約の文書", () => {
 
   it("応答の項目を任意にすると監査が失敗する", () => {
     const optional = structuredClone(EXPERIENCE_CONTRACT_DOCUMENT) as Record<string, any>;
-    optional.components.schemas.ExperienceSummary.required = ["slug"];
-    expect(auditContractDocument(optional).join("\n")).toContain("ExperienceSummary: 応答の項目は常に返す");
+    optional.components.schemas.PublicExperienceSummary.required = ["slug"];
+    expect(auditContractDocument(optional).join("\n")).toContain("PublicExperienceSummary: 応答の項目は常に返す");
   });
 });
 
@@ -78,9 +101,9 @@ describe("合成 fixture", () => {
 
   it("詳細と一覧が契約の schema を満たす", () => {
     for (const experience of experiences) {
-      expect(validator.validateSchema("ExperienceDetailResponse", { experience })).toEqual({ ok: true });
+      expect(validator.validateSchema("PublicExperienceDetailResponse", { experience })).toEqual({ ok: true });
     }
-    expect(validator.validateSchema("ExperienceCatalogResponse", { experiences: experiences.map(toExperienceSummary) })).toEqual({ ok: true });
+    expect(validator.validateSchema("PublicExperienceCatalogResponse", { experiences: experiences.map(toExperienceSummary) })).toEqual({ ok: true });
   });
 
   it("検証は余分な項目・null の誤用・欠けた項目を拒否する（validator の自己検査）", () => {
@@ -91,9 +114,9 @@ describe("合成 fixture", () => {
     const { seller: _seller, ...withoutSeller } = first;
     const leakedHost = { experience: { ...first, hosts: [{ displayName: "x", avatar: null, email: "a@example.com" }] } };
     for (const invalid of [extra, nullTitle, { experience: withoutSeller }, leakedHost]) {
-      expect(validator.validateSchema("ExperienceDetailResponse", invalid).ok).toBe(false);
+      expect(validator.validateSchema("PublicExperienceDetailResponse", invalid).ok).toBe(false);
     }
-    expect(validator.validateSchema("ExperienceDetailResponse", { experience: { ...first, cover: null, meetingPoint: null } })).toEqual({ ok: true });
+    expect(validator.validateSchema("PublicExperienceDetailResponse", { experience: { ...first, cover: null, meetingPoint: null } })).toEqual({ ok: true });
   });
 
   it("予約確定後に案内する集合場所を公開応答で拒否する", () => {
@@ -113,7 +136,8 @@ describe("合成 fixture", () => {
         },
       },
     };
-    expect(validator.validateSchema("ExperienceDetailResponse", leaked).ok).toBe(false);
+    expect(validator.validateSchema("PublicExperienceDetailResponse", leaked).ok).toBe(false);
+    expect(validator.validateSchema("PublicExperienceDetailResponse", { experience: { ...first, meetingPointDisclosure: "AFTER_BOOKING", meetingPoint: null } })).toEqual({ ok: true });
   });
 
   it("値の走査はメール・Stripe の ID・objectKey・電話番号を見つける", () => {

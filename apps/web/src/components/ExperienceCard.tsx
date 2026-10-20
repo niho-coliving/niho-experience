@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CardModel } from "@/lib/card-model";
+import { imageAlt } from "@/lib/experience-copy";
 import { FaceBadge } from "./Face";
 import { HandIcon } from "./HandIcon";
 import { Photo } from "./Photo";
@@ -23,7 +24,7 @@ export function ExperienceCard({ card, variant = "home", priority = false, previ
       <div className="relative">
         <Photo
           image={card.cover}
-          alt={card.title}
+          alt={imageAlt(card.cover, card.title)}
           priority={priority}
           sampleTag={preview}
           rounded="rounded-[var(--radius-card)]"

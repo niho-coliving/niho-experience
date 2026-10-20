@@ -8,7 +8,7 @@ import { toExperienceSummary } from "../fixtures/catalog.ts";
 import { buildFixtureExperiences, FIXTURE_CONSENT_VERSION } from "../fixtures/experiences.ts";
 import { buildPilotExperiences } from "../fixtures/pilot-experiences.ts";
 import type { FetchLike } from "../client.ts";
-import type { CheckoutErrorCode, ExperienceCheckoutError, ExperienceDetail, Occurrence } from "../types.ts";
+import type { CheckoutErrorCode, ExperienceCheckoutError, ExperienceDetail, ExperienceDetailV11, ExperienceSiteTheme, ExperienceSummaryV12, Occurrence } from "../types.ts";
 
 export const MOCK_SCENARIOS = [
   "default",
@@ -56,7 +56,21 @@ export function isMockCheckoutUrl(url: string): boolean {
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
 const REGION_PATTERN = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 const OFFER_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const UTM_PATTERN = /^[a-z0-9_-]{1,64}$/;
 const SHARED_CACHE = "public, max-age=60, stale-while-revalidate=300";
+const SITE_THEMES: readonly ExperienceSiteTheme[] = ["FOOD", "CULTURE", "CRAFT", "OUTDOORS", "LOCAL_LIFE"];
+// Mock tags are explicit fixture data, never inferred from titles or descriptions.
+const MOCK_THEMES: Readonly<Record<string, readonly ExperienceSiteTheme[]>> = {
+  "home-cooked-dinner-with-locals": ["FOOD", "LOCAL_LIFE"],
+  "indigo-dyeing-with-an-artisan": ["CRAFT", "CULTURE"],
+  "seaside-cycling-and-market-breakfast": ["OUTDOORS", "FOOD"],
+  "evening-pottery-session": ["CRAFT", "CULTURE"],
+  "kamakura-community-dinner": ["FOOD", "LOCAL_LIFE"],
+  "kamakura-coffee-roasting": ["FOOD", "CRAFT"],
+  "engakuji-zen-meditation": ["CULTURE", "LOCAL_LIFE"],
+  "kamakura-ceramic-mending": ["CRAFT", "CULTURE"],
+  "kamakura-calligraphy": ["CRAFT", "CULTURE"],
+};
 
 function json(status: number, body: unknown, cacheControl: string, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -112,6 +126,32 @@ function isCount(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 500;
 }
 
+function toV11(experience: ExperienceDetail): ExperienceDetailV11 {
+  const withAlt = (image: { url: string } | null, alt: string | null) => image ? { url: image.url, alt } : null;
+  return {
+    ...experience,
+    cover: withAlt(experience.cover, experience.title),
+    photos: experience.photos.map((image, index) => ({ ...image, alt: `${experience.title} ${index + 1}` })),
+    hosts: experience.hosts.map((host) => ({ ...host, avatar: withAlt(host.avatar, null), bio: null })),
+    provider: { ...experience.provider, logo: withAlt(experience.provider.logo, null) },
+  };
+}
+
+function toV12Summary(experience: ExperienceDetail): ExperienceSummaryV12 {
+  const summary = toExperienceSummary(experience);
+  return {
+    ...summary,
+    cover: toV11(experience).cover,
+    themes: [...(MOCK_THEMES[experience.slug] ?? [])],
+  };
+}
+
+function isLocalDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type HoldRecord = { contentKey: string; url: string; offerId: string; date: string; seats: number };
@@ -145,7 +185,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     });
   }
 
-  function handleCheckout(experience: ExperienceDetail, body: unknown): Response {
+  function handleCheckout(experience: ExperienceDetail, body: unknown, doNotTrack: boolean): Response {
     if (!isObject(body)) return checkoutError("VALIDATION_ERROR");
     switch (scenario) {
       case "checkout-rate-limited":
@@ -179,6 +219,11 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     }
     if (body.note !== undefined && body.note !== null && (typeof body.note !== "string" || body.note.length > 500)) {
       return checkoutError("INPUT_INVALID", { field: "note" });
+    }
+    for (const field of ["utmSource", "utmMedium", "utmCampaign", "utmContent"] as const) {
+      if (body[field] !== undefined && (typeof body[field] !== "string" || !UTM_PATTERN.test(body[field]))) {
+        return checkoutError("INPUT_INVALID", { field });
+      }
     }
     if (!isCount(body.adultCount)) return checkoutError("INPUT_INVALID", { field: "adultCount" });
     if (!isCount(body.childCount)) return checkoutError("INPUT_INVALID", { field: "childCount" });
@@ -248,7 +293,9 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
       if (question.required && !answered) return checkoutError("QUESTIONS_CHANGED", { questionId: question.id });
     }
 
-    const contentKey = JSON.stringify([body.offerId, body.occurrenceDate, body.adultCount, body.childCount, body.guestName, body.guestEmail, body.note ?? null, answers]);
+    const contentKey = JSON.stringify([body.offerId, body.occurrenceDate, body.adultCount, body.childCount, body.guestName, body.guestEmail, body.note ?? null, answers,
+      doNotTrack ? null : body.utmSource ?? null, doNotTrack ? null : body.utmMedium ?? null,
+      doNotTrack ? null : body.utmCampaign ?? null, doNotTrack ? null : body.utmContent ?? null]);
     const existing = holds.get(body.clientRequestKey);
     if (existing) {
       return existing.contentKey === contentKey ? json(201, { checkoutUrl: existing.url }, "no-store") : checkoutError("REQUEST_MISMATCH");
@@ -276,6 +323,34 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     if (segments[0] !== "api" || segments[1] !== "public" || segments[2] !== "experiences") return notFound();
     const slug = segments[3];
     const tail = segments.slice(4).join("/");
+
+    if (slug === "v1.1" && method === "GET") {
+      if (tail === "catalog") {
+        const region = url.searchParams.get("region");
+        if (region !== null && !REGION_PATTERN.test(region)) return validationError("region is invalid");
+        const listed = scenario === "empty-catalog" ? [] : experiences.filter((experience) => region === null || experience.region.key === region);
+        return json(200, { experiences: listed.map((experience) => toExperienceSummary(toV11(experience))) }, SHARED_CACHE);
+      }
+      if (!SLUG_PATTERN.test(tail)) return validationError("experienceSlug is invalid");
+      const experience = scenario === "empty-catalog" ? undefined : experiences.find((candidate) => candidate.slug === tail);
+      return experience ? json(200, { experience: toV11(experience) }, SHARED_CACHE) : notFound();
+    }
+
+    if (slug === "v1.2" && method === "GET") {
+      if (tail !== "catalog") return notFound();
+      const region = url.searchParams.get("region");
+      const theme = url.searchParams.get("theme");
+      const availableOn = url.searchParams.get("availableOn");
+      if (region !== null && !REGION_PATTERN.test(region)) return validationError("region is invalid");
+      if (theme !== null && !SITE_THEMES.includes(theme as ExperienceSiteTheme)) return validationError("theme is invalid");
+      if (availableOn !== null && !isLocalDate(availableOn)) return validationError("availableOn is invalid");
+      const listed = scenario === "empty-catalog" ? [] : experiences.filter((experience) =>
+        (region === null || experience.region.key === region) &&
+        (theme === null || (MOCK_THEMES[experience.slug] ?? []).includes(theme as ExperienceSiteTheme)) &&
+        (availableOn === null || occurrencesFor(experience).some((occurrence) => occurrence.date === availableOn)),
+      );
+      return json(200, { experiences: listed.map(toV12Summary) }, SHARED_CACHE);
+    }
 
     if (slug === undefined) {
       if (method !== "GET") return notFound();
@@ -306,7 +381,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
       } catch {
         return checkoutError("VALIDATION_ERROR");
       }
-      return handleCheckout(experience, body);
+      return handleCheckout(experience, body, new Headers(init?.headers).get("dnt") === "1");
     }
     return notFound();
   }

@@ -3,14 +3,15 @@
 import NextImage from "next/image";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import type { PublicImage } from "@niho-experience/api-client";
+import type { PublicImageForSite } from "@/lib/experience-types";
+import { imageAlt } from "@/lib/experience-copy";
 import { HandIcon } from "./HandIcon";
 import { Photo, SampleTag } from "./Photo";
 
-const photoAlt = (title: string, index: number, count: number) => (index === 0 ? title : `${title}, photo ${index + 1} of ${count}`);
+const photoAlt = (photo: PublicImageForSite, title: string, index: number, count: number) => imageAlt(photo, index === 0 ? title : `${title}, photo ${index + 1} of ${count}`);
 
 /** Phones: full-width swipe gallery with a position counter and a way back to the list. */
-export function MobileGallery({ photos, title, preview }: { photos: PublicImage[]; title: string; preview: boolean }) {
+export function MobileGallery({ photos, title, preview }: { photos: PublicImageForSite[]; title: string; preview: boolean }) {
   const track = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const count = photos.length;
@@ -30,7 +31,7 @@ export function MobileGallery({ photos, title, preview }: { photos: PublicImage[
         {count ? (
           photos.map((photo, i) => (
             <div key={`${photo.url}-${i}`} className="relative aspect-square w-full shrink-0 snap-start bg-sand sm:aspect-[16/10]">
-              <NextImage src={photo.url} alt={photoAlt(title, i, count)} fill priority={i === 0} sizes="100vw" unoptimized className="object-cover" />
+              <NextImage src={photo.url} alt={photoAlt(photo, title, i, count)} fill priority={i === 0} sizes="100vw" unoptimized className="object-cover" />
             </div>
           ))
         ) : (
@@ -55,7 +56,7 @@ export function MobileGallery({ photos, title, preview }: { photos: PublicImage[
 }
 
 /** Desktop: opens every photo in a modal dialog (Esc or the close button returns focus to this button). */
-export function AllPhotosButton({ photos, title, preview }: { photos: PublicImage[]; title: string; preview: boolean }) {
+export function AllPhotosButton({ photos, title, preview }: { photos: PublicImageForSite[]; title: string; preview: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   return (
     <>
@@ -85,7 +86,7 @@ export function AllPhotosButton({ photos, title, preview }: { photos: PublicImag
         <ul className="grid gap-2 p-6 sm:grid-cols-2">
           {photos.map((photo, i) => (
             <li key={`${photo.url}-${i}`}>
-              <Photo image={photo} alt={photoAlt(title, i, photos.length)} sizes="(min-width: 40rem) 500px, 100vw" rounded="rounded-2xl" sampleTag={preview && i === 0} />
+              <Photo image={photo} alt={photoAlt(photo, title, i, photos.length)} sizes="(min-width: 40rem) 500px, 100vw" rounded="rounded-2xl" sampleTag={preview && i === 0} />
             </li>
           ))}
         </ul>

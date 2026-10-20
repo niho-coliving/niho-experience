@@ -1,4 +1,5 @@
-import type { ExperienceDetail, ExperienceOffer, ExperienceSummary, PublicImage } from "@niho-experience/api-client";
+import type { ExperienceOffer } from "@niho-experience/api-client";
+import type { ExperienceDetailForSite, ExperienceSummaryForSite, PublicImageForSite } from "./experience-types";
 import { formatDuration, formatYen } from "./format";
 import { joinAnd, scheduleSummary } from "./schedule";
 
@@ -8,16 +9,16 @@ import { joinAnd, scheduleSummary } from "./schedule";
  * not be read the card falls back to the summary alone instead of disappearing.
  */
 
-export type Face = { name: string; initial: string; image: PublicImage | null };
+export type Face = { name: string; initial: string; image: PublicImageForSite | null };
 
 /** Only what the browser needs to match availability to party size. */
-export type CardOffer = Pick<ExperienceOffer, "id" | "maxPartySize">;
+export type CardOffer = Pick<ExperienceOffer, "id" | "minimumParticipants" | "maxPartySize">;
 
 export type CardModel = {
   slug: string;
   title: string;
   lead: string;
-  cover: PublicImage | null;
+  cover: PublicImageForSite | null;
   /** "with Takuya, Hasami & わか", or the provider name when no hosts are listed. */
   withLabel: string;
   face: Face;
@@ -40,17 +41,17 @@ export function initialOf(name: string): string {
   return first.toLocaleUpperCase("en-US");
 }
 
-export function faceOf(e: Pick<ExperienceDetail, "hosts" | "provider">): Face {
+export function faceOf(e: Pick<ExperienceDetailForSite, "hosts" | "provider">): Face {
   const host = e.hosts[0];
   if (host) return { name: host.displayName, initial: initialOf(host.displayName), image: host.avatar };
   return { name: e.provider.name, initial: initialOf(e.provider.name), image: e.provider.logo };
 }
 
-export function hostNames(e: Pick<ExperienceDetail, "hosts" | "provider">): string {
+export function hostNames(e: Pick<ExperienceDetailForSite, "hosts" | "provider">): string {
   return e.hosts.length ? joinAnd(e.hosts.map((host) => host.displayName)) : e.provider.name;
 }
 
-/** "Up to 8 guests"; when every option needs more than one guest, "Private · 2–4 guests". */
+/** Show the per-party limit; when every option needs more than one guest, label it private. */
 export function groupSizeLabel(offers: Pick<ExperienceOffer, "capacity" | "maxPartySize" | "minimumParticipants">[]): string | null {
   if (!offers.length) return null;
   if (offers.every((offer) => offer.minimumParticipants > 1)) {
@@ -58,8 +59,8 @@ export function groupSizeLabel(offers: Pick<ExperienceOffer, "capacity" | "maxPa
     const max = Math.max(...offers.map((offer) => offer.maxPartySize));
     return min === max ? `Private · ${max} guests` : `Private · ${min}–${max} guests`;
   }
-  const capacity = Math.max(...offers.map((offer) => offer.capacity));
-  return capacity === 1 ? "1 guest" : `Up to ${capacity} guests`;
+  const maxPartySize = Math.max(...offers.map((offer) => offer.maxPartySize));
+  return maxPartySize === 1 ? "1 guest" : `Up to ${maxPartySize} guests`;
 }
 
 const LANGUAGE_CODES: Record<string, string> = { English: "EN", Japanese: "JA" };
@@ -80,12 +81,12 @@ export function shortLanguageNote(note: string): string {
   return parts.map((part) => part.replace(/\b(English|Japanese)\b/g, (word) => LANGUAGE_CODES[word] ?? word)).join(" · ");
 }
 
-function durationLabel(summary: ExperienceSummary): string {
+function durationLabel(summary: ExperienceSummaryForSite): string {
   const { minMinutes, maxMinutes } = summary.duration;
   return minMinutes === maxMinutes ? formatDuration(minMinutes) : `${formatDuration(minMinutes)}–${formatDuration(maxMinutes)}`;
 }
 
-export function buildCardModel(summary: ExperienceSummary, detail: ExperienceDetail | null): CardModel {
+export function buildCardModel(summary: ExperienceSummaryForSite, detail: ExperienceDetailForSite | null): CardModel {
   const base = {
     slug: summary.slug,
     title: summary.title,
@@ -114,10 +115,10 @@ export function buildCardModel(summary: ExperienceSummary, detail: ExperienceDet
     language: { short: shortLanguageNote(detail.languageNote), full: detail.languageNote },
     scheduleLabel: scheduleSummary(detail.offers),
     priceIsFrom: new Set(detail.offers.map((offer) => offer.pricing.adultPriceYen)).size > 1,
-    offers: detail.offers.map((offer) => ({ id: offer.id, maxPartySize: offer.maxPartySize })),
+    offers: detail.offers.map((offer) => ({ id: offer.id, minimumParticipants: offer.minimumParticipants, maxPartySize: offer.maxPartySize })),
   };
 }
 
-export function buildCardModels(summaries: ExperienceSummary[], details: ReadonlyMap<string, ExperienceDetail>): CardModel[] {
+export function buildCardModels(summaries: ExperienceSummaryForSite[], details: ReadonlyMap<string, ExperienceDetailForSite>): CardModel[] {
   return summaries.map((summary) => buildCardModel(summary, details.get(summary.slug) ?? null));
 }

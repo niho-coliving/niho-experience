@@ -27,22 +27,23 @@ describe("date chips (JST)", () => {
     expect(dayOption("2026-12-31").label).toBe("Thu 31 Dec");
   });
 
-  it("accepts only an offered date and a 1–8 party size from the URL", () => {
+  it("accepts an offered date and only an explicit 1–8 party size from the URL", () => {
     const days = upcomingDays(new Date("2026-10-20T03:00:00Z"), 14);
     expect(parseDateParam("2026-10-24", days)).toBe("2026-10-24");
     expect(parseDateParam("2026-12-24", days)).toBeNull();
     expect(parseDateParam("", days)).toBeNull();
     expect(parseDateParam(["2026-10-24"], days)).toBeNull();
     expect(parseGuestsParam("2")).toBe(2);
-    expect(parseGuestsParam("9")).toBe(1);
-    expect(parseGuestsParam("0")).toBe(1);
-    expect(parseGuestsParam("two")).toBe(1);
-    expect(parseGuestsParam(undefined)).toBe(1);
+    expect(parseGuestsParam("1")).toBe(1);
+    expect(parseGuestsParam("9")).toBeNull();
+    expect(parseGuestsParam("0")).toBeNull();
+    expect(parseGuestsParam("two")).toBeNull();
+    expect(parseGuestsParam(undefined)).toBeNull();
   });
 });
 
 describe("matching a party to a day", () => {
-  const offers = [{ id: "offer_a", maxPartySize: 4 }];
+  const offers = [{ id: "offer_a", minimumParticipants: 1, maxPartySize: 4 }];
 
   it("needs a bookable session that day with enough seats and a large enough party limit", () => {
     expect(matchingOccurrence([occurrence({})], offers, "2026-10-24", 2)).not.toBeNull();
@@ -50,6 +51,20 @@ describe("matching a party to a day", () => {
     expect(matchingOccurrence([occurrence({ seatsLeft: 1 })], offers, "2026-10-24", 2)).toBeNull();
     expect(matchingOccurrence([occurrence({ bookable: false, reason: "FULL", seatsLeft: 0 })], offers, "2026-10-24", 1)).toBeNull();
     expect(matchingOccurrence([occurrence({ seatsLeft: 10 })], offers, "2026-10-24", 5)).toBeNull();
+  });
+
+  it("enforces minimum and maximum group size only when a group is selected", () => {
+    const privateOffer = [{ id: "offer_a", minimumParticipants: 2, maxPartySize: 4 }];
+    expect(fitsPartySize(privateOffer, 1)).toBe(false);
+    expect(fitsPartySize(privateOffer, 2)).toBe(true);
+    expect(fitsPartySize(privateOffer, 4)).toBe(true);
+    expect(fitsPartySize(privateOffer, 5)).toBe(false);
+    expect(fitsPartySize(privateOffer, null)).toBe(true);
+    expect(matchingOccurrence([occurrence({ seatsLeft: 1 })], privateOffer, "2026-10-24", null)).toBeNull();
+    expect(matchingOccurrence([occurrence({ seatsLeft: 2 })], privateOffer, "2026-10-24", null)).not.toBeNull();
+    expect(matchingOccurrence([occurrence({ seatsLeft: 4 })], privateOffer, "2026-10-24", 1)).toBeNull();
+    expect(matchingOccurrence([occurrence({ seatsLeft: 3 })], privateOffer, "2026-10-24", 3)).not.toBeNull();
+    expect(matchingOccurrence([occurrence({ seatsLeft: 4 })], privateOffer, "2026-10-24", 5)).toBeNull();
   });
 
   it("judges by seats alone when the card has no option data", () => {
@@ -60,6 +75,7 @@ describe("matching a party to a day", () => {
     expect(fitsPartySize(offers, 4)).toBe(true);
     expect(fitsPartySize(offers, 5)).toBe(false);
     expect(fitsPartySize([], 8)).toBe(true);
+    expect(fitsPartySize(offers, null)).toBe(true);
   });
 
   it("lists the next bookable sessions soonest first", () => {

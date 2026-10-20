@@ -58,17 +58,52 @@ function post(body: unknown): RequestInit {
 }
 
 describe("mock の読み取りが契約を満たす", () => {
+  it("v1.0 の厳密契約を維持し、v1.1 だけ写真 alt と提供者 bio を返す", async () => {
+    const legacy = await call("default", "/api/public/experiences/home-cooked-dinner-with-locals");
+    const next = await call("default", "/api/public/experiences/v1.1/home-cooked-dinner-with-locals");
+    const catalog = await call("default", "/api/public/experiences/v1.1/catalog");
+    expect(validator.validateResponse("getPublicExperience", legacy.response.status, legacy.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperienceV11", next.response.status, next.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("listPublicExperiencesV11", catalog.response.status, catalog.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperience", next.response.status, next.body).ok).toBe(false);
+    expect((next.body as { experience: { cover: { alt: string | null }; hosts: Array<{ bio: string | null }> } }).experience.cover.alt).toBeTruthy();
+    expect((legacy.body as { experience: { cover: Record<string, unknown> } }).experience.cover).not.toHaveProperty("alt");
+    const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: createMockExperienceFetch({ now: () => NOW }) });
+    expect((await client.listExperiencesV11()).ok).toBe(true);
+    expect((await client.getExperienceV11("home-cooked-dinner-with-locals")).ok).toBe(true);
+  });
+
+  it("v1.2 catalog filters explicit themes and scheduled days without claiming availability", async () => {
+    const fetchMock = createMockExperienceFetch({ now: () => NOW });
+    const availability = await fetchMock(`${ORIGIN}/api/public/experiences/home-cooked-dinner-with-locals/availability`, { method: "GET" });
+    const occurrence = ((await availability.json()) as { occurrences: Array<{ date: string; bookable: boolean; reason: string | null }> }).occurrences.find((item) => item.reason === "FULL")!;
+    const byTheme = await fetchMock(`${ORIGIN}/api/public/experiences/v1.2/catalog?region=kamakura&theme=FOOD`, { method: "GET" });
+    const byDate = await fetchMock(`${ORIGIN}/api/public/experiences/v1.2/catalog?availableOn=${occurrence.date}`, { method: "GET" });
+    const themeBody = await byTheme.json();
+    const dateBody = await byDate.json();
+    expect(validator.validateResponse("listPublicExperiencesV12", 200, themeBody)).toEqual({ ok: true });
+    expect(byTheme.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
+    expect(themeBody.experiences.map((item: { slug: string }) => item.slug)).toContain("home-cooked-dinner-with-locals");
+    expect(themeBody.experiences.every((item: { themes: string[] }) => item.themes.includes("FOOD"))).toBe(true);
+    expect(validator.validateResponse("listPublicExperiencesV12", 200, dateBody)).toEqual({ ok: true });
+    expect(dateBody.experiences.map((item: { slug: string }) => item.slug)).toContain("home-cooked-dinner-with-locals");
+    expect(dateBody.experiences.every((item: { themes: string[] }) => Array.isArray(item.themes))).toBe(true);
+    expect(occurrence.bookable).toBe(false);
+    const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: fetchMock });
+    expect((await client.listExperiencesV12({ region: "kamakura", theme: "FOOD", availableOn: occurrence.date })).ok).toBe(true);
+  });
+
   it.each(MOCK_SCENARIOS.filter((scenario) => scenario !== "network-error" && scenario !== "slow"))("%s: 一覧・詳細・残席", async (scenario) => {
     const catalog = await call(scenario, "/api/public/experiences?region=kamakura");
-    expect(validator.validateResponse("listExperiences", catalog.response.status, catalog.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("listPublicExperiences", catalog.response.status, catalog.body)).toEqual({ ok: true });
     expect(catalog.response.headers.get("cache-control")).toMatch(/^public, max-age=60/);
 
     const slugs = (catalog.body as { experiences: Array<{ slug: string }> }).experiences.map((item) => item.slug);
     for (const slug of slugs) {
       const found = await call(scenario, `/api/public/experiences/${slug}`);
-      expect(validator.validateResponse("getExperience", found.response.status, found.body)).toEqual({ ok: true });
+      expect(validator.validateResponse("getPublicExperience", found.response.status, found.body)).toEqual({ ok: true });
       const availability = await call(scenario, `/api/public/experiences/${slug}/availability`);
-      expect(validator.validateResponse("getExperienceAvailability", availability.response.status, availability.body)).toEqual({ ok: true });
+      expect(validator.validateResponse("getPublicExperienceAvailability", availability.response.status, availability.body)).toEqual({ ok: true });
       expect(availability.response.headers.get("cache-control")).toBe("no-store");
       expect(findSensitiveValues(availability.body)).toEqual([]);
     }
@@ -77,9 +112,9 @@ describe("mock の読み取りが契約を満たす", () => {
   it("掲載されていない slug は本文なしの 404・形の誤りは 400", async () => {
     const missing = await call("default", "/api/public/experiences/not-listed-anywhere");
     expect(missing.response.status).toBe(404);
-    expect(validator.validateResponse("getExperience", 404, missing.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperience", 404, missing.body)).toEqual({ ok: true });
     const invalid = await call("default", "/api/public/experiences/Bad_Slug");
-    expect(validator.validateResponse("getExperience", invalid.response.status, invalid.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperience", invalid.response.status, invalid.body)).toEqual({ ok: true });
     expect(invalid.response.status).toBe(400);
   });
 
@@ -107,7 +142,7 @@ describe("mock の checkout", () => {
     const body = await checkoutBody(slug);
     const first = await fetchMock(`${ORIGIN}/api/public/experiences/${slug}/checkout`, post(body));
     const firstBody = await first.json();
-    expect(validator.validateResponse("startExperienceCheckout", first.status, firstBody)).toEqual({ ok: true });
+    expect(validator.validateResponse("postPublicExperienceCheckout", first.status, firstBody)).toEqual({ ok: true });
     expect(first.status).toBe(201);
     expect(isMockCheckoutUrl(firstBody.checkoutUrl)).toBe(true);
 
@@ -118,7 +153,23 @@ describe("mock の checkout", () => {
     const changedBody = await changed.json();
     expect(changed.status).toBe(409);
     expect(changedBody.error.code).toBe("REQUEST_MISMATCH");
-    expect(validator.validateResponse("startExperienceCheckout", 409, changedBody)).toEqual({ ok: true });
+    expect(validator.validateResponse("postPublicExperienceCheckout", 409, changedBody)).toEqual({ ok: true });
+  });
+
+  it("許可されたUTMのみ任意で、同じ申込 key の流入元変更を拒否する", async () => {
+    const fetchMock = createMockExperienceFetch({ now: () => NOW });
+    const body = await checkoutBody(slug, {
+      utmSource: "niho_site",
+      utmMedium: "referral",
+    });
+    const path = `${ORIGIN}/api/public/experiences/${slug}/checkout`;
+    const first = await fetchMock(path, post(body));
+    expect(first.status).toBe(201);
+    const changed = await fetchMock(path, post({ ...body, utmSource: "other" }));
+    expect(changed.status).toBe(409);
+    expect((await changed.json()).error.code).toBe("REQUEST_MISMATCH");
+    const invalid = await fetchMock(path, post({ ...body, utmSource: "BAD VALUE" }));
+    expect(invalid.status).toBe(422);
   });
 
   it("応答に旅行者の入力（名前・メール・回答）を含めない", async () => {
@@ -161,7 +212,7 @@ describe("mock の checkout", () => {
       const { response, body: error } = await call("default", "/api/public/experiences/indigo-dyeing-with-an-artisan/checkout", post({ ...base, answers }));
       expect(response.status).toBe(422);
       expect(error).toMatchObject({ error: { code: "ANSWERS_INVALID", questionId: answer.questionId } });
-      expect(validator.validateResponse("startExperienceCheckout", response.status, error)).toEqual({ ok: true });
+      expect(validator.validateResponse("postPublicExperienceCheckout", response.status, error)).toEqual({ ok: true });
     }
   });
 
@@ -197,7 +248,7 @@ describe("mock の checkout", () => {
     const { response, body: error } = await call(scenario, `/api/public/experiences/${slug}/checkout`, post(body));
     expect(response.status).toBe(status);
     expect(error).toMatchObject({ error: { code } });
-    expect(validator.validateResponse("startExperienceCheckout", status, error)).toEqual({ ok: true });
+    expect(validator.validateResponse("postPublicExperienceCheckout", status, error)).toEqual({ ok: true });
     if (code === "RATE_LIMITED") expect(response.headers.get("retry-after")).toBe("120");
   });
 
