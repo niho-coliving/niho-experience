@@ -12,7 +12,7 @@ import { DocumentChrome } from "@/components/DocumentChrome";
 
 const state = vi.hoisted(() => ({ documents: {} as Partial<Record<PageId, PageDocument>>, config: {
   publicApiVersion: "1.2", siteUrl: "https://experience.example.com", bookingsEnabled: true,
-  hostSignupMode: "open", nihoWebOrigin: "https://niho.example", nihoHostStartUrl: "https://niho.example/experiences/host/start", hostPilotContactUrl: ""
+  hostSignupMode: "open", nihoWebOrigin: "https://niho.example", nihoHostStartUrl: "https://niho.example/experiences/provider", hostPilotContactUrl: ""
 } }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/navigation")>()), useRouter: () => ({ push: vi.fn() }) }));
@@ -33,7 +33,7 @@ import ExperiencePage, { generateMetadata as detailMetadata } from "@/app/experi
 import HostPage from "@/app/host/page";
 import BookPage, { metadata as bookingMetadata } from "@/app/experiences/[slug]/book/page";
 
-beforeEach(() => { state.documents = {}; state.config.bookingsEnabled = true; state.config.hostSignupMode = "open"; state.config.nihoHostStartUrl = "https://niho.example/experiences/host/start"; });
+beforeEach(() => { state.documents = {}; state.config.bookingsEnabled = true; state.config.hostSignupMode = "open"; state.config.nihoHostStartUrl = "https://niho.example/experiences/provider"; });
 describe("published documents use the existing server-rendered business components", () => {
   it("home/listの編集本文・responsive CSS・実カタログの価格とリンクが初期HTMLに入る", async () => {
     for (const pageId of ["home", "experiences"] as const) {
@@ -60,7 +60,7 @@ describe("published documents use the existing server-rendered business componen
   });
   it("hostのラベルを編集しても登録先・開放条件はhost設定に固定する", async () => {
     const document = publishedDocument("host"); document.body = document.body.map((node) => node.type === "component" ? { ...node, props: { label: "Join NIHO" } } : node); state.documents.host = document;
-    const html = renderToStaticMarkup(await HostPage()); expect(html).toContain("Published host text"); expect(html).toContain("Join NIHO"); expect(html).toContain('href="https://niho.example/experiences/host/start"');
+    const html = renderToStaticMarkup(await HostPage()); expect(html).toContain("Published host text"); expect(html).toContain("Join NIHO"); expect(html).toContain('href="https://niho.example/experiences/provider"');
     state.config.nihoHostStartUrl = "https://evil.example/start";
     const paused = renderToStaticMarkup(await HostPage()); expect(paused).toContain("small group of hosts"); expect(paused).not.toContain("evil.example"); expect(paused).not.toContain("Join NIHO");
   });
