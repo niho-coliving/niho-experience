@@ -5,7 +5,7 @@ import { publishedDocument } from "./testing/page-document-fixtures";
 
 const origin = "https://niho.example";
 describe("published page document boundary", () => {
-  it("全5ページを公開routeから認証なし・no-storeで取得する", async () => {
+  it("全6ページを公開routeから認証なし・no-storeで取得する", async () => {
     for (const pageId of PAGE_IDS) {
       const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(publishedDocument(pageId)));
       expect(await fetchPageDocument(pageId, { origin, fetch: fetcher })).toMatchObject({ pageId, locale: "en", revision: 2 });
@@ -56,5 +56,12 @@ describe("published page document boundary", () => {
     expect(() => validatePublishedDocument({ ...chrome, body: [...chrome.body].reverse() }, "chrome")).toThrow();
     expect(() => validatePublishedDocument({ ...chrome, body: chrome.body.slice(0, 2) }, "chrome")).toThrow();
     expect(() => validatePublishedDocument({ ...chrome, body: [...chrome.body, { type: "component", id: "grid", block: "ExperienceGrid", props: {} }] }, "chrome")).toThrow();
+  });
+  it("予約ページから必須の業務ブロックを消す・送信先を注入する文書を拒否する", () => {
+    const booking = publishedDocument("booking");
+    expect(() => validatePublishedDocument({ ...booking, body: booking.body.filter((node) => node.type !== "component") }, "booking")).toThrow();
+    expect(() => validatePublishedDocument({ ...booking, body: booking.body.map((node) => node.type === "component" ? { ...node, props: { checkoutUrl: "https://evil.example" } } : node) }, "booking")).toThrow();
+    expect(() => validatePublishedDocument({ ...booking, body: [...booking.body, { type: "component", id: "extra-grid", block: "ExperienceGrid", props: {} }] }, "booking")).toThrow();
+    expect(() => validatePublishedDocument({ ...booking, body: [...booking.body, { type: "component", id: "extra-booking", block: "BookingPanel", props: {} }] }, "booking")).toThrow();
   });
 });

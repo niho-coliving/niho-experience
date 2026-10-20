@@ -31,6 +31,7 @@ import Home, { generateMetadata as homeMetadata } from "@/app/page";
 import ExperiencesPage from "@/app/experiences/(list)/page";
 import ExperiencePage, { generateMetadata as detailMetadata } from "@/app/experiences/[slug]/page";
 import HostPage from "@/app/host/page";
+import BookPage, { metadata as bookingMetadata } from "@/app/experiences/[slug]/book/page";
 
 beforeEach(() => { state.documents = {}; state.config.bookingsEnabled = true; state.config.hostSignupMode = "open"; state.config.nihoHostStartUrl = "https://niho.example/experiences/host/start"; });
 describe("published documents use the existing server-rendered business components", () => {
@@ -62,6 +63,22 @@ describe("published documents use the existing server-rendered business componen
     const html = renderToStaticMarkup(await HostPage()); expect(html).toContain("Published host text"); expect(html).toContain("Join NIHO"); expect(html).toContain('href="https://niho.example/experiences/host/start"');
     state.config.nihoHostStartUrl = "https://evil.example/start";
     const paused = renderToStaticMarkup(await HostPage()); expect(paused).toContain("small group of hosts"); expect(paused).not.toContain("evil.example"); expect(paused).not.toContain("Join NIHO");
+  });
+  it("予約ページの編集本文をSSRしつつ、予約可否と送信処理は既存の業務コンポーネントに固定する", async () => {
+    const props = { params: Promise.resolve({ slug: "home-cooked-dinner-with-locals" }), searchParams: Promise.resolve({}) };
+    state.documents.booking = publishedDocument("booking");
+    const published = renderToStaticMarkup(await BookPage(props));
+    expect(published).toContain("Published booking text");
+    expect(published).toContain("Choose a date");
+    expect(published).toContain("font-size:40px");
+    expect(bookingMetadata.robots).toEqual({ index: false, follow: false });
+    state.config.bookingsEnabled = false;
+    const paused = renderToStaticMarkup(await BookPage(props));
+    expect(paused).toContain("Published booking text");
+    expect(paused).toContain("Online booking is paused for now");
+    expect(paused).not.toContain("Continue to checkout");
+    state.documents.booking = undefined;
+    expect(renderToStaticMarkup(await BookPage(props))).toContain("Review and book");
   });
   it("文書なしの全ページは現行の本文と導線を維持する", async () => {
     expect(renderToStaticMarkup(await Home({ searchParams: Promise.resolve({}) }))).toContain("Meet the people who make Kamakura");
