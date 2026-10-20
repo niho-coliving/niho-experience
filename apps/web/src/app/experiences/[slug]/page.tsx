@@ -14,7 +14,7 @@ import { Notice } from "@/components/ui";
 import { getExperienceForSite } from "@/lib/api";
 import { faceOf, groupSizeLabel, hostNames, initialOf } from "@/lib/card-model";
 import { config, isPreview } from "@/lib/config";
-import { imageAlt } from "@/lib/experience-copy";
+import { childParticipationCopy, imageAlt } from "@/lib/experience-copy";
 import type { ExperienceDetailForSite, PublicImageForSite } from "@/lib/experience-types";
 import type { SearchParams } from "@/lib/filters";
 import { formatDuration, formatYen } from "@/lib/format";
@@ -61,19 +61,6 @@ function durationFact(e: ExperienceDetailForSite): { main: string; sub: string |
   return { main, sub };
 }
 
-function childNote(e: ExperienceDetailForSite): { fact: string | null; price: string | null } {
-  const children = e.offers.map((offer) => offer.pricing.child).filter((child) => child !== null);
-  if (!children.length) return { fact: null, price: null };
-  const minAge = Math.min(...children.map((child) => child.minAge));
-  const maxAge = Math.max(...children.map((child) => child.maxAge));
-  const prices = [...new Set(children.map((child) => child.priceYen))];
-  const withAdult = children.every((child) => child.adultRequired);
-  return {
-    fact: `ages ${minAge}+${withAdult ? " with an adult" : ""}`,
-    price: `Children ${minAge}–${maxAge} ${prices.length > 1 ? "from " : ""}${formatYen(Math.min(...prices))}`,
-  };
-}
-
 function shorten(text: string, max: number): string {
   const clean = text.replace(/\.$/, "");
   if (clean.length <= max) return clean;
@@ -115,7 +102,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const photos = galleryPhotos(e);
   const line = scheduleLine(e.offers);
   const duration = durationFact(e);
-  const children = childNote(e);
+  const children = childParticipationCopy(e.offers);
   const group = groupSizeLabel(e.offers);
   const meeting = e.meetingPointDisclosure === "PUBLIC" ? e.meetingPoint : null;
   const exterior = meeting && meeting.exteriorPhotoIndex !== null ? (e.photos[meeting.exteriorPhotoIndex] ?? null) : null;
