@@ -110,7 +110,7 @@ jobs:
           }
           url="$(describe_url)"
           case "$MOCK_CATALOG" in pilot|synthetic) ;; *) MOCK_CATALOG=synthetic ;; esac
-          env_vars="EXPERIENCE_API_MODE=mock,MOCK_CATALOG=${MOCK_CATALOG},SITE_INDEXING=block,BOOKINGS_ENABLED=true,HOST_SIGNUP_MODE=pilot"
+          env_vars="EXPERIENCE_API_MODE=mock,MOCK_CATALOG=${MOCK_CATALOG},SITE_INDEXING=block,BOOKINGS_ENABLED=true,HOST_SIGNUP_MODE=pilot,NIHO_HOST_START_URL=https://niho.life/experiences/provider"
           if [ -n "$url" ]; then env_vars="${env_vars},SITE_URL=${url}"; fi
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT_ID" \
@@ -138,6 +138,11 @@ jobs:
         env:
           URL: ${{ steps.deploy.outputs.url }}
         run: |
+          revision="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.latestReadyRevisionName)')"
+          revision_json="$(gcloud run revisions describe "$revision" --project "$PROJECT_ID" --region "$REGION" --format=json)"
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "NIHO_HOST_START_URL") | .value' <<< "$revision_json")" = https://niho.life/experiences/provider
+          host_page="$(curl -fsS --retry 5 --retry-all-errors "${URL}/host")"
+          grep -qF 'href="https://niho.life/experiences/provider"' <<< "$host_page"
           for path in / /experiences /host; do
             curl -fsS -o /dev/null --retry 5 --retry-all-errors "${URL}${path}"
             echo "ok   ${path}"

@@ -32,11 +32,12 @@ check() {
   echo "ok   $path contains \"$expected\""
 }
 
-start -e SITE_INDEXING=block
+start -e SITE_INDEXING=block -e NIHO_HOST_START_URL=https://niho.life/experiences/provider
 check / "Meet the people who make Kamakura"
 check /experiences/home-cooked-dinner-with-locals "Home-cooked dinner with locals in a shared living room"
 check /robots.txt "Disallow: /"
 check /host "starting with a small group of hosts"
+check /host 'href="https://niho.life/experiences/provider"'
 test "$(docker exec "$name" id -u)" != "0" && echo "ok   runs as a non-root user"
 
 # Settings switch at run time. Indexing stays blocked because this image serves sample data.
