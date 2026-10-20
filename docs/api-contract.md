@@ -81,7 +81,7 @@
 2. ブラウザで残席を読み、予約できる開催回だけを選べるようにする。
 3. 予約入力：名前・メール・（任意の）備考・申込時の質問だけ。合計・販売者・取消条件・同意文書を送信前に見せる。会員登録は求めない。
 4. `POST …/checkout`。`clientRequestKey`（試行ごとの UUID）と、画面に出した合計 `expectedTotalYen` を送る。
-   v1.1 では任意の `attributionId`（小文字 UUID v4）、`utmSource` / `utmMedium` / `utmCampaign` / `utmContent`（小文字英数字・`_`・`-` の1〜64字）、`landingPageType`（`HOME` / `LIST` / `DETAIL`）も送れます。流入元は NIHO の申込行だけに記録し、応答・URL・ログには出しません。同じ `clientRequestKey` を再送するときは流入元も同一にします。
+   v1.1 契約は任意の `attributionId`（小文字 UUID v4）、`utmSource` / `utmMedium` / `utmCampaign` / `utmContent`（小文字英数字・`_`・`-` の1〜64字）、`landingPageType`（`HOME` / `LIST` / `DETAIL`）を受け付けます。ただし、オーナーと担当2による同意・目的・保存期間・閲覧権限の承認までは、公開サイトでこれらの値を収集・保存・送信しません。承認後に実装する場合、流入元は NIHO の申込行だけに記録し、応答・URL・ログには出さず、同じ `clientRequestKey` の再送では流入元も同一にします。
 5. `201` の `checkoutUrl` へ遷移する。遷移先が Stripe Checkout（`https://checkout.stripe.com`）か NIHO の予約確認ページでなければ遷移しない（`isAllowedCheckoutRedirect`）。
 6. 決済の後、Stripe は **NIHO の予約確認ページ**へ戻す。確認中・確定・要対応の表示と確認メールは NIHO が行う。決済を取りやめたときは、体験サイトの `/experiences/{experienceSlug}?checkout=cancelled` へ戻る（入力は旅行者の同じタブに残してよい）。
 7. 戻り先は NIHO が登録情報から作る。要求に戻り先 URL を入れない。このサイトは「予約完了」を表示しない（確認中を成功と誤表示しない）。

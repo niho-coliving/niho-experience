@@ -6,15 +6,14 @@ import { computeExpectedTotalYen, createClientRequestKey, type CheckoutAnswer, t
 import { getBrowserApi } from "@/lib/browser-api";
 import { formatLongDay, formatYen } from "@/lib/format";
 import { safeHttpsUrl } from "@/lib/safe-url";
-import { doNotTrackEnabled, track } from "@/lib/analytics";
-import { getCheckoutAttribution } from "@/lib/attribution";
+import { track } from "@/lib/analytics";
 import type { ExperienceDetailForSite } from "@/lib/experience-types";
 import { checkoutErrorCopy } from "./States";
 import { PolicyDetails } from "./Policy";
 import { Notice, buttonClass } from "./ui";
 import type { BookingSelection } from "./SlotPicker";
 
-export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, attributionEnabled, onBack }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; attributionEnabled: boolean; onBack: () => void }) {
+export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, onBack }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; onBack: () => void }) {
   const router = useRouter();
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
   const [guestName, setGuestName] = useState("");
@@ -78,17 +77,11 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     const missing = offer.bookingQuestions.find((question) => question.required && !answered.some((answer) => answer.questionId === question.id));
     if (missing) { setProblem("Please answer the required question."); setInvalidField(missing.id); return; }
     if (!agreed) { setProblem("Please agree to the booking terms."); setInvalidField("consent"); return; }
-    let attribution = undefined;
-    if (attributionEnabled && typeof window !== "undefined") {
-      try { attribution = getCheckoutAttribution(window.sessionStorage, doNotTrackEnabled(navigator.doNotTrack)); }
-      catch { /* Attribution is optional; blocked storage must not block checkout. */ }
-    }
     const draft: Omit<ExperienceCheckoutRequest, "clientRequestKey"> = {
       offerId: offer.id, occurrenceDate: selection.date, adultCount: selection.adultCount, childCount: selection.childCount,
       expectedTotalYen: total, bookingQuestionsFingerprint: offer.bookingQuestionsFingerprint,
       guestName: guestName.trim(), guestEmail: guestEmail.trim(), ...(note.trim() ? { note: note.trim() } : {}),
       answers: answered, consent: { agreedVersion: experience.booking.consentVersion },
-      ...attribution,
     };
     const signature = JSON.stringify(draft);
     if (attempt.current?.signature !== signature) attempt.current = { signature, key: createClientRequestKey() };

@@ -137,8 +137,12 @@ function hasExperienceDetailShape(value: unknown): boolean {
     value.experience.offers.every(isObject);
 }
 
+function hasV11ImageObject(value: unknown): boolean {
+  return isObject(value) && typeof value.url === "string" && isNullableString(value.alt);
+}
+
 function hasV11Image(value: unknown): boolean {
-  return value === null || (isObject(value) && typeof value.url === "string" && isNullableString(value.alt));
+  return value === null || hasV11ImageObject(value);
 }
 
 function hasExperienceCatalogV11Shape(value: unknown): boolean {
@@ -149,7 +153,7 @@ function hasExperienceCatalogV11Shape(value: unknown): boolean {
 function hasExperienceDetailV11Shape(value: unknown): boolean {
   if (!hasExperienceDetailShape(value) || !isObject(value) || !isObject(value.experience)) return false;
   const experience = value.experience;
-  return hasV11Image(experience.cover) && Array.isArray(experience.photos) && experience.photos.every(hasV11Image) &&
+  return hasV11Image(experience.cover) && Array.isArray(experience.photos) && experience.photos.every(hasV11ImageObject) &&
     Array.isArray(experience.hosts) && experience.hosts.every((host) =>
       isObject(host) && typeof host.displayName === "string" && isNullableString(host.bio) && hasV11Image(host.avatar)) &&
     isObject(experience.provider) && hasV11Image(experience.provider.logo);
