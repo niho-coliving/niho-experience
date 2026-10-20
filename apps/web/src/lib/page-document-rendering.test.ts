@@ -61,8 +61,25 @@ describe("published documents use the existing server-rendered business componen
   it("hostのラベルを編集しても登録先・開放条件はhost設定に固定する", async () => {
     const document = publishedDocument("host"); document.body = document.body.map((node) => node.type === "component" ? { ...node, props: { label: "Join NIHO" } } : node); state.documents.host = document;
     const html = renderToStaticMarkup(await HostPage()); expect(html).toContain("Published host text"); expect(html).toContain("Join NIHO"); expect(html).toContain('href="https://niho.example/experiences/provider"');
-    state.config.nihoHostStartUrl = "https://evil.example/start";
-    const paused = renderToStaticMarkup(await HostPage()); expect(paused).toContain("small group of hosts"); expect(paused).not.toContain("evil.example"); expect(paused).not.toContain("Join NIHO");
+    for (const unsafeUrl of [
+      "https://evil.example/experiences/provider",
+      "http://niho.example/experiences/provider",
+      "https://niho.example@evil.example/experiences/provider",
+      "https://niho.example.evil.example/experiences/provider",
+      "https://niho.example/experiences/provider?returnTo=https://evil.example",
+      "https://niho.example/experiences/provider#returnTo=https://evil.example",
+      "https://niho.example/experiences/provider/",
+      "https://niho.example/experiences/host/start",
+      "javascript:alert(1)",
+      "not a URL",
+    ]) {
+      state.config.nihoHostStartUrl = unsafeUrl;
+      const paused = renderToStaticMarkup(await HostPage());
+      expect(paused).toContain("small group of hosts");
+      expect(paused).not.toContain(unsafeUrl);
+      expect(paused).not.toContain("Start with your NIHO account");
+      expect(paused).not.toContain("Join NIHO");
+    }
   });
   it("予約ページの編集本文をSSRしつつ、予約可否と送信処理は既存の業務コンポーネントに固定する", async () => {
     const props = { params: Promise.resolve({ slug: "home-cooked-dinner-with-locals" }), searchParams: Promise.resolve({}) };
