@@ -43,14 +43,14 @@ async function check(operationId: string, path: string, expectedCache: RegExp): 
 const SHARED = /^public, max-age=([1-9]|[1-5][0-9]|60)(,|$)/;
 const NO_STORE = /^no-store$/;
 
-const catalog = (await check("listExperiences", `/api/public/experiences${region ? `?region=${encodeURIComponent(region)}` : ""}`, SHARED)) as {
+const catalog = (await check("listPublicExperiences", `/api/public/experiences${region ? `?region=${encodeURIComponent(region)}` : ""}`, SHARED)) as {
   experiences?: Array<{ slug: string }>;
 } | null;
 for (const item of catalog?.experiences ?? []) {
-  await check("getExperience", `/api/public/experiences/${encodeURIComponent(item.slug)}`, SHARED);
-  await check("getExperienceAvailability", `/api/public/experiences/${encodeURIComponent(item.slug)}/availability`, NO_STORE);
+  await check("getPublicExperience", `/api/public/experiences/${encodeURIComponent(item.slug)}`, SHARED);
+  await check("getPublicExperienceAvailability", `/api/public/experiences/${encodeURIComponent(item.slug)}/availability`, NO_STORE);
 }
-await check("getExperience", "/api/public/experiences/zz-not-listed-check", NO_STORE);
+await check("getPublicExperience", "/api/public/experiences/zz-not-listed-check", NO_STORE);
 
 if (failures > 0) {
   console.error(`${failures} 件が契約と一致しません`);

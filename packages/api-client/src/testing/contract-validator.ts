@@ -38,7 +38,9 @@ export function toJsonSchema(schema: unknown): unknown {
     converted[key] = toJsonSchema(value);
   }
   if (schema.nullable === true) {
-    if (typeof converted.type === "string") {
+    // `allOf` / `$ref` などの合成は null にも効くので、型の和ではなく anyOf で null を足す（OpenAPI 3.0 の nullable は全体に効く）
+    const composed = ["allOf", "anyOf", "oneOf", "$ref"].some((keyword) => keyword in converted);
+    if (typeof converted.type === "string" && !composed) {
       const { enum: enumValues, ...rest } = converted;
       const withNull: JsonObject = { ...rest, type: [converted.type, "null"] };
       if (Array.isArray(enumValues)) withNull.enum = [...enumValues, null];
@@ -76,7 +78,9 @@ export function createContractValidator(document: JsonObject = EXPERIENCE_CONTRA
 
   function validateSchema(schemaName: string, value: unknown): ValidationResult {
     const validate = validatorFor(schemaName);
-    return validate(value) ? { ok: true } : { ok: false, errors: formatErrors(validate.errors) };
+    if (!validate(value)) return { ok: false, errors: formatErrors(validate.errors) };
+    const invariant = invariantErrors(schemaName, value);
+    return invariant.length === 0 ? { ok: true } : { ok: false, errors: invariant };
   }
 
   /** operation の応答（status と本文）を検証する。本文の無い応答（404 等）は本文が空であることを確かめる。 */
@@ -101,6 +105,22 @@ export function createContractValidator(document: JsonObject = EXPERIENCE_CONTRA
 }
 
 export type ContractValidator = ReturnType<typeof createContractValidator>;
+
+/**
+ * schema では表さない公開の規則。NIHO の公開投影の guard は閉じた object だけを許し、否定の schema（`not`）を契約に書けないため、
+ * 契約の説明に書いた規則をここで確かめる（mock・fixture・実 API の応答に同じく効く）。
+ * - `meetingPointDisclosure` が `AFTER_BOOKING` の体験は、集合場所（`meetingPoint`）を null にする（予約確定後に NIHO が案内する）。
+ */
+function invariantErrors(schemaName: string, value: unknown): string[] {
+  const details: Array<{ path: string; detail: unknown }> = [];
+  if (schemaName === "PublicExperienceDetailResponse" && isObject(value)) details.push({ path: "/experience", detail: value.experience });
+  if (schemaName === "PublicExperienceDetail") details.push({ path: "", detail: value });
+  return details.flatMap(({ path, detail }) =>
+    isObject(detail) && detail.meetingPointDisclosure === "AFTER_BOOKING" && detail.meetingPoint !== null
+      ? [`${path}/meetingPoint must be null when meetingPointDisclosure is AFTER_BOOKING`]
+      : [],
+  );
+}
 
 function resolveRef(document: JsonObject, value: unknown): unknown {
   if (!isObject(value) || typeof value.$ref !== "string") return value;

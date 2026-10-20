@@ -1,10 +1,11 @@
 /**
  * 契約の版と状態（contract/experience-public-api.openapi.json の info と一致することを test が確かめる）。
- * `provisional` の間は、画面・文書で実 API と接続済みと表示しない。
+ * `agreed` は NIHO 側（niho-app の contracts/exports）が書き出した配布物であることを表す。実 API と接続済みかどうかは
+ * 配備と `verify:live` の結果で判断し、画面・文書で接続済みと表示しない。
  */
 export const EXPERIENCE_API_CONTRACT = {
-  version: "0.1.0",
-  status: "provisional",
+  version: "1.0.0",
+  status: "agreed",
 } as const;
 
 /** 予約に関わる時刻の基準。表示も日本時間（Asia/Tokyo）で行う。 */
