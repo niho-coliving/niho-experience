@@ -8,6 +8,7 @@ import type {
   ExperienceAvailabilityResponse,
   ExperienceCatalogResponse,
   ExperienceCatalogResponseV11,
+  ExperienceCatalogResponseV12,
   ExperienceCheckoutError,
   ExperienceCheckoutRequest,
   ExperienceDetailResponse,
@@ -15,6 +16,7 @@ import type {
   CheckoutErrorCode,
   OfferId,
   RegionKey,
+  ExperienceSiteTheme,
 } from "./types.ts";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -150,6 +152,14 @@ function hasExperienceCatalogV11Shape(value: unknown): boolean {
     value.experiences.every((experience) => isObject(experience) && hasV11Image(experience.cover));
 }
 
+const EXPERIENCE_SITE_THEMES: readonly ExperienceSiteTheme[] = ["FOOD", "CULTURE", "CRAFT", "OUTDOORS", "LOCAL_LIFE"];
+
+function hasExperienceCatalogV12Shape(value: unknown): boolean {
+  return hasExperienceCatalogShape(value) && isObject(value) && Array.isArray(value.experiences) &&
+    value.experiences.every((experience) => isObject(experience) && hasV11Image(experience.cover) &&
+      Array.isArray(experience.themes) && experience.themes.every((theme) => EXPERIENCE_SITE_THEMES.includes(theme as ExperienceSiteTheme)));
+}
+
 function hasExperienceDetailV11Shape(value: unknown): boolean {
   if (!hasExperienceDetailShape(value) || !isObject(value) || !isObject(value.experience)) return false;
   const experience = value.experience;
@@ -217,6 +227,16 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
     listExperiencesV11(params: { region?: RegionKey } = {}): Promise<ReadResult<ExperienceCatalogResponseV11>> {
       const query = params.region ? `?region=${encodeURIComponent(params.region)}` : "";
       return readJson(`/api/public/experiences/v1.1/catalog${query}`, true, hasExperienceCatalogV11Shape);
+    },
+
+    /** テーマ・日本時間の開催予定日で絞る v1.2 一覧。開催・残席を保証しない。 */
+    listExperiencesV12(params: { region?: RegionKey; theme?: ExperienceSiteTheme; availableOn?: string } = {}): Promise<ReadResult<ExperienceCatalogResponseV12>> {
+      const query = new URLSearchParams();
+      if (params.region) query.set("region", params.region);
+      if (params.theme) query.set("theme", params.theme);
+      if (params.availableOn) query.set("availableOn", params.availableOn);
+      const suffix = query.size ? `?${query.toString()}` : "";
+      return readJson(`/api/public/experiences/v1.2/catalog${suffix}`, true, hasExperienceCatalogV12Shape);
     },
 
     /** 体験の詳細（SSR 可）。 */

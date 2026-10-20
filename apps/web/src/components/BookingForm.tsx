@@ -7,13 +7,14 @@ import { getBrowserApi } from "@/lib/browser-api";
 import { formatLongDay, formatYen } from "@/lib/format";
 import { safeHttpsUrl } from "@/lib/safe-url";
 import { track } from "@/lib/analytics";
+import { readBookingAttribution } from "@/lib/booking-attribution";
 import type { ExperienceDetailForSite } from "@/lib/experience-types";
 import { checkoutErrorCopy } from "./States";
 import { PolicyDetails } from "./Policy";
 import { Notice, buttonClass } from "./ui";
 import type { BookingSelection } from "./SlotPicker";
 
-export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, onBack }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; onBack: () => void }) {
+export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, attributionEnabled, onBack }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; attributionEnabled: boolean; onBack: () => void }) {
   const router = useRouter();
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
   const [guestName, setGuestName] = useState("");
@@ -94,6 +95,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
       expectedTotalYen: total, bookingQuestionsFingerprint: offer.bookingQuestionsFingerprint,
       guestName: guestName.trim(), guestEmail: guestEmail.trim(), ...(note.trim() ? { note: note.trim() } : {}),
       answers: answered, consent: { agreedVersion: experience.booking.consentVersion },
+      ...(attributionEnabled ? readBookingAttribution(navigator.doNotTrack) : {}),
     };
     const signature = JSON.stringify(draft);
     if (attempt.current?.signature !== signature) attempt.current = { signature, key: createClientRequestKey() };
