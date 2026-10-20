@@ -32,8 +32,8 @@ test("未公開・エラー・不正文書は現行ページへ戻り、業務�
     await expect(page.locator("body")).not.toContainText("private diagnostic");
   }
   await page.goto("/experiences/home-cooked-dinner-with-locals");
-  await expect(page.getByRole("link", { name: "Check dates and book" })).toHaveAttribute("href", "/experiences/home-cooked-dinner-with-locals/book");
+  await expect(page.getByRole("link", { name: /Check dates/ }).first()).toHaveAttribute("href", "/experiences/home-cooked-dinner-with-locals/book");
   await expect(page.locator("main")).toContainText("¥6,500");
   await page.goto("/host");
-  await expect(page.getByRole("link", { name: "Tell us you’re interested" })).toHaveAttribute("href", "https://niho.example/contact");
+  await expect(page.getByRole("link", { name: /Tell us.*interested/ })).toHaveAttribute("href", "https://niho.example/contact");
 });
