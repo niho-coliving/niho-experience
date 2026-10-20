@@ -16,6 +16,7 @@ import { HandIcon, type HandIconName } from "./HandIcon";
 import { policyTitle } from "./Policy";
 import { Notice, buttonClass } from "./ui";
 import type { BookingSelection } from "./SlotPicker";
+import { BookingQuestion } from "./BookingQuestion";
 
 export type BookingDraft = { guestName: string; guestEmail: string; note: string; answerSets: Record<string, Record<string, string | string[]>> };
 export type CheckoutAttempt = { signature: string; key: string };
@@ -43,6 +44,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   const retrySecondsRemaining = retryUntil === null ? 0 : Math.max(0, Math.ceil((retryUntil - clockNow) / 1000));
   const checkingAvailability = checking && !apiUnavailable;
   const sellerLegalUrl = safeHttpsUrl(experience.seller.legalNoticeUrl);
+  const consentInvalid = invalidField === "consent" || invalidField === "consent.agreedVersion";
 
   useEffect(() => {
     if (!api) return;
@@ -55,7 +57,14 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     }).catch(() => { if (active) { setAvailabilityOk(false); setChecking(false); } });
     return () => { active = false; };
   }, [api, experience.slug, offer.id, selection.date, headCount, selectionValid]);
-  useEffect(() => { if (problem) alertRef.current?.focus(); }, [problem]);
+  useEffect(() => {
+    if (!problem) return;
+    const id = invalidField === "consent" || invalidField === "consent.agreedVersion" ? "booking-consent"
+      : ["guestName", "guestEmail", "note"].includes(invalidField) ? `booking-${invalidField}`
+      : offer.bookingQuestions.some((question) => question.id === invalidField) ? `question-${invalidField}` : null;
+    const control = id ? document.getElementById(id) : null;
+    (control ?? alertRef.current)?.focus();
+  }, [problem, invalidField, offer.bookingQuestions]);
   useEffect(() => {
     if (retryUntil === null) return;
     const timer = window.setInterval(() => {
@@ -86,6 +95,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     event.preventDefault();
     if (submitting || checkingAvailability || needsFreshDetails || retrySecondsRemaining > 0 || !api || total === null || !availabilityOk) return;
     setProblem(""); setInvalidField("");
+    if (!guestName.trim()) { setProblem("Please enter your full name."); setInvalidField("guestName"); return; }
     const answered = collectAnswers();
     const missing = offer.bookingQuestions.find((question) => question.required && !answered.some((answer) => answer.questionId === question.id));
     if (missing) { setProblem("Please answer the required question."); setInvalidField(missing.id); return; }
@@ -142,6 +152,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     if (!api || refreshing) return;
     setRefreshing(true);
     setProblem("");
+    setInvalidField("");
     try {
       const result = publicApiVersion === "1.0"
         ? await api.getExperience(experience.slug)
@@ -164,7 +175,6 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   const day = dayOption(selection.date);
   const when = `${day.label} · ${formatClock(offer.startTime)}`;
   const guests = `${selection.adultCount} adult${selection.adultCount === 1 ? "" : "s"}${selection.childCount ? `, ${selection.childCount} child${selection.childCount === 1 ? "" : "ren"}` : ""}`;
-  const answerText = (id: string) => (typeof answers[id] === "string" ? (answers[id] as string) : "");
   const optional = <small className="font-bold text-muted">(optional)</small>;
 
   return <form onSubmit={submit}>
@@ -172,21 +182,18 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     <button type="button" onClick={onBack} className="link-leaf mt-3 text-sm">Change date or guest count</button>
     <div className="mt-5 space-y-4 empty:hidden">
       {checkingAvailability ? <p role="status">Checking this date again…</p> : needsFreshDetails ? <Notice role="alert" tone="warn" title="Review the latest details">The price, questions or booking terms changed. <button type="button" disabled={refreshing || !api} onClick={refreshLatestDetails} className="font-bold text-moss underline">{refreshing ? "Refreshing…" : "Reload the experience"}</button> to review them and agree again. Your contact details stay on this page.</Notice> : !availabilityOk ? <Notice role="alert" tone="warn" title="This date needs another look">Nothing has been charged. <button type="button" onClick={onBack} className="font-bold text-moss underline">Check dates again</button> to see the latest availability.</Notice> : null}
-      {problem ? <div ref={alertRef} tabIndex={-1} className="outline-none"><Notice role="alert" tone="danger" title="Please check your booking">{problem}</Notice></div> : null}
+      {problem ? <div id="booking-problem" ref={alertRef} tabIndex={-1} className="outline-none"><Notice role="alert" tone="danger" title="Please check your booking">{problem}</Notice></div> : null}
     </div>
 
     <section aria-labelledby="details-heading">
       <StepHeading id="details-heading" step={3}>Your details</StepHeading>
       <p className="text-sm text-muted">No account is needed. NIHO sends confirmation and meeting details to your email.</p>
-      <label className={fieldLabelClass}>Full name<input name="guestName" autoComplete="name" required maxLength={100} value={guestName} onChange={(event) => onDraftChange((current) => ({ ...current, guestName: event.target.value }))} className={fieldInputClass} /></label>
-      <label className={fieldLabelClass}>Email<input name="guestEmail" type="email" inputMode="email" autoComplete="email" required maxLength={254} value={guestEmail} onChange={(event) => onDraftChange((current) => ({ ...current, guestEmail: event.target.value }))} className={fieldInputClass} /></label>
-      {offer.bookingQuestions.length ? <fieldset className="mt-6"><legend className="font-sans text-sm font-extrabold tracking-[0.02em] text-muted">Questions from your host</legend>{offer.bookingQuestions.map((question) => <div key={question.id}>
-        <label htmlFor={`question-${question.id}`} className={fieldLabelClass}>{question.prompt}{question.required ? " *" : <> {optional}</>}</label>{question.description ? <p className="mt-0.5 text-[0.8125rem] text-muted">{question.description}</p> : null}
-        {question.inputType === "SHORT_TEXT" || question.inputType === "LONG_TEXT" ? question.inputType === "LONG_TEXT" ? <textarea id={`question-${question.id}`} maxLength={1000} value={answerText(question.id)} onChange={(event) => updateAnswer(question.id, event.target.value)} aria-invalid={invalidField === question.id || undefined} className={`${fieldInputClass} min-h-[84px] resize-y`} /> : <input id={`question-${question.id}`} maxLength={200} value={answerText(question.id)} onChange={(event) => updateAnswer(question.id, event.target.value)} aria-invalid={invalidField === question.id || undefined} className={fieldInputClass} /> :
-        question.inputType === "SINGLE_SELECT" ? <select id={`question-${question.id}`} value={Array.isArray(answers[question.id]) ? (answers[question.id] as string[])[0] ?? "" : ""} onChange={(event) => updateAnswer(question.id, event.target.value ? [event.target.value] : [])} aria-invalid={invalidField === question.id || undefined} className={fieldInputClass}><option value="">Choose an answer</option>{question.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select> :
-        <div id={`question-${question.id}`} className="mt-2 space-y-2">{question.options.map((option) => { const selected = Array.isArray(answers[question.id]) ? answers[question.id] as string[] : []; return <label key={option.id} className="flex min-h-11 items-center gap-2.5"><input type="checkbox" checked={selected.includes(option.id)} onChange={(event) => updateAnswer(question.id, event.target.checked ? [...selected, option.id] : selected.filter((id) => id !== option.id))} className="size-5 accent-moss" />{option.label}</label>; })}</div>}
-      </div>)}</fieldset> : null}
-      <label className={fieldLabelClass}>Anything else for your hosts? {optional}<textarea name="note" rows={3} maxLength={500} value={note} onChange={(event) => onDraftChange((current) => ({ ...current, note: event.target.value }))} className={`${fieldInputClass} min-h-[84px] resize-y`} /></label>
+      <label className={fieldLabelClass}>Full name<input id="booking-guestName" name="guestName" aria-invalid={invalidField === "guestName" || undefined} aria-describedby={invalidField === "guestName" ? "booking-problem" : undefined} autoComplete="name" required maxLength={100} value={guestName} onChange={(event) => onDraftChange((current) => ({ ...current, guestName: event.target.value }))} className={fieldInputClass} /></label>
+      <label className={fieldLabelClass}>Email<input id="booking-guestEmail" name="guestEmail" aria-invalid={invalidField === "guestEmail" || undefined} aria-describedby={invalidField === "guestEmail" ? "booking-problem" : undefined} type="email" inputMode="email" autoComplete="email" required maxLength={254} value={guestEmail} onChange={(event) => onDraftChange((current) => ({ ...current, guestEmail: event.target.value }))} className={fieldInputClass} /></label>
+      {offer.bookingQuestions.length ? <fieldset className="mt-6"><legend className="font-sans text-sm font-extrabold tracking-[0.02em] text-muted">Questions from your host</legend>{offer.bookingQuestions.map((question) => (
+        <BookingQuestion key={question.id} question={question} value={answers[question.id]} invalid={invalidField === question.id} onChange={(value) => updateAnswer(question.id, value)} />
+      ))}</fieldset> : null}
+      <label className={fieldLabelClass}>Anything else for your hosts? {optional}<textarea id="booking-note" name="note" aria-invalid={invalidField === "note" || undefined} aria-describedby={invalidField === "note" ? "booking-problem" : undefined} rows={3} maxLength={500} value={note} onChange={(event) => onDraftChange((current) => ({ ...current, note: event.target.value }))} className={`${fieldInputClass} min-h-[84px] resize-y`} /></label>
     </section>
 
     <section aria-labelledby="check-heading">
@@ -206,7 +213,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
       <Note icon="card">Secure payment by Stripe. Sold by <strong className="text-ink">{experience.seller.displayName}</strong>.{sellerLegalUrl ? <> <a href={sellerLegalUrl} className="font-extrabold text-ink underline" rel="noopener noreferrer">Seller information</a></> : null}</Note>
       <div className="mt-5 border-t border-line pt-4">
         <p className="text-sm text-ink-soft">Booking terms: {experience.booking.legalDocuments.map((doc, index) => { const url = safeHttpsUrl(doc.url); return url ? <span key={doc.kind}>{index ? " · " : null}<a href={url} target="_blank" rel="noopener noreferrer" className="font-extrabold text-ink underline">{doc.kind === "COMMERCIAL_TRANSACTIONS" ? "Seller information" : doc.kind === "PRIVACY" ? "Privacy policy" : "Terms of service"}</a></span> : null; })}</p>
-        <label className={`mt-3.5 flex items-start gap-3 text-[0.90625rem] ${invalidField === "consent" ? "text-danger" : "text-ink-soft"}`}><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required aria-invalid={invalidField === "consent" || undefined} className="mt-px size-[22px] shrink-0 accent-moss" /><span>I have reviewed the total, seller, cancellation policy and linked terms, and agree to version {experience.booking.consentVersion}.</span></label>
+        <label className={`mt-3.5 flex items-start gap-3 text-[0.90625rem] ${consentInvalid ? "text-danger" : "text-ink-soft"}`}><input id="booking-consent" type="checkbox" aria-describedby={consentInvalid ? "booking-problem" : undefined} checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required aria-invalid={consentInvalid || undefined} className="mt-px size-[22px] shrink-0 accent-moss" /><span>I have reviewed the total, seller, cancellation policy and linked terms, and agree to version {experience.booking.consentVersion}.</span></label>
       </div>
     </section>
     <p className="mt-6 text-center text-sm text-muted">{preview ? "Preview only: no card details or payment." : "NIHO will confirm your booking after payment. No charge is made on this page."}</p>
