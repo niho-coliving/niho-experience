@@ -136,6 +136,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
 
   const booking: BookingSummary = {
     slug: e.slug,
+    offers: e.offers.map((offer) => ({ id: offer.id, name: offer.name, adultPriceYen: offer.pricing.adultPriceYen })),
     price: adultPrices.length ? formatYen(Math.min(...adultPrices)) : "—",
     priceIsFrom: new Set(adultPrices).size > 1,
     childNote: children.price,

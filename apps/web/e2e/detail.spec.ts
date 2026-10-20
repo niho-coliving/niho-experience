@@ -42,6 +42,21 @@ test("desktop shows every photo in a dialog and a next date opens the booking pa
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
 });
 
+test("same-time booking dates identify the option and its adult price", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop");
+  await page.goto("/experiences/seaside-cycling-and-market-breakfast");
+
+  const card = page.getByRole("complementary");
+  const standard = card.getByRole("link", { name: /^Book .*Standard bike for ¥7,500 per adult$/ }).first();
+  const eBike = card.getByRole("link", { name: /^Book .*E-bike for ¥9,800 per adult$/ }).first();
+  await expect(standard).toBeVisible();
+  await expect(eBike).toBeVisible();
+  const standardOffer = new URL((await standard.getAttribute("href")) ?? "", "http://localhost").searchParams.get("offer");
+  const eBikeOffer = new URL((await eBike.getAttribute("href")) ?? "", "http://localhost").searchParams.get("offer");
+  expect(standardOffer).toBe("offer_cycling_standard");
+  expect(eBikeOffer).toBe("offer_cycling_ebike");
+});
+
 test("the booking card states the terms before the booking page", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop");
   await page.goto("/experiences/indigo-dyeing-with-an-artisan");

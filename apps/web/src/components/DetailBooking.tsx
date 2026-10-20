@@ -5,12 +5,13 @@ import { useEffect, useState } from "react";
 import type { Occurrence } from "@niho-experience/api-client";
 import { readAvailability } from "@/lib/browser-availability";
 import { dayOption, nextBookable } from "@/lib/date-filter";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatYen } from "@/lib/format";
 import { HandIcon, type HandIconName } from "./HandIcon";
 import { buttonClass, Notice } from "./ui";
 
 export type BookingSummary = {
   slug: string;
+  offers: { id: string; name: string; adultPriceYen: number }[];
   /** "¥30,000". */
   price: string;
   priceIsFrom: boolean;
@@ -48,7 +49,11 @@ const bookHref = (slug: string) => `/experiences/${slug}/book`;
 /** The booking page pre-selects this date and option; the guest still confirms everything there. */
 const bookDateHref = (slug: string, occurrence: Occurrence) =>
   `${bookHref(slug)}?${new URLSearchParams({ date: occurrence.date, offer: occurrence.offerId }).toString()}`;
-const sessionLabel = (occurrence: Occurrence) => `${dayOption(occurrence.date).label} · ${formatTime(occurrence.startAt)}`;
+const offerFor = (summary: BookingSummary, occurrence: Occurrence) => summary.offers.find((offer) => offer.id === occurrence.offerId);
+const sessionLabel = (summary: BookingSummary, occurrence: Occurrence) => {
+  const offer = offerFor(summary, occurrence);
+  return `${dayOption(occurrence.date).label} · ${formatTime(occurrence.startAt)} · ${offer?.name ?? "Option"}`;
+};
 
 function Price({ summary, size = "lg" }: { summary: BookingSummary; size?: "lg" | "sm" }) {
   return (
@@ -89,16 +94,20 @@ export function BookingCard({ summary }: { summary: BookingSummary }) {
               <ul className="grid grid-cols-3 gap-2">
                 {dates.map((occurrence) => {
                   const day = dayOption(occurrence.date);
+                  const offer = offerFor(summary, occurrence);
+                  const optionPrice = offer ? formatYen(offer.adultPriceYen) : "See option";
                   return (
                     <li key={`${occurrence.offerId}-${occurrence.date}`}>
                       <Link
                         href={bookDateHref(summary.slug, occurrence)}
-                        aria-label={`Book ${sessionLabel(occurrence)}`}
+                        aria-label={`Book ${sessionLabel(summary, occurrence)} for ${optionPrice} per adult`}
                         className="block rounded-2xl border border-line-strong bg-white px-1 py-2.5 text-center leading-tight hover:border-ink hover:bg-leaf-pale"
                       >
                         <small className="block text-xs font-extrabold text-muted">{day.weekday}</small>
                         <b className="block text-base font-extrabold">{day.label.slice(day.weekday.length + 1)}</b>
                         <span className="mt-0.5 block text-xs text-ink-soft">{formatTime(occurrence.startAt)}</span>
+                        <span className="mt-1 block truncate text-[0.6875rem] font-extrabold" title={offer?.name ?? "Option"}>{offer?.name ?? "Option"}</span>
+                        <span className="block text-[0.6875rem] text-ink-soft">{optionPrice} / adult</span>
                       </Link>
                     </li>
                   );
@@ -136,7 +145,7 @@ export function BookingCard({ summary }: { summary: BookingSummary }) {
 export function MobileBookingBar({ summary }: { summary: BookingSummary }) {
   const dates = useNextDates(summary);
   const next = Array.isArray(dates) ? dates[0] : undefined;
-  const line = next ? `Next: ${sessionLabel(next)}` : summary.schedule;
+  const line = next ? `Next: ${sessionLabel(summary, next)}` : summary.schedule;
   return (
     <div className="sticky bottom-0 z-20 mt-14 border-t border-line bg-white/95 backdrop-blur lg:hidden">
       <div className="container-page flex items-center justify-between gap-3 py-3">
