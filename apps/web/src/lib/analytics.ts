@@ -58,10 +58,21 @@ export function sanitizeUmamiPayload(
     if (typeof rawUrl !== "string") return false;
 
     const url = new URL(rawUrl, currentOrigin);
-    if (url.protocol !== "https:" || url.hostname !== "experience.niho.life") return false;
+    if (currentOrigin !== "https://experience.niho.life" || url.origin !== currentOrigin || url.username || url.password) return false;
 
     const isBookingResult = url.pathname === "/booking" || url.pathname.startsWith("/booking/");
-    const isBookingForm = /^\/experiences\/[^/]+\/book(?:\/|$)/.test(url.pathname);
+    const detail = /^\/experiences\/([^/]+)(\/book)?$/.exec(url.pathname);
+    if (detail) {
+      const slug = decodeURIComponent(detail[1]!);
+      const length = [...slug].length;
+      if (length < 3 || length > 64) return false;
+      // The contract limits length, not the alphabet. Keep every valid route's
+      // event; redact unusual/free-text slugs instead of exporting their text.
+      url.pathname = `/experiences/${/^[a-z0-9_-]{3,64}$/i.test(slug) ? slug : "_experience"}${detail[2] ?? ""}`;
+    }
+    const isBookingForm = Boolean(detail?.[2]);
+    const pageTitles: Record<string, string> = { "/": "NIHO Experience", "/experiences": "Experiences", "/host": "Host an experience", "/help": "Booking help" };
+    if (!isBookingResult && !detail && !Object.hasOwn(pageTitles, url.pathname)) return false;
     url.hash = "";
 
     if (isBookingResult) {
@@ -79,8 +90,18 @@ export function sanitizeUmamiPayload(
       url.search = search.toString();
     }
 
-    const safePayload: Record<string, unknown> = { ...payload, url: `${url.pathname}${url.search}` };
+    // Rebuild the documented payload. Unknown fields, titles, distinct IDs and tags
+    // must not carry booking/customer data across the final send boundary.
+    const safePayload: Record<string, unknown> = {
+      url: `${url.pathname}${url.search}`,
+      hostname: url.hostname,
+      title: isBookingResult || isBookingForm ? "Booking" : detail ? "Experience" : pageTitles[url.pathname],
+    };
+    if (typeof payload.website === "string" && UMAMI_WEBSITE_ID.test(payload.website)) safePayload.website = payload.website;
+    if (typeof payload.screen === "string" && /^\d{1,5}x\d{1,5}$/.test(payload.screen)) safePayload.screen = payload.screen;
+    if (typeof payload.language === "string" && /^[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,3}$/i.test(payload.language)) safePayload.language = payload.language;
     if (type === "event" && typeof payload.name === "string") {
+      safePayload.name = payload.name;
       const rawData = payload.data;
       const props: EventProps = {};
       if (rawData && typeof rawData === "object" && !Array.isArray(rawData)) {
@@ -95,7 +116,8 @@ export function sanitizeUmamiPayload(
     }
     if (typeof payload.referrer === "string" && payload.referrer) {
       try {
-        safePayload.referrer = new URL(payload.referrer, currentOrigin).origin;
+        const referrer = new URL(payload.referrer, currentOrigin);
+        safePayload.referrer = ["https:", "http:"].includes(referrer.protocol) ? referrer.origin : "";
       } catch {
         safePayload.referrer = "";
       }
@@ -114,7 +136,7 @@ export function sanitize(event: FunnelEvent, props: EventProps): TrackedEvent {
     const value = props[key];
     if (typeof value === "boolean") clean[key] = value;
     else if (typeof value === "number" && Number.isFinite(value)) clean[key] = value;
-    else if (typeof value === "string" && SAFE_STRING.test(value)) clean[key] = value;
+    else if (typeof value === "string" && (key === "experience" ? /^[a-z0-9_-]{3,64}$/i : SAFE_STRING).test(value)) clean[key] = value;
   }
   return { event, props: clean };
 }

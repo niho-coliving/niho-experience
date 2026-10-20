@@ -20,7 +20,7 @@ declare global {
   }
 }
 
-const pendingUmamiEvents: TrackedEvent[] = [];
+const pendingUmamiEvents: { event: TrackedEvent; url: string }[] = [];
 const pendingUmamiPageViews: string[] = [];
 
 const UMAMI_TRACKER_SNAPSHOT = {
@@ -30,7 +30,11 @@ const UMAMI_TRACKER_SNAPSHOT = {
 };
 
 function flushUmamiEvents() {
-  if (doNotTrackEnabled(navigator.doNotTrack)) return;
+  if (doNotTrackEnabled(navigator.doNotTrack)) {
+    pendingUmamiEvents.length = 0;
+    pendingUmamiPageViews.length = 0;
+    return;
+  }
   const tracker = window.umami;
   if (!tracker?.track) return;
   for (const pageUrl of pendingUmamiPageViews.splice(0)) {
@@ -40,9 +44,9 @@ function flushUmamiEvents() {
       // Analytics must not affect the guest.
     }
   }
-  for (const event of pendingUmamiEvents.splice(0)) {
+  for (const { event, url } of pendingUmamiEvents.splice(0)) {
     try {
-      void tracker.track(event.event, event.props).catch(() => undefined);
+      void tracker.track((props) => ({ ...props, name: event.event, data: event.props, url })).catch(() => undefined);
     } catch {
       // Analytics must not affect the guest.
     }
@@ -110,6 +114,7 @@ export function AnalyticsSetup({ mode, websiteId }: { mode: "debug" | "off" | "u
     // Umami calls this hook before sending pageviews or events. Define it
     // before adding the external script so no unfiltered payload can race it.
     window.nihoUmamiBeforeSend = (type, payload) => {
+      if (doNotTrackEnabled(navigator.doNotTrack)) return false;
       if (type === "event") {
         if (payload.name !== undefined && (typeof payload.name !== "string" || !Object.hasOwn(FUNNEL_EVENTS, payload.name))) return false;
       } else if (type !== "pageview") {
@@ -119,14 +124,18 @@ export function AnalyticsSetup({ mode, websiteId }: { mode: "debug" | "off" | "u
     };
 
     setAnalyticsSink((event) => {
+      if (doNotTrackEnabled(navigator.doNotTrack)) return;
+      const payload = sanitizeUmamiPayload("event", { url: window.location.href, name: event.event, data: event.props }, window.location.origin);
+      if (!payload || typeof payload.url !== "string") return;
+      const url = payload.url;
       if (window.umami?.track) {
         try {
-          void window.umami.track(event.event, event.props).catch(() => undefined);
+          void window.umami.track((props) => ({ ...props, name: event.event, data: event.props, url })).catch(() => undefined);
         } catch {
           // Analytics must not affect the guest.
         }
       } else if (pendingUmamiEvents.length < 100) {
-        pendingUmamiEvents.push(event);
+        pendingUmamiEvents.push({ event, url });
       }
     });
 
