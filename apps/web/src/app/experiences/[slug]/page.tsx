@@ -24,6 +24,7 @@ import { seoDescription } from "@/lib/seo-description";
 import { breadcrumbJsonLd, experienceJsonLd } from "@/lib/structured-data";
 import { iconForText } from "@/lib/themes";
 import { getPublishedPageDocument } from "@/lib/page-documents";
+import { publicMetadata } from "@/lib/public-metadata";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
 async function readExperience(slug: string, query: SearchParams) {
@@ -39,7 +40,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const description = seoDescription(e.lead);
   // The public image DTO has no rights/OG approval flag. Do not publish a
   // provisional image as a share image until approved photos are available.
-  return { title: e.title, description, alternates: { canonical: e.canonicalUrl }, openGraph: { title: e.title, description, images: [] } };
+  return publicMetadata(e.title, description, e.canonicalUrl);
 }
 
 /** Cover first, then the other photos, without repeating the cover. */
@@ -411,7 +412,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   return <>
     <TrackView event="experience_view" props={{ experience: e.slug }} />
     <JsonLd data={breadcrumbJsonLd(config.siteUrl, [{ name: "Home", path: "/" }, { name: "Experiences", path: "/experiences" }, { name: e.title, path: `/experiences/${e.slug}` }])} />
-    <JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview)} />
+    <JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview, config.bookingsEnabled)} />
     <PageDocumentContent document={document} pageId="experience-detail" fallback={renderDetail()} slots={{
       ExperienceDetail: (props) => renderDetail(props, false),
       BookingCTA: (props) => <div className="container-page mt-8 hidden lg:block"><aside id="book" aria-labelledby="book-heading"><BookingCard summary={booking} label={blockText(props, "label", "Check dates and book")} /></aside></div>
