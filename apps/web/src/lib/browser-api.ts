@@ -8,8 +8,11 @@ export async function getBrowserApi(preview: boolean, nihoWebOrigin: string) {
   const requested = new URLSearchParams(window.location.search).get("mock");
   const scenarios = {
     "checkout-full": "checkout-full",
+    "checkout-hold-limit": "checkout-hold-limit",
     "checkout-price-changed": "checkout-price-changed",
+    "checkout-questions-changed": "checkout-questions-changed",
     "checkout-consent-outdated": "checkout-consent-outdated",
+    "checkout-rate-limited": "checkout-rate-limited",
     "checkout-unavailable": "checkout-unavailable",
   } as const;
   const scenario = scenarios[requested as keyof typeof scenarios] ?? "default";
