@@ -3,7 +3,7 @@
 NIHO 共通基盤の公開 API（体験の一覧・詳細・残席・ゲスト予約の開始）の、選別された契約・型・クライアント・合成 mock。
 契約の意味・公開範囲・エラーと再送は [docs/api-contract.md](../../docs/api-contract.md) が正。
 
-**状態：仮契約 v0.1.0（provisional）。** 実 API の接続は NIHO 側の連携A の後。
+**状態：NIHO側で合意済みの公開API v1.2.0（配備待ち）。** [NIHO-app #19160](https://github.com/niho-coliving/niho-app/issues/19160) / [#19161](https://github.com/niho-coliving/niho-app/issues/19161) の反映・配備後に `verify:live` が成功するまで、実 API 接続済みとは扱いません。
 
 | 入口 | 用途 |
 | --- | --- |
