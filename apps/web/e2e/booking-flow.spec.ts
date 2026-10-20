@@ -78,8 +78,24 @@ test("required booking answer and consent are shown before checkout", async ({ p
   await page.getByRole("checkbox", { name: /agree to version/ }).check();
   await page.getByRole("button", { name: "Request to book" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("required question");
+  await expect(page.getByLabel(/Which shade would you like to dye/)).toBeFocused();
+  await expect(page.getByLabel(/Which shade would you like to dye/)).toHaveAttribute("aria-describedby", "booking-problem");
+  await expect(page.getByLabel(/Which shade would you like to dye/)).toHaveAttribute("aria-invalid", "true");
   await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
   expect(await page.evaluate(() => (window as Window & { __nihoEvents?: { event: string }[] }).__nihoEvents?.filter((event) => event.event === "checkout_start").length ?? 0)).toBe(0);
+});
+
+test("a whitespace-only name returns focus to the name without losing contact details", async ({ page }) => {
+  await page.goto(`${dinner}/book`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("   ");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.getByRole("textbox", { name: "Full name" })).toBeFocused();
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("main").getByRole("alert")).toContainText("Please enter your full name.");
+  await expect(page.getByRole("textbox", { name: "Email" })).toHaveValue("guest@example.com");
 });
 
 test("booking page is private", async ({ request }) => {
