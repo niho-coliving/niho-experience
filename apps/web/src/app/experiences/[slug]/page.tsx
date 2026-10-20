@@ -29,7 +29,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return { title: e.title, description, alternates: { canonical: e.canonicalUrl }, openGraph: { title: e.title, description, images: [] } };
 }
 export default async function ExperiencePage({ params, searchParams }: Props) {
-  const e = await readExperience((await params).slug, await searchParams);
+  const query = await searchParams;
+  const e = await readExperience((await params).slug, query);
+  const checkoutCancelled = query.checkout === "cancelled";
   const sellerLegalUrl = safeHttpsUrl(e.seller.legalNoticeUrl);
   // One policy for every option: show it here so travelers see it before choosing a date.
   const sharedPolicy = e.offers.every((offer) => offer.cancellationPolicy.code === e.offers[0]?.cancellationPolicy.code) ? (e.offers[0]?.cancellationPolicy ?? null) : null;
@@ -38,6 +40,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
     <JsonLd data={breadcrumbJsonLd(config.siteUrl, [{ name: "Home", path: "/" }, { name: "Experiences", path: "/experiences" }, { name: e.title, path: `/experiences/${e.slug}` }])} />
     <JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview)} />
     <div className="container-page pt-6"><nav aria-label="Breadcrumb" className="text-sm text-muted"><Link href="/experiences" className="font-bold text-moss hover:underline">Experiences</Link><span aria-hidden> / </span><span aria-current="page">{e.title}</span></nav>
+      {checkoutCancelled ? <div className="mt-5"><Notice tone="info" title="Checkout cancelled" role="status" action={<Link href={`/experiences/${e.slug}/book`} className="font-bold text-moss underline underline-offset-4">Choose a date</Link>} /></div> : null}
       <header className="mt-4 max-w-3xl space-y-3"><p className="eyebrow">{e.region.name}</p>{isPreview ? <Pill tone="sample">{previewListingLabel}</Pill> : null}<h1 className="text-[2.125rem] leading-tight sm:text-5xl">{e.title}</h1><p className="text-lg text-ink-soft">{e.lead}</p></header>
       <dl className="mt-6 grid grid-cols-2 gap-4 rounded-[var(--radius-card)] border border-line bg-surface p-4 sm:grid-cols-4"><Fact label="Duration" value={e.offers.length ? formatDuration(e.offers[0]!.durationMinutes) : "Ask host"} /><Fact label="Language" value={e.languageNote} /><Fact label="Provider" value={e.provider.name} /><Fact label="Price" value={e.offers.length ? `From ${formatYen(Math.min(...e.offers.map((o) => o.pricing.adultPriceYen)))} per adult` : "See options"} /></dl>
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr]" role="group" aria-label="Experience photos"><Photo image={e.cover} alt={imageAlt(e.cover, e.title)} priority preview={isPreview} sizes="(min-width: 64rem) 780px, 100vw" aspect="aspect-[4/3] sm:aspect-[16/10]" className="sm:col-span-2 lg:col-span-1 lg:row-span-2" />{e.photos.slice(1, 3).map((photo, index) => <Photo key={`${photo.url}-${index}`} image={photo} alt={imageAlt(photo, `${e.title}, another view ${index + 2}`)} preview={isPreview} sizes="(min-width: 64rem) 380px, 50vw" aspect="aspect-[4/3] sm:aspect-[16/10]" />)}</div>
