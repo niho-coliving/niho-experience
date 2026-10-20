@@ -104,6 +104,23 @@ test("booking page is private", async ({ request }) => {
   expect(res.headers()["x-robots-tag"]).toContain("noindex");
 });
 
+test("consent API errors mark the field, then a reload error focuses its own message", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-consent-outdated`);
+  await chooseFirstDate(page);
+  await enterBookingDetails(page);
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  const consent = page.getByRole("checkbox", { name: /agree to version/ });
+  await expect(consent).toBeFocused();
+  await expect(consent).toHaveAttribute("aria-invalid", "true");
+  await expect(consent).toHaveAttribute("aria-describedby", "booking-problem");
+  await page.getByRole("button", { name: "Reload the experience" }).click();
+  await expect(page.locator("#booking-problem")).toBeFocused();
+  await expect(page.locator("#booking-problem")).toContainText("not available yet");
+  await expect(consent).not.toHaveAttribute("aria-invalid", "true");
+  await expect(consent).not.toHaveAttribute("aria-describedby", "booking-problem");
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
+});
+
 test("a newly full date can be checked again without trapping the guest", async ({ page }) => {
   await page.goto(`${dinner}/book?mock=checkout-full`);
   await chooseFirstDate(page);

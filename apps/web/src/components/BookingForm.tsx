@@ -44,6 +44,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   const retrySecondsRemaining = retryUntil === null ? 0 : Math.max(0, Math.ceil((retryUntil - clockNow) / 1000));
   const checkingAvailability = checking && !apiUnavailable;
   const sellerLegalUrl = safeHttpsUrl(experience.seller.legalNoticeUrl);
+  const consentInvalid = invalidField === "consent" || invalidField === "consent.agreedVersion";
 
   useEffect(() => {
     if (!api) return;
@@ -151,6 +152,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     if (!api || refreshing) return;
     setRefreshing(true);
     setProblem("");
+    setInvalidField("");
     try {
       const result = publicApiVersion === "1.0"
         ? await api.getExperience(experience.slug)
@@ -211,7 +213,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
       <Note icon="card">Secure payment by Stripe. Sold by <strong className="text-ink">{experience.seller.displayName}</strong>.{sellerLegalUrl ? <> <a href={sellerLegalUrl} className="font-extrabold text-ink underline" rel="noopener noreferrer">Seller information</a></> : null}</Note>
       <div className="mt-5 border-t border-line pt-4">
         <p className="text-sm text-ink-soft">Booking terms: {experience.booking.legalDocuments.map((doc, index) => { const url = safeHttpsUrl(doc.url); return url ? <span key={doc.kind}>{index ? " · " : null}<a href={url} target="_blank" rel="noopener noreferrer" className="font-extrabold text-ink underline">{doc.kind === "COMMERCIAL_TRANSACTIONS" ? "Seller information" : doc.kind === "PRIVACY" ? "Privacy policy" : "Terms of service"}</a></span> : null; })}</p>
-        <label className={`mt-3.5 flex items-start gap-3 text-[0.90625rem] ${invalidField === "consent" ? "text-danger" : "text-ink-soft"}`}><input id="booking-consent" type="checkbox" aria-describedby={invalidField === "consent" || invalidField === "consent.agreedVersion" ? "booking-problem" : undefined} checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required aria-invalid={invalidField === "consent" || undefined} className="mt-px size-[22px] shrink-0 accent-moss" /><span>I have reviewed the total, seller, cancellation policy and linked terms, and agree to version {experience.booking.consentVersion}.</span></label>
+        <label className={`mt-3.5 flex items-start gap-3 text-[0.90625rem] ${consentInvalid ? "text-danger" : "text-ink-soft"}`}><input id="booking-consent" type="checkbox" aria-describedby={consentInvalid ? "booking-problem" : undefined} checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required aria-invalid={consentInvalid || undefined} className="mt-px size-[22px] shrink-0 accent-moss" /><span>I have reviewed the total, seller, cancellation policy and linked terms, and agree to version {experience.booking.consentVersion}.</span></label>
       </div>
     </section>
     <p className="mt-6 text-center text-sm text-muted">{preview ? "Preview only: no card details or payment." : "NIHO will confirm your booking after payment. No charge is made on this page."}</p>
