@@ -50,7 +50,8 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
   const searchProps = {
     searchQuery,
     theme,
-    date,
+    date: initialDate ?? undefined,
+    guests: initialGuests,
     filtersEnabled: config.publicApiVersion === "1.2",
     filtersActive: Boolean(searchQuery || theme || date || initialGuests !== null),
   };
@@ -67,6 +68,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
         days={days}
         initialDate={initialDate}
         initialGuests={initialGuests}
+        browseContext={{ q: searchQuery || undefined, theme }}
         catalogDateFiltered={config.publicApiVersion === "1.2" && Boolean(date)}
         preview={isPreview}
         nihoWebOrigin={config.nihoWebOrigin}

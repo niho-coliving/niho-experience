@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CardModel } from "@/lib/card-model";
+import { browseHref, type BrowseContext } from "@/lib/browse-context";
 import { imageAlt } from "@/lib/experience-copy";
 import { CardDates, type CardDatesSource } from "./CardDates";
 import { FaceBadge } from "./Face";
@@ -14,10 +15,12 @@ export type CardOptions = {
   dates?: CardDatesSource;
   /** "Sat 24 Oct · 6:00 PM" when a date is chosen on the list. */
   highlight?: string | null;
+  browseContext?: Partial<BrowseContext>;
+  offerId?: string;
 };
 
 /** One whole-card link (the title's link covers the card). No popularity, scarcity or review claims. */
-export function ExperienceCard({ card, variant = "home", priority = false, dates = { kind: "given", occurrences: null }, highlight = null }: { card: CardModel } & CardOptions) {
+export function ExperienceCard({ card, variant = "home", priority = false, dates = { kind: "given", occurrences: null }, highlight = null, browseContext = {}, offerId }: { card: CardModel } & CardOptions) {
   const list = variant === "list";
   return (
     <article className="group relative flex h-full min-w-0 flex-col">
@@ -39,7 +42,7 @@ export function ExperienceCard({ card, variant = "home", priority = false, dates
         <p className="min-h-[1.375rem] pr-20 text-sm font-bold text-muted">{card.withLabel}</p>
         <h3 className="mt-1 text-[1.375rem] leading-[1.18]">
           <Link
-            href={`/experiences/${card.slug}`}
+            href={browseHref(`/experiences/${card.slug}`, browseContext, offerId)}
             className="bg-[linear-gradient(var(--color-leaf),var(--color-leaf))] bg-[length:0_3px] bg-[position:0_100%] bg-no-repeat transition-[background-size] duration-300 group-hover:bg-[length:100%_3px] after:absolute after:inset-0 focus-visible:outline-none group-has-[:focus-visible]:bg-[length:100%_3px]"
           >
             {card.title}

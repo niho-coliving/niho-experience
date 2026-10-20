@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Occurrence } from "@niho-experience/api-client";
 import { readAvailability } from "@/lib/browser-availability";
+import { browseHref, type BrowseContext } from "@/lib/browse-context";
 import { dayOption, nextBookable } from "@/lib/date-filter";
 import { formatTime, formatYen } from "@/lib/format";
 import { HandIcon, type HandIconName } from "./HandIcon";
@@ -24,6 +25,8 @@ export type BookingSummary = {
   preview: boolean;
   availabilityIsProvisional: boolean;
   nihoWebOrigin: string;
+  browseContext?: Partial<BrowseContext>;
+  preferredOfferId?: string;
 };
 
 const NEXT_DATES = 3;
@@ -45,10 +48,10 @@ function useNextDates(summary: BookingSummary): Occurrence[] | null | "failed" {
   return dates;
 }
 
-const bookHref = (slug: string) => `/experiences/${slug}/book`;
+const bookHref = (summary: BookingSummary) => browseHref(`/experiences/${summary.slug}/book`, summary.browseContext ?? {}, summary.preferredOfferId);
 /** The booking page pre-selects this date and option; the guest still confirms everything there. */
-const bookDateHref = (slug: string, occurrence: Occurrence) =>
-  `${bookHref(slug)}?${new URLSearchParams({ date: occurrence.date, offer: occurrence.offerId }).toString()}`;
+const bookDateHref = (summary: BookingSummary, occurrence: Occurrence) =>
+  browseHref(`/experiences/${summary.slug}/book`, { ...summary.browseContext, date: occurrence.date }, occurrence.offerId);
 const offerFor = (summary: BookingSummary, occurrence: Occurrence) => summary.offers.find((offer) => offer.id === occurrence.offerId);
 const sessionLabel = (summary: BookingSummary, occurrence: Occurrence) => {
   const offer = offerFor(summary, occurrence);
@@ -102,7 +105,7 @@ export function BookingCard({ summary, label = "Check dates and book" }: { summa
                   return (
                     <li key={`${occurrence.offerId}-${occurrence.date}`}>
                       <Link
-                        href={bookDateHref(summary.slug, occurrence)}
+                        href={bookDateHref(summary, occurrence)}
                         aria-label={`Book ${sessionLabel(summary, occurrence)} for ${optionPrice} per adult`}
                         className="block rounded-2xl border border-line-strong bg-white px-1 py-2.5 text-center leading-tight hover:border-ink hover:bg-leaf-pale"
                       >
@@ -121,7 +124,7 @@ export function BookingCard({ summary, label = "Check dates and book" }: { summa
               <p className="mt-2 text-xs text-muted">Sample dates · not confirmed yet</p>
             ) : null}
           </div>
-          <Link href={bookHref(summary.slug)} className={buttonClass("primary", "mt-5 w-full")}>
+          <Link href={bookHref(summary)} className={buttonClass("primary", "mt-5 w-full")}>
             {label}
           </Link>
           <ul className="mt-[18px] grid gap-2 text-sm text-ink-soft">
@@ -157,7 +160,7 @@ export function MobileBookingBar({ summary }: { summary: BookingSummary }) {
           {summary.canBook && line ? <p className="mt-1 truncate text-[0.8125rem] font-extrabold text-moss">{line}</p> : null}
         </div>
         {summary.canBook ? (
-          <Link href={bookHref(summary.slug)} className={buttonClass("primary", "shrink-0 px-5")}>
+          <Link href={bookHref(summary)} className={buttonClass("primary", "shrink-0 px-5")}>
             Check dates
           </Link>
         ) : (

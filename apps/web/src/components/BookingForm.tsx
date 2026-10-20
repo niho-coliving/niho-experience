@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { computeExpectedTotalYen, createClientRequestKey, type CheckoutAnswer, type ExperienceApiClient, type ExperienceCheckoutRequest, type ExperienceOffer } from "@niho-experience/api-client";
 import { getBrowserApi } from "@/lib/browser-api";
@@ -18,13 +18,16 @@ import { policyTitle } from "./Policy";
 import { Notice, buttonClass } from "./ui";
 import type { BookingSelection } from "./SlotPicker";
 
-export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, attributionEnabled, onBack, titleAs = "h1" }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; attributionEnabled: boolean; onBack: () => void; titleAs?: "h1" | "p" }) {
+export type BookingDraft = { guestName: string; guestEmail: string; note: string; answerSets: Record<string, Record<string, string | string[]>> };
+export type CheckoutAttempt = { signature: string; key: string };
+
+export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, attributionEnabled, draft, onDraftChange, attemptRef, onBack, titleAs = "h1" }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; attributionEnabled: boolean; draft: BookingDraft; onDraftChange: Dispatch<SetStateAction<BookingDraft>>; attemptRef: RefObject<CheckoutAttempt | null>; onBack: () => void; titleAs?: "h1" | "p" }) {
   const router = useRouter();
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-  const [note, setNote] = useState("");
-  const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  const { guestName, guestEmail, note } = draft;
+  const questionSet = `${offer.id}:${offer.bookingQuestionsFingerprint}`;
+  const answers = draft.answerSets[questionSet] ?? {};
+  const [refreshing, refresh] = useTransition();
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState("");
@@ -34,11 +37,11 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
   const [needsFreshDetails, setNeedsFreshDetails] = useState(false);
   const [retryUntil, setRetryUntil] = useState<number | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
-  const attempt = useRef<{ signature: string; key: string } | null>(null);
   const viewTracked = useRef(false);
   const alertRef = useRef<HTMLDivElement>(null);
   const total = computeExpectedTotalYen(offer.pricing, selection.adultCount, selection.childCount);
   const headCount = selection.adultCount + selection.childCount;
+  const selectionValid = Number.isInteger(selection.adultCount) && Number.isInteger(selection.childCount) && selection.adultCount >= 0 && selection.childCount >= 0 && headCount >= offer.minimumParticipants && headCount <= offer.maxPartySize && (selection.childCount === 0 || !!offer.pricing.child) && (!offer.pricing.child?.adultRequired || selection.childCount === 0 || selection.adultCount > 0);
   const retrySecondsRemaining = retryUntil === null ? 0 : Math.max(0, Math.ceil((retryUntil - clockNow) / 1000));
   const sellerLegalUrl = safeHttpsUrl(experience.seller.legalNoticeUrl);
 
@@ -54,11 +57,11 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     api.getAvailability(experience.slug, { offerId: offer.id }).then((result) => {
       if (!active) return;
       const occurrence = result.ok ? result.data.occurrences.find((item) => item.offerId === offer.id && item.date === selection.date) : undefined;
-      setAvailabilityOk(!!occurrence?.bookable && occurrence.seatsLeft >= headCount);
+      setAvailabilityOk(selectionValid && !!occurrence?.bookable && occurrence.seatsLeft >= headCount);
       setChecking(false);
     }).catch(() => { if (active) { setAvailabilityOk(false); setChecking(false); } });
     return () => { active = false; };
-  }, [api, experience.slug, offer.id, selection.date, headCount]);
+  }, [api, experience.slug, offer.id, selection.date, headCount, selectionValid]);
   useEffect(() => { if (problem) alertRef.current?.focus(); }, [problem]);
   useEffect(() => {
     if (retryUntil === null) return;
@@ -76,7 +79,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     else track("booking_unavailable", { experience: experience.slug, error_code: "unavailable" });
   }, [availabilityOk, checking, experience.slug, headCount, total]);
 
-  function updateAnswer(id: string, value: string | string[]) { setAnswers((current) => ({ ...current, [id]: value })); }
+  function updateAnswer(id: string, value: string | string[]) { onDraftChange((current) => ({ ...current, answerSets: { ...current.answerSets, [questionSet]: { ...current.answerSets[questionSet], [id]: value } } })); }
   function collectAnswers(): CheckoutAnswer[] {
     const collected: CheckoutAnswer[] = [];
     for (const question of offer.bookingQuestions) {
@@ -102,8 +105,8 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
       ...(attributionEnabled ? readBookingAttribution(navigator.doNotTrack) : {}),
     };
     const signature = JSON.stringify(draft);
-    if (attempt.current?.signature !== signature) attempt.current = { signature, key: createClientRequestKey() };
-    const body: ExperienceCheckoutRequest = { ...draft, clientRequestKey: attempt.current.key };
+    if (attemptRef.current?.signature !== signature) attemptRef.current = { signature, key: createClientRequestKey() };
+    const body: ExperienceCheckoutRequest = { ...draft, clientRequestKey: attemptRef.current.key };
     setSubmitting(true);
     track("checkout_start", { experience: experience.slug, guests: headCount, total_jpy: total });
     let result: Awaited<ReturnType<ExperienceApiClient["startCheckout"]>>;
@@ -133,7 +136,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
         ? `Too many attempts. Try again in ${retryAfter} second${retryAfter === 1 ? "" : "s"}.`
         : checkoutErrorCopy[result.error.code]);
       setInvalidField(result.error.questionId ?? result.error.field ?? "");
-      if (result.error.code === "REQUEST_MISMATCH") attempt.current = null;
+      if (result.error.code === "REQUEST_MISMATCH") attemptRef.current = null;
       if (["CONSENT_OUTDATED", "QUESTIONS_CHANGED", "PRICE_CHANGED"].includes(result.error.code)) setNeedsFreshDetails(true);
       if (["OCCURRENCE_INVALID", "FULL", "UNAVAILABLE"].includes(result.error.code)) setAvailabilityOk(false);
     } else {
@@ -153,22 +156,22 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     <BookingSummaryCard experience={experience} offer={offer} titleAs={titleAs} />
     <button type="button" onClick={onBack} className="link-leaf mt-3 text-sm">Change date or guest count</button>
     <div className="mt-5 space-y-4 empty:hidden">
-      {checking ? <p role="status">Checking this date again…</p> : needsFreshDetails ? <Notice role="alert" tone="warn" title="Review the latest details">The price, questions or booking terms changed. <a href={`/experiences/${experience.slug}`} className="font-bold text-moss underline">Reload the experience</a> before choosing a date and agreeing again.</Notice> : !availabilityOk ? <Notice role="alert" tone="warn" title="This date needs another look">Nothing has been charged. <button type="button" onClick={onBack} className="font-bold text-moss underline">Check dates again</button> to see the latest availability.</Notice> : null}
+      {checking ? <p role="status">Checking this date again…</p> : needsFreshDetails ? <Notice role="alert" tone="warn" title="Review the latest details">The price, questions or booking terms changed. <button type="button" disabled={refreshing} onClick={() => refresh(() => router.refresh())} className="font-bold text-moss underline">{refreshing ? "Refreshing…" : "Reload the experience"}</button> to review them and agree again. Your contact details stay on this page.</Notice> : !availabilityOk ? <Notice role="alert" tone="warn" title="This date needs another look">Nothing has been charged. <button type="button" onClick={onBack} className="font-bold text-moss underline">Check dates again</button> to see the latest availability.</Notice> : null}
       {problem ? <div ref={alertRef} tabIndex={-1} className="outline-none"><Notice role="alert" tone="danger" title="Please check your booking">{problem}</Notice></div> : null}
     </div>
 
     <section aria-labelledby="details-heading">
       <StepHeading id="details-heading" step={3}>Your details</StepHeading>
       <p className="text-sm text-muted">No account is needed. NIHO sends confirmation and meeting details to your email.</p>
-      <label className={fieldLabelClass}>Full name<input name="guestName" autoComplete="name" required maxLength={100} value={guestName} onChange={(event) => setGuestName(event.target.value)} className={fieldInputClass} /></label>
-      <label className={fieldLabelClass}>Email<input name="guestEmail" type="email" inputMode="email" autoComplete="email" required maxLength={254} value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} className={fieldInputClass} /></label>
+      <label className={fieldLabelClass}>Full name<input name="guestName" autoComplete="name" required maxLength={100} value={guestName} onChange={(event) => onDraftChange((current) => ({ ...current, guestName: event.target.value }))} className={fieldInputClass} /></label>
+      <label className={fieldLabelClass}>Email<input name="guestEmail" type="email" inputMode="email" autoComplete="email" required maxLength={254} value={guestEmail} onChange={(event) => onDraftChange((current) => ({ ...current, guestEmail: event.target.value }))} className={fieldInputClass} /></label>
       {offer.bookingQuestions.length ? <fieldset className="mt-6"><legend className="font-sans text-sm font-extrabold tracking-[0.02em] text-muted">Questions from your host</legend>{offer.bookingQuestions.map((question) => <div key={question.id}>
         <label htmlFor={`question-${question.id}`} className={fieldLabelClass}>{question.prompt}{question.required ? " *" : <> {optional}</>}</label>{question.description ? <p className="mt-0.5 text-[0.8125rem] text-muted">{question.description}</p> : null}
         {question.inputType === "SHORT_TEXT" || question.inputType === "LONG_TEXT" ? question.inputType === "LONG_TEXT" ? <textarea id={`question-${question.id}`} maxLength={1000} value={answerText(question.id)} onChange={(event) => updateAnswer(question.id, event.target.value)} aria-invalid={invalidField === question.id || undefined} className={`${fieldInputClass} min-h-[84px] resize-y`} /> : <input id={`question-${question.id}`} maxLength={200} value={answerText(question.id)} onChange={(event) => updateAnswer(question.id, event.target.value)} aria-invalid={invalidField === question.id || undefined} className={fieldInputClass} /> :
         question.inputType === "SINGLE_SELECT" ? <select id={`question-${question.id}`} value={Array.isArray(answers[question.id]) ? (answers[question.id] as string[])[0] ?? "" : ""} onChange={(event) => updateAnswer(question.id, event.target.value ? [event.target.value] : [])} aria-invalid={invalidField === question.id || undefined} className={fieldInputClass}><option value="">Choose an answer</option>{question.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select> :
         <div id={`question-${question.id}`} className="mt-2 space-y-2">{question.options.map((option) => { const selected = Array.isArray(answers[question.id]) ? answers[question.id] as string[] : []; return <label key={option.id} className="flex min-h-11 items-center gap-2.5"><input type="checkbox" checked={selected.includes(option.id)} onChange={(event) => updateAnswer(question.id, event.target.checked ? [...selected, option.id] : selected.filter((id) => id !== option.id))} className="size-5 accent-moss" />{option.label}</label>; })}</div>}
       </div>)}</fieldset> : null}
-      <label className={fieldLabelClass}>Anything else for your hosts? {optional}<textarea name="note" rows={3} maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} className={`${fieldInputClass} min-h-[84px] resize-y`} /></label>
+      <label className={fieldLabelClass}>Anything else for your hosts? {optional}<textarea name="note" rows={3} maxLength={500} value={note} onChange={(event) => onDraftChange((current) => ({ ...current, note: event.target.value }))} className={`${fieldInputClass} min-h-[84px] resize-y`} /></label>
     </section>
 
     <section aria-labelledby="check-heading">

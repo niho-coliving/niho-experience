@@ -18,6 +18,7 @@ export function ExperienceFiltersForm({
   searchQuery,
   theme,
   date,
+  guests,
   filtersEnabled,
   filtersActive,
   placement = "bar",
@@ -25,6 +26,7 @@ export function ExperienceFiltersForm({
   searchQuery: string;
   theme: ExperienceSiteTheme | undefined;
   date: string | undefined;
+  guests?: number | null;
   filtersEnabled: boolean;
   filtersActive: boolean;
   placement?: "bar" | "inline";
@@ -83,6 +85,7 @@ export function ExperienceFiltersForm({
           </div>
         ) : null}
         {date ? <input type="hidden" name="date" value={date} /> : null}
+        {guests != null ? <input type="hidden" name="guests" value={guests} /> : null}
         {filtersEnabled && filtersActive ? (
           <div>
             <Link href="/experiences" className="text-sm font-bold text-moss underline">

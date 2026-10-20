@@ -22,7 +22,7 @@ const choiceCard =
   "relative block rounded-[18px] border border-line-strong bg-white text-left leading-tight has-[:checked]:border-ink has-[:checked]:bg-leaf-pale has-[:checked]:shadow-[inset_0_0_0_1px_var(--color-ink)] has-[:disabled]:border-line has-[:disabled]:bg-sand has-[:disabled]:text-muted has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-moss";
 const hiddenRadio = "absolute inset-0 z-[1] size-full cursor-pointer appearance-none rounded-[18px] opacity-0 focus-visible:outline-none disabled:cursor-not-allowed";
 
-export function SlotPicker({ experience, slug, offers, preview, availabilityIsProvisional, nihoWebOrigin, onContinue, initialOfferId, initialDate, titleAs = "h1" }: { experience: ExperienceDetailForSite; slug: string; offers: ExperienceOffer[]; preview: boolean; availabilityIsProvisional: boolean; nihoWebOrigin: string; onContinue: (selection: BookingSelection) => void; initialOfferId?: string; initialDate?: string; titleAs?: "h1" | "p" }) {
+export function SlotPicker({ experience, slug, offers, preview, availabilityIsProvisional, nihoWebOrigin, onContinue, initialOfferId, initialDate, initialAdultCount = 1, initialChildCount = 0, titleAs = "h1" }: { experience: ExperienceDetailForSite; slug: string; offers: ExperienceOffer[]; preview: boolean; availabilityIsProvisional: boolean; nihoWebOrigin: string; onContinue: (selection: BookingSelection) => void; initialOfferId?: string; initialDate?: string; initialAdultCount?: number; initialChildCount?: number; titleAs?: "h1" | "p" }) {
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
   // A date chosen on the detail page arrives pre-selected; it is kept only if it is still bookable (below).
   const [offerId, setOfferId] = useState(offers.some((item) => item.id === initialOfferId) ? initialOfferId! : (offers[0]?.id ?? ""));
@@ -30,8 +30,8 @@ export function SlotPicker({ experience, slug, offers, preview, availabilityIsPr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [date, setDate] = useState(initialDate ?? "");
-  const [adultCount, setAdultCount] = useState(1);
-  const [childCount, setChildCount] = useState(0);
+  const [adultCount, setAdultCount] = useState(initialAdultCount);
+  const [childCount, setChildCount] = useState(initialChildCount);
   const [showAllDates, setShowAllDates] = useState(false);
   const offer = offers.find((item) => item.id === offerId);
   const selected = occurrences.find((item) => item.offerId === offerId && item.date === date);
@@ -75,7 +75,7 @@ export function SlotPicker({ experience, slug, offers, preview, availabilityIsPr
       <h2 id="offer-heading" className="mb-2.5 font-sans text-sm font-extrabold tracking-normal text-muted">Experience option</h2>
       <div role="radiogroup" aria-labelledby="offer-heading" className="grid gap-2.5">
         {offers.map((item) => <label key={item.id} className={`${choiceCard} bg-sand px-4 py-3.5`}>
-          <input type="radio" name="offer" value={item.id} checked={offerId === item.id} onChange={() => { setOfferId(item.id); setDate(""); setLoading(true); setAdultCount(1); setChildCount(0); setShowAllDates(false); }} className={hiddenRadio} />
+          <input type="radio" name="offer" value={item.id} checked={offerId === item.id} onChange={() => { setOfferId(item.id); setDate(""); setLoading(true); if (!item.pricing.child) setChildCount(0); setShowAllDates(false); }} className={hiddenRadio} />
           <span className="flex items-baseline justify-between gap-3"><b className="font-extrabold">{item.name}</b><span className="shrink-0 text-sm text-ink-soft"><b className="font-extrabold text-ink">{formatYen(item.pricing.adultPriceYen)}</b> per adult</span></span>
           {item.shortDescription ? <span className="mt-1 block text-sm text-muted">{item.shortDescription}</span> : null}
         </label>)}

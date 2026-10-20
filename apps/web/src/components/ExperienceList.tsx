@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { Occurrence } from "@niho-experience/api-client";
 import { readAvailability } from "@/lib/browser-availability";
+import type { BrowseContext } from "@/lib/browse-context";
 import type { CardModel } from "@/lib/card-model";
 import { dayOption, fitsPartySize, matchingOccurrence, MAX_GUESTS, type DayOption } from "@/lib/date-filter";
 import { formatTime, pluralize } from "@/lib/format";
@@ -24,6 +25,7 @@ export function ExperienceList({
   days,
   initialDate,
   initialGuests,
+  browseContext,
   catalogDateFiltered,
   preview,
   nihoWebOrigin,
@@ -36,6 +38,7 @@ export function ExperienceList({
   days: DayOption[];
   initialDate: string | null;
   initialGuests: number | null;
+  browseContext?: Partial<BrowseContext>;
   catalogDateFiltered: boolean;
   preview: boolean;
   nihoWebOrigin: string;
@@ -214,6 +217,8 @@ export function ExperienceList({
                 <li key={card.slug}>
                   <ExperienceCard
                     card={card}
+                    browseContext={{ ...browseContext, date: date ?? undefined, guests: guests ?? undefined }}
+                    offerId={occurrence?.offerId}
                     variant="list"
                     priority={index < 2}
                     dates={{ kind: "given", occurrences: ready ? (ready.get(card.slug) ?? []) : null }}
