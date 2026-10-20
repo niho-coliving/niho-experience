@@ -57,7 +57,8 @@ const NIHO = [
 
 export default async function HostPage() {
   const document = await getPublishedPageDocument("host");
-  const startUrl = config.hostSignupMode === "open" ? hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin) : null;
+  const managementUrl = hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin);
+  const startUrl = config.hostSignupMode === "open" ? managementUrl : null;
   const steps = startUrl ? OPEN_STEPS : PILOT_STEPS;
   const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
   const signup = (props: BlockProps = {}) => (
@@ -68,8 +69,7 @@ export default async function HostPage() {
             {blockText(props, "label", "Start with your NIHO account")}
           </TrackedLink>
           <p className="text-sm text-muted">
-            You&apos;ll sign in or create an account on NIHO, register as an individual or small business, and manage your listing, bookings and sales there.
-            NIHO reviews listings before they go live; Stripe may ask you to verify your identity. Already a NIHO seller? You can use the same account.
+            Use your NIHO account for experiences, bookings and sales. Listings need NIHO review; Stripe may request identity checks.
           </p>
         </div>
       ) : (
@@ -85,6 +85,9 @@ export default async function HostPage() {
           </div>
         </div>
       )}
+      {!startUrl && managementUrl ? <p className="mt-4">
+        <a href={managementUrl} className="link-leaf">Manage your experiences on NIHO</a>
+      </p> : null}
     </section>
   );
   const fallback = (

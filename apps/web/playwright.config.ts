@@ -24,6 +24,6 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}/experiences`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
-    env: { PORT: String(PORT), HOSTNAME: "127.0.0.1", EXPERIENCE_API_MODE: "mock", EXPERIENCE_PUBLIC_API_VERSION: "1.2", SITE_INDEXING: "block", NEXT_TELEMETRY_DISABLED: "1" },
+    env: { PORT: String(PORT), HOSTNAME: "127.0.0.1", EXPERIENCE_API_MODE: "mock", EXPERIENCE_PUBLIC_API_VERSION: "1.2", SITE_INDEXING: "block", NEXT_TELEMETRY_DISABLED: "1", HOST_SIGNUP_MODE: "pilot", NIHO_HOST_START_URL: "https://niho.life/experiences/provider" },
   },
 });

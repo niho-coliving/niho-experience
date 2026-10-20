@@ -35,6 +35,18 @@ import BookPage, { metadata as bookingMetadata } from "@/app/experiences/[slug]/
 
 beforeEach(() => { state.documents = {}; state.config.bookingsEnabled = true; state.config.hostSignupMode = "open"; state.config.nihoHostStartUrl = "https://niho.example/experiences/provider"; });
 describe("published documents use the existing server-rendered business components", () => {
+  it("pilot中も既存提供者は固定の管理入口へ戻れ、セルフ登録のCTAは開かない", async () => {
+    state.config.hostSignupMode = "pilot";
+    for (const edited of [false, true]) {
+      state.documents.host = edited ? publishedDocument("host") : undefined;
+      const html = renderToStaticMarkup(await HostPage());
+      expect(html).toContain("Manage your experiences on NIHO");
+      expect(html).toContain('href="https://niho.example/experiences/provider"');
+      expect(html).not.toContain("Start with your NIHO account");
+    }
+    state.config.nihoHostStartUrl = "https://niho.example/experiences/provider?returnTo=private";
+    expect(renderToStaticMarkup(await HostPage())).not.toContain("Manage your experiences on NIHO");
+  });
   it("home/listの編集本文・responsive CSS・実カタログの価格とリンクが初期HTMLに入る", async () => {
     for (const pageId of ["home", "experiences"] as const) {
       state.documents[pageId] = publishedDocument(pageId);
