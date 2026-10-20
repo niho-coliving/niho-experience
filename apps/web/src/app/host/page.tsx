@@ -68,7 +68,10 @@ export default async function HostPage() {
           <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
             {blockText(props, "label", "Start with your NIHO account")}
           </TrackedLink>
-          <p className="text-sm text-muted">You&apos;ll sign in or create an account on NIHO. Already a NIHO seller? You can use the same account.</p>
+          <p className="text-sm text-muted">
+            You&apos;ll sign in or create an account on NIHO, register as an individual or small business, and manage your listing, bookings and sales there.
+            NIHO reviews listings before they go live; Stripe may ask you to verify your identity. Already a NIHO seller? You can use the same account.
+          </p>
         </div>
       ) : (
         <Notice tone="info" title="We're starting with a small group of hosts">
