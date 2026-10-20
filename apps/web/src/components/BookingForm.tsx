@@ -26,11 +26,14 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
   const [availabilityOk, setAvailabilityOk] = useState(false);
   const [checking, setChecking] = useState(true);
   const [needsFreshDetails, setNeedsFreshDetails] = useState(false);
+  const [retryUntil, setRetryUntil] = useState<number | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const attempt = useRef<{ signature: string; key: string } | null>(null);
   const viewTracked = useRef(false);
   const alertRef = useRef<HTMLDivElement>(null);
   const total = computeExpectedTotalYen(offer.pricing, selection.adultCount, selection.childCount);
   const headCount = selection.adultCount + selection.childCount;
+  const retrySecondsRemaining = retryUntil === null ? 0 : Math.max(0, Math.ceil((retryUntil - clockNow) / 1000));
   const sellerLegalUrl = safeHttpsUrl(experience.seller.legalNoticeUrl);
 
   useEffect(() => {
@@ -52,6 +55,15 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
   }, [api, experience.slug, offer.id, selection.date, headCount]);
   useEffect(() => { if (problem) alertRef.current?.focus(); }, [problem]);
   useEffect(() => {
+    if (retryUntil === null) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setClockNow(now);
+      if (now >= retryUntil) setRetryUntil(null);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [retryUntil]);
+  useEffect(() => {
     if (checking || viewTracked.current) return;
     viewTracked.current = true;
     if (availabilityOk && total !== null) track("booking_form_view", { experience: experience.slug, guests: headCount, total_jpy: total });
@@ -70,7 +82,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting || checking || needsFreshDetails || !api || total === null || !availabilityOk) return;
+    if (submitting || checking || needsFreshDetails || retrySecondsRemaining > 0 || !api || total === null || !availabilityOk) return;
     setProblem(""); setInvalidField("");
     const answered = collectAnswers();
     const missing = offer.bookingQuestions.find((question) => question.required && !answered.some((answer) => answer.questionId === question.id));
@@ -106,7 +118,13 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     if (result.kind === "rejected") {
       const errorCode = result.error.code === "INPUT_INVALID" || result.error.code === "ANSWERS_INVALID" ? "invalid_contact" : result.error.code === "FULL" ? "slot_sold_out" : result.error.code === "UNAVAILABLE" ? "unavailable" : result.error.code.toLowerCase();
       track("checkout_error", { experience: experience.slug, error_code: errorCode });
-      setProblem(checkoutErrorCopy[result.error.code]);
+      const retryAfter = result.error.code === "RATE_LIMITED" ? result.retryAfterSeconds : null;
+      const now = Date.now();
+      setClockNow(now);
+      setRetryUntil(retryAfter ? now + retryAfter * 1000 : null);
+      setProblem(retryAfter
+        ? `Too many attempts. Try again in ${retryAfter} second${retryAfter === 1 ? "" : "s"}.`
+        : checkoutErrorCopy[result.error.code]);
       setInvalidField(result.error.questionId ?? result.error.field ?? "");
       if (result.error.code === "REQUEST_MISMATCH") attempt.current = null;
       if (["CONSENT_OUTDATED", "QUESTIONS_CHANGED", "PRICE_CHANGED"].includes(result.error.code)) setNeedsFreshDetails(true);
@@ -135,7 +153,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
       <div id={`question-${question.id}`} className="mt-2 space-y-2">{question.options.map((option) => { const selected = Array.isArray(answers[question.id]) ? answers[question.id] as string[] : []; return <label key={option.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={selected.includes(option.id)} onChange={(event) => updateAnswer(question.id, event.target.checked ? [...selected, option.id] : selected.filter((id) => id !== option.id))} className="size-5 accent-moss" />{option.label}</label>; })}</div>}
     </div>)}</fieldset> : null}
     <div className="rounded-xl border border-line bg-sand p-4"><p className="mb-2 font-bold">Booking terms</p><ul className="mb-3 list-disc pl-5">{experience.booking.legalDocuments.map((doc) => { const url = safeHttpsUrl(doc.url); return url ? <li key={doc.kind}><a href={url} target="_blank" rel="noopener noreferrer" className="font-bold text-moss underline">{doc.kind === "COMMERCIAL_TRANSACTIONS" ? "Seller information" : doc.kind === "PRIVACY" ? "Privacy policy" : "Terms of service"}</a></li> : null; })}</ul><label className="flex gap-3"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required aria-invalid={invalidField === "consent" || undefined} className="mt-1 size-5 shrink-0 accent-moss" /><span>I have reviewed the total, seller, cancellation policy and linked terms, and agree to version {experience.booking.consentVersion}.</span></label></div>
-    <button type="submit" disabled={submitting || checking || !availabilityOk || needsFreshDetails || total === null} aria-busy={submitting} className={buttonClass("primary", "w-full text-lg")}>{submitting ? "Preparing checkout…" : offer.acceptanceMode === "APPROVAL" ? "Request to book" : preview ? "Continue to mock payment" : "Continue to secure payment"}</button>
+    <button type="submit" disabled={submitting || checking || !availabilityOk || needsFreshDetails || retrySecondsRemaining > 0 || total === null} aria-busy={submitting} className={buttonClass("primary", "w-full text-lg")}>{retrySecondsRemaining > 0 ? "Please wait…" : submitting ? "Preparing checkout…" : offer.acceptanceMode === "APPROVAL" ? "Request to book" : preview ? "Continue to mock payment" : "Continue to secure payment"}</button>
     <p className="text-center text-sm text-muted">{preview ? "Preview only: no card details or payment." : "NIHO will confirm your booking after payment. No charge is made on this page."}</p>
   </form>;
 }
