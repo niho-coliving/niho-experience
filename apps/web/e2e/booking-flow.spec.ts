@@ -32,6 +32,19 @@ test("browse, review adult and child total, and reach browser-only mock checkout
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
 });
 
+test("cancelled checkout return offers a clear way back to date selection on mobile and desktop", async ({ page }) => {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${dinner}?checkout=cancelled`);
+    const status = page.getByRole("status");
+    await expect(status).toContainText("Checkout cancelled");
+    await expect(status.getByRole("link", { name: "Choose a date" })).toHaveAttribute("href", `${dinner}/book`);
+  }
+
+  await page.getByRole("link", { name: "Choose a date" }).click();
+  await expect(page).toHaveURL(/\/book$/);
+});
+
 test("provisional pilot dates do not claim remaining seats", async ({ page }) => {
   const pilot = process.env.MOCK_CATALOG === "pilot";
   const slug = pilot ? "kamakura-community-dinner" : "home-cooked-dinner-with-locals";
