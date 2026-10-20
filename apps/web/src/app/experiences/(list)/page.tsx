@@ -63,7 +63,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
         <p className="mt-2.5 text-[0.9375rem] text-muted">Prices in Japanese yen, tax included. Times in Japan time (JST).</p>
       </header>
       <ExperienceList
-        key={`${initialDate ?? "any"}:${initialGuests ?? "any"}`}
+        key={JSON.stringify([searchQuery, theme, initialDate, initialGuests])}
         cards={cards}
         days={days}
         initialDate={initialDate}
