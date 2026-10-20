@@ -11,10 +11,10 @@ function hostStartUrl(value: string, nihoOrigin: string): string | null {
   try {
     const url = new URL(value);
     const origin = new URL(nihoOrigin);
-    // The existing NIHO onboarding route currently forwards to spot creation.
-    // A fixed NIHO path must be supplied once integration B is ready.
     if (url.origin !== origin.origin || url.protocol !== "https:" || url.username || url.password || url.search || url.hash) return null;
-    if (url.pathname === "/" || url.pathname === "/onboarding/host" || url.pathname.startsWith("/spot/")) return null;
+    // Integration B owns this route, including the login return to the provider page.
+    // Keep the configured URL pinned here so a bad deployment value cannot send hosts elsewhere on NIHO.
+    if (url.pathname !== "/experiences/provider") return null;
     return url.href;
   } catch { return null; }
 }
@@ -28,11 +28,18 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-const STEPS = [
+const PILOT_STEPS = [
   { title: "Tell us your idea", body: "A short chat about what you'd like to share, how often, and for how many guests." },
   { title: "Prepare it together", body: "NIHO helps write the English page, plan photos, set a price and agree the cancellation terms with you." },
   { title: "Set up with your NIHO account", body: "Sign in to NIHO, choose or connect the account you'll be paid to, and add your dates." },
   { title: "Welcome your guests", body: "Bookings and guest details arrive in NIHO. You host; we help with questions along the way." },
+];
+
+const OPEN_STEPS = [
+  { title: "Set up your host profile", body: "Use your NIHO account to register yourself or your small business and start an experience draft." },
+  { title: "Prepare your listing", body: "Add the details and photos with NIHO's editing support. NIHO reviews the listing before it goes live." },
+  { title: "Set up payments and dates", body: "Choose an account you're authorized to use or connect Stripe. Stripe may ask you to verify your identity." },
+  { title: "Welcome your guests", body: "Once your listing and payout account are ready, bookings and guest details arrive in NIHO." },
 ];
 
 const YOU = [
@@ -52,6 +59,7 @@ const NIHO = [
 export default async function HostPage() {
   const document = await getPublishedPageDocument("host");
   const startUrl = config.hostSignupMode === "open" ? hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin) : null;
+  const steps = startUrl ? OPEN_STEPS : PILOT_STEPS;
   const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
   const signup = (props: BlockProps = {}) => (
     <section className="mt-8 max-w-2xl" aria-label="How to start">
@@ -60,7 +68,10 @@ export default async function HostPage() {
           <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
             {blockText(props, "label", "Start with your NIHO account")}
           </TrackedLink>
-          <p className="text-sm text-muted">You&apos;ll sign in or create an account on NIHO. Already a NIHO seller? You can use the same account.</p>
+          <p className="text-sm text-muted">
+            You&apos;ll sign in or create an account on NIHO, register as an individual or small business, and manage your listing, bookings and sales there.
+            NIHO reviews listings before they go live; Stripe may ask you to verify your identity. Already a NIHO seller? You can use the same account.
+          </p>
         </div>
       ) : (
         <Notice tone="info" title="We're starting with a small group of hosts">
@@ -89,7 +100,7 @@ export default async function HostPage() {
       <section className="mt-16" aria-labelledby="steps">
         <SectionHeading id="steps" eyebrow="How it works" title="From idea to first guests" />
         <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <li key={s.title} className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
               <span className="hand text-4xl" aria-hidden>
                 {i + 1}
@@ -112,7 +123,7 @@ export default async function HostPage() {
         </h2>
         <p className="text-ink-soft">
           Guests pay online when they book. Payments are processed by Stripe and paid out to the account you choose in NIHO. We&apos;ll explain the fees and
-          terms clearly before you list anything — nothing is charged to you for talking with us.
+          terms clearly before you list anything.{startUrl ? null : <>{" "}Nothing is charged to you for talking with us.</>}
         </p>
       </section>
     </div>
