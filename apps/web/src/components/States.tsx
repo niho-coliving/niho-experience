@@ -3,8 +3,8 @@ import Link from "next/link";
 import type { CheckoutErrorCode } from "@niho-experience/api-client";
 import { ButtonLink, buttonClass } from "./ui";
 
-export function ErrorState({ title = "We couldn't load this page", message = "The connection to our booking service failed. Nothing has been booked or charged.", onRetry }: { title?: string; message?: string; onRetry?: () => void }) {
-  return <div role="alert" className="container-page max-w-2xl py-16 text-center"><p className="eyebrow">Something went wrong</p><h1 className="mt-2 text-3xl">{title}</h1><p className="mt-4 text-ink-soft">{message}</p><div className="mt-8 flex flex-wrap justify-center gap-3">{onRetry ? <button type="button" onClick={onRetry} className={buttonClass("primary")}>Try again</button> : null}<Link href="/experiences" className={buttonClass(onRetry ? "secondary" : "primary")}>See all experiences</Link></div></div>;
+export function ErrorState({ title = "We couldn't load this page", message = "Please try again. If you already paid, use your confirmation email to check your booking.", onRetry }: { title?: string; message?: string; onRetry?: () => void }) {
+  return <div role="alert" className="container-page max-w-2xl py-16 text-center"><p className="eyebrow">Something went wrong</p><h1 className="mt-2 text-3xl">{title}</h1><p className="mt-4 text-ink-soft">{message}</p><div className="mt-8 flex flex-wrap justify-center gap-3">{onRetry ? <button type="button" onClick={onRetry} className={buttonClass("primary")}>Try again</button> : null}<Link href="/experiences" className={buttonClass(onRetry ? "secondary" : "primary")}>See all experiences</Link></div><p className="mt-5"><Link href="/help" className="font-bold text-moss underline">Booking help</Link></p></div>;
 }
 export function EmptyResults({ clearHref, searchActive = false }: { clearHref: string | null; searchActive?: boolean }) {
   const title = searchActive ? "No experiences match your search" : clearHref ? "Nothing matches these filters" : "No experiences are listed right now";

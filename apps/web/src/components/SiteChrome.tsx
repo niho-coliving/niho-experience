@@ -47,6 +47,7 @@ export function SiteHeader({ brandLabel, exploreLabel = "Experiences", hostLabel
                 {hostLabel || "Host with NIHO"}
               </Link>
             </li>
+            <li className="hidden sm:block"><Link href="/help" className="rounded-full px-3 py-2 hover:bg-sand">Help</Link></li>
           </ul>
         </nav>
         {/* A statement, not a control: the site is in English and prices are in yen. */}
@@ -86,6 +87,7 @@ export function SiteFooter({
                 Host an experience
               </Link>
             </li>
+            <li><Link href="/help" className="hover:underline">Booking help</Link></li>
           </ul>
         </nav>
         <RubberStamp className="size-[104px] rotate-[10deg] text-moss" />

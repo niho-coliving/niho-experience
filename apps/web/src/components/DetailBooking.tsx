@@ -137,6 +137,7 @@ export function BookingCard({ summary, label = "Check dates and book" }: { summa
         <div className="mt-5">
           <Notice tone="neutral" title="Bookings are paused">
             Please check back later.
+            <Link href="/help" className="mt-2 block font-bold text-moss underline">Ask NIHO</Link>
           </Notice>
         </div>
       )}
