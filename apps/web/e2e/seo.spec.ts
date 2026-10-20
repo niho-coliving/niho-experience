@@ -5,6 +5,21 @@ test.beforeEach(({}, testInfo) => test.skip(testInfo.project.name !== "desktop")
 
 const dinner = "/experiences/home-cooked-dinner-with-locals";
 
+test("public pages share their canonical URL without carrying queries or unapproved images", async ({ request }) => {
+  for (const path of ["/", "/experiences", "/host"]) {
+    const html = await (await request.get(`${path}?utm_source=sample&token=private`)).text();
+    // Next serializes an origin's root URL without the trailing slash.
+    const canonical = `http://localhost:3000${path === "/" ? "" : path}`;
+    expect(html).toContain(`<link rel="canonical" href="${canonical}"`);
+    expect(html).toContain(`<meta property="og:url" content="${canonical}"`);
+    expect(html).toContain('<meta property="og:locale" content="en_US"');
+    expect(html).toContain('<meta name="twitter:card" content="summary"');
+    expect(html).not.toContain('<meta property="og:image"');
+    expect(html).not.toContain('<meta name="twitter:image"');
+    expect(html).not.toContain('hreflang=');
+  }
+});
+
 test("experience facts and links are in the initial HTML", async ({ request }) => {
   const html = await (await request.get(dinner)).text();
   for (const fact of [

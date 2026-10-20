@@ -22,6 +22,7 @@ import { editorialOf, FEATURED_HOST, FEATURED_STORY, shortName, themeEntries, th
 import type { CardDatesSource } from "@/components/CardDates";
 import type { ExperienceDetailForSite } from "@/lib/experience-types";
 import { getPublishedPageDocument } from "@/lib/page-documents";
+import { publicMetadata, SITE_DESCRIPTION } from "@/lib/public-metadata";
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
@@ -34,7 +35,7 @@ const STEPS: { icon: HandIconName; title: string; body: string }[] = [
 
 export async function generateMetadata(): Promise<Metadata> {
   const document = await getPublishedPageDocument("home");
-  return document ? { title: document.title } : {};
+  return publicMetadata(document?.title ?? "Meet the people of Kamakura", SITE_DESCRIPTION, `${config.siteUrl}/`);
 }
 
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {

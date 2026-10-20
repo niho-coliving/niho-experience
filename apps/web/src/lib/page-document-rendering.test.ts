@@ -44,7 +44,7 @@ describe("published documents use the existing server-rendered business componen
       expect(html).not.toContain("Meet the people who make Kamakura home");
       if (pageId === "experiences") expect(html).toContain('role="search"');
     }
-    state.documents.home = publishedDocument("home"); expect(await homeMetadata()).toEqual({ title: "Edited home" });
+    state.documents.home = publishedDocument("home"); expect(await homeMetadata()).toMatchObject({ title: "Edited home", alternates: { canonical: "https://experience.example.com/" }, openGraph: { title: "Edited home", url: "https://experience.example.com/" } });
   });
   it("詳細の公開テンプレートでも価格・seller・JSON-LD・予約先はカタログに固定する", async () => {
     const document = publishedDocument("experience-detail");
@@ -57,6 +57,8 @@ describe("published documents use the existing server-rendered business componen
     state.config.bookingsEnabled = false;
     const paused = renderToStaticMarkup(await ExperiencePage(props));
     expect(paused).toContain("Bookings are paused"); expect(paused).not.toContain("Choose your date"); expect(paused).not.toContain('href="/experiences/home-cooked-dinner-with-locals/book"');
+    expect(paused).toContain('"@type":"TouristTrip"');
+    expect(paused).not.toContain('"@type":"Offer"');
   });
   it("hostのラベルを編集しても登録先・開放条件はhost設定に固定する", async () => {
     const document = publishedDocument("host"); document.body = document.body.map((node) => node.type === "component" ? { ...node, props: { label: "Join NIHO" } } : node); state.documents.host = document;

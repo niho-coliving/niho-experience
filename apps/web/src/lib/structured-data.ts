@@ -17,7 +17,7 @@ export function breadcrumbJsonLd(siteUrl: string, items: { name: string; path: s
 }
 
 /** Public details can be described in production. Preview fixtures are never emitted as real structured data. */
-export function experienceJsonLd(e: ExperienceDetailForSite, siteUrl: string, preview = false): JsonLd | null {
+export function experienceJsonLd(e: ExperienceDetailForSite, siteUrl: string, preview = false, bookingsEnabled = true): JsonLd | null {
   if (preview) return null;
   const url = safeHttpsUrl(e.canonicalUrl) ?? `${siteUrl}/experiences/${e.slug}`;
   const images = [e.cover, ...e.photos]
@@ -35,7 +35,7 @@ export function experienceJsonLd(e: ExperienceDetailForSite, siteUrl: string, pr
     ...(images.length ? { image: images } : {}),
     inLanguage: e.contentLanguage.toLowerCase(),
     provider: { "@type": "Organization", name: e.provider.name },
-    ...(e.booking.checkoutAvailable && e.offers.length
+    ...(bookingsEnabled && e.booking.checkoutAvailable && e.offers.length
       ? {
           offers: {
             "@type": "Offer",

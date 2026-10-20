@@ -8,6 +8,7 @@ import { config } from "@/lib/config";
 import { safeHttpsUrl } from "@/lib/safe-url";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { HOST_BAND_VIDEO } from "@/lib/site-media";
+import { publicMetadata } from "@/lib/public-metadata";
 
 function hostStartUrl(value: string, nihoOrigin: string): string | null {
   try {
@@ -23,11 +24,7 @@ function hostStartUrl(value: string, nihoOrigin: string): string | null {
 
 export async function generateMetadata(): Promise<Metadata> {
   const document = await getPublishedPageDocument("host");
-  return {
-    title: document?.title ?? "Host an experience with NIHO",
-    description: "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.",
-    alternates: { canonical: `${config.siteUrl}/host` },
-  };
+  return publicMetadata(document?.title ?? "Host an experience with NIHO", "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.", `${config.siteUrl}/host`);
 }
 
 const PILOT_STEPS = [
