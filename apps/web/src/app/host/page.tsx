@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { TrackView, TrackedLink } from "@/components/Analytics";
 import { HandIcon } from "@/components/HandIcon";
 import { buttonClass, Notice, SectionHeading } from "@/components/ui";
 import { config } from "@/lib/config";
 import { safeHttpsUrl } from "@/lib/safe-url";
+import { getPublishedPageDocument } from "@/lib/page-documents";
 
 function hostStartUrl(value: string, nihoOrigin: string): string | null {
   try {
@@ -17,9 +19,10 @@ function hostStartUrl(value: string, nihoOrigin: string): string | null {
   } catch { return null; }
 }
 
-export function generateMetadata(): Metadata {
+export async function generateMetadata(): Promise<Metadata> {
+  const document = await getPublishedPageDocument("host");
   return {
-    title: "Host an experience with NIHO",
+    title: document?.title ?? "Host an experience with NIHO",
     description: "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.",
     alternates: { canonical: `${config.siteUrl}/host` },
   };
@@ -46,12 +49,32 @@ const NIHO = [
   "Answer guest questions before the day",
 ];
 
-export default function HostPage() {
+export default async function HostPage() {
+  const document = await getPublishedPageDocument("host");
   const startUrl = config.hostSignupMode === "open" ? hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin) : null;
   const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
-  return (
+  const signup = (props: BlockProps = {}) => (
+    <section className="mt-8 max-w-2xl" aria-label="How to start">
+      {startUrl ? (
+        <div className="space-y-3">
+          <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
+            {blockText(props, "label", "Start with your NIHO account")}
+          </TrackedLink>
+          <p className="text-sm text-muted">You&apos;ll sign in or create an account on NIHO. Already a NIHO seller? You can use the same account.</p>
+        </div>
+      ) : (
+        <Notice tone="info" title="We're starting with a small group of hosts">
+          <p>During the first season we work directly with a few hosts we know. Online sign-up opens after that.
+            {contactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}</p>
+          {contactUrl ? <p className="mt-3"><TrackedLink href={contactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
+            {blockText(props, "label", "Tell us you're interested")}
+          </TrackedLink></p> : null}
+        </Notice>
+      )}
+    </section>
+  );
+  const fallback = (
     <div className="container-page pt-8 sm:pt-12">
-      <TrackView event="host_view" props={{ signup_mode: startUrl ? "open" : "pilot" }} />
       <header className="max-w-2xl space-y-4">
         <p className="eyebrow">For people in Kamakura</p>
         <h1 className="text-[2.5rem] sm:text-[3.5rem]">Share what you love with travelers</h1>
@@ -61,35 +84,7 @@ export default function HostPage() {
         </p>
       </header>
 
-      <section className="mt-8 max-w-2xl" aria-label="How to start">
-        {startUrl ? (
-          <div className="space-y-3">
-            <TrackedLink
-              href={startUrl}
-              event="host_start"
-              props={{ signup_mode: "open" }}
-              className={buttonClass("primary", "text-lg")}
-            >
-              Start with your NIHO account
-            </TrackedLink>
-            <p className="text-sm text-muted">You&apos;ll sign in or create an account on NIHO. Already a NIHO seller? You can use the same account.</p>
-          </div>
-        ) : (
-          <Notice tone="info" title="We're starting with a small group of hosts">
-            <p>
-              During the first season we work directly with a few hosts we know. Online sign-up opens after that.
-              {contactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}
-            </p>
-            {contactUrl ? (
-              <p className="mt-3">
-                <TrackedLink href={contactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
-                  Tell us you&apos;re interested
-                </TrackedLink>
-              </p>
-            ) : null}
-          </Notice>
-        )}
-      </section>
+      {signup()}
 
       <section className="mt-16" aria-labelledby="steps">
         <SectionHeading id="steps" eyebrow="How it works" title="From idea to first guests" />
@@ -122,6 +117,10 @@ export default function HostPage() {
       </section>
     </div>
   );
+  return <>
+    <TrackView event="host_view" props={{ signup_mode: startUrl ? "open" : "pilot" }} />
+    <PageDocumentContent document={document} pageId="host" fallback={fallback} slots={{ HostSignupCTA: (props) => <div className="container-page">{signup(props)}</div> }} />
+  </>;
 }
 
 function Column({ title, items, highlight = false }: { title: string; items: string[]; highlight?: boolean }) {

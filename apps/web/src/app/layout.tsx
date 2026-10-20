@@ -7,7 +7,9 @@ import { AnalyticsSetup } from "@/components/Analytics";
 import { AttributionCapture } from "@/components/AttributionCapture";
 import { HandIconSprite } from "@/components/HandIcon";
 import { analyticsModeForRuntime } from "@/lib/analytics";
-import { PreviewBanner, SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { PreviewBanner } from "@/components/SiteChrome";
+import { DocumentChrome } from "@/components/DocumentChrome";
+import { getPublishedPageDocument } from "@/lib/page-documents";
 import { config, isPreview } from "@/lib/config";
 
 // Every page reads environment settings (indexing, API mode, host sign-up) at
@@ -31,8 +33,9 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const analyticsMode = analyticsModeForRuntime(config.apiMode, config.siteUrl, config.umamiWebsiteId);
+  const chrome = await getPublishedPageDocument("chrome");
 
   return (
     <html lang="en">
@@ -44,11 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AnalyticsSetup mode={analyticsMode} websiteId={config.umamiWebsiteId} />
         <AttributionCapture enabled={config.publicApiVersion === "1.2"} />
         {isPreview ? <PreviewBanner catalog={config.mockCatalog} /> : null}
-        <SiteHeader />
-        <main id="main" className="flex-1">
-          {children}
-        </main>
-        <SiteFooter />
+        <DocumentChrome document={chrome}>{children}</DocumentChrome>
       </body>
     </html>
   );
