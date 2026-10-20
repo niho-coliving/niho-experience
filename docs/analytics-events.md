@@ -4,7 +4,7 @@
 
 ## 現状
 
-- **どこにも送っていない。** 計測ツールと同意の扱いが決まるまで、本番では何も送らない。
+- Umamiの方式は決定済み。本番のHTTPモード・正規origin・Website IDが揃った環境だけで送信する。実際の本番設定・受入とは区別する。
 - プレビュー（mock）では、ブラウザ内の `window.__nihoEvents` に記録し、開発者ツールのconsoleにも出す。E2Eで内容を検証している。
 - 確定予約・売上は数えない。Checkoutへ進んだことは売上ではない。確定予約と売上は、NIHO共通基盤の確定データ（webhook後の台帳）を正にする。
 
@@ -12,12 +12,12 @@
 
 | イベント | いつ | 値 |
 | --- | --- | --- |
-| `list_view` | 一覧を表示 | `theme`（v0.1では `all`）、`date_filtered`（v0.1では `false`）、`result_count` |
+| `list_view` | 一覧を表示 | `theme`（テーマのAPI絞り込みはv1.2）、`date_filtered`、`result_count` |
 | `experience_view` | 詳細を表示 | `experience`（slug）。v0.1のSSR詳細応答には残席がないため、availability は送らない |
 | `slot_continue` | 日時・人数を選び「Continue」 | `experience`、`guests` |
 | `booking_form_view` | 見積が取れて予約入力を表示 | `experience`、`guests`、`total_jpy` |
 | `booking_unavailable` | 見積が取れず予約入力を出せない | `experience`、`error_code` |
-| `checkout_start` | 予約入力で決済へ進むボタンを押した（入力不備でも1回） | `experience`、`guests`、`total_jpy` |
+| `checkout_start` | 画面側の入力確認を通り、Checkout要求を送る | `experience`、`guests`、`total_jpy` |
 | `checkout_error` | 決済へ進めなかった | `experience`、`error_code`（`invalid_contact` / `slot_sold_out` / `unavailable` 等） |
 | `host_view` | 提供者向けページを表示 | `signup_mode`（`pilot` / `open`） |
 | `host_start` | 提供者の開始・問い合わせリンクを押した | `signup_mode` |
@@ -32,6 +32,10 @@
 - v0.1の公開APIは一覧のテーマ/日付絞り込みやSSR残席を返さないため、それらを実行した扱いのイベント値を作らない。
 - 計測ツールを入れる時は、ページビューのURLから `/experiences/*/book` と `/booking/*` のqueryを取り除く。session replay（画面録画）は予約入力・決済復帰で使わない。
 - 計測の失敗や拒否で予約が止まらない（送信は投げっぱなしで、例外を握りつぶす）。
+- 送信直前にもDNTを確認する。読み込み待ちイベントは発生時の安全なURLを保持し、移動先の予約URLに付け替えない。待機中にDNTが有効なら送信せず破棄する。
+- Umami payloadを公開ルート・固定のページ種別タイトル・Website ID・hostname・screen・language・originのみのreferrer・許可イベントで再構成する。生のtitle・distinct ID・tag・未知の追加項目は捨てる。未対応ルート、異なるorigin、認証情報・別portを含むURLは送らない。
+
+送信項目とhookは [Umami公式の送信仕様](https://docs.umami.is/docs/api/sending-stats) と [Tracker設定](https://docs.umami.is/docs/tracker-configuration) を参照。外部scriptの固定SHA-384やCSP、計測サービスの設定はこの変更で更新しない。
 
 ## 計測ツールを決めた後の作業
 
