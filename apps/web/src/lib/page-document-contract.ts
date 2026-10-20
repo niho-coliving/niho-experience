@@ -1,12 +1,13 @@
 import { parsePageDocument, type BlockContracts, type PageDocument, type PageNode } from "@niho/web/core";
 
-export const PAGE_IDS = ["home", "experiences", "experience-detail", "host", "chrome"] as const;
+export const PAGE_IDS = ["home", "experiences", "experience-detail", "booking", "host", "chrome"] as const;
 export type PageId = typeof PAGE_IDS[number];
 // NIHO API #19171 の表示契約。実データ・価格・リンク・認証設定は props に持たせない。
 export const DOCUMENT_BLOCKS = {
   ExperienceGrid: { props: { heading: { type: "string", maxLength: 120 }, emptyMessage: { type: "string", maxLength: 200 }, columns: { type: "enum", values: ["two", "three"] } } },
   ExperienceDetail: { props: { overviewHeading: { type: "string", maxLength: 120 }, detailsHeading: { type: "string", maxLength: 120 } } },
   BookingCTA: { props: { label: { type: "string", maxLength: 100 } } },
+  BookingPanel: { props: {} },
   HostSignupCTA: { props: { label: { type: "string", maxLength: 100 } } },
   SiteHeader: { props: { brandLabel: { type: "string", maxLength: 80 }, exploreLabel: { type: "string", maxLength: 80 }, hostLabel: { type: "string", maxLength: 80 } } },
   SiteFooter: { props: { description: { type: "string", maxLength: 300 }, copyright: { type: "string", maxLength: 160 } } }
@@ -16,6 +17,7 @@ const required: Record<PageId, readonly [string, DocumentBlock][]> = {
   home: [["experience-grid", "ExperienceGrid"]],
   experiences: [["experience-grid", "ExperienceGrid"]],
   "experience-detail": [["experience-detail", "ExperienceDetail"], ["booking-cta", "BookingCTA"]],
+  booking: [["booking-panel", "BookingPanel"]],
   host: [["host-signup-cta", "HostSignupCTA"]],
   chrome: [["site-header", "SiteHeader"], ["site-footer", "SiteFooter"]]
 };

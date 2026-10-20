@@ -6,6 +6,7 @@ export function publishedDocument(pageId: PageId): PageDocument {
   const blocks = {
     home: [["experience-grid", "ExperienceGrid"]], experiences: [["experience-grid", "ExperienceGrid"]],
     "experience-detail": [["experience-detail", "ExperienceDetail"], ["booking-cta", "BookingCTA"]],
+    booking: [["booking-panel", "BookingPanel"]],
     host: [["host-signup-cta", "HostSignupCTA"]], chrome: [["site-header", "SiteHeader"], ["site-footer", "SiteFooter"]]
   };
   return {

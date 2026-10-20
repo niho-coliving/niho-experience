@@ -6,7 +6,7 @@ test.beforeEach(async ({ request }, testInfo) => {
   await request.get("http://127.0.0.1:3251/__test/reset");
 });
 test("公開本文・スタイル・業務ブロックをSSRし、一覧の検索を維持する", async ({ page, request }, testInfo) => {
-  for (const [path, id] of [["/", "home"], ["/experiences", "experiences"], ["/experiences/home-cooked-dinner-with-locals", "experience-detail"], ["/host", "host"]]) {
+  for (const [path, id] of [["/", "home"], ["/experiences", "experiences"], ["/experiences/home-cooked-dinner-with-locals", "experience-detail"], ["/experiences/home-cooked-dinner-with-locals/book", "booking"], ["/host", "host"]]) {
     const html = await (await request.get(path!)).text();
     expect(html).toContain(`Published ${id} text`);
     expect(html).toContain("data-nw-scope");
@@ -34,6 +34,9 @@ test("未公開・エラー・不正文書は現行ページへ戻り、業務�
   await page.goto("/experiences/home-cooked-dinner-with-locals");
   await expect(page.getByRole("link", { name: /Check dates/ }).first()).toHaveAttribute("href", "/experiences/home-cooked-dinner-with-locals/book");
   await expect(page.locator("main")).toContainText("¥6,500");
+  await page.goto("/experiences/home-cooked-dinner-with-locals/book");
+  await expect(page.locator("main")).toContainText("Choose a date");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
   await page.goto("/host");
   await expect(page.getByRole("link", { name: /Tell us.*interested/ })).toHaveAttribute("href", "https://niho.example/contact");
 });
