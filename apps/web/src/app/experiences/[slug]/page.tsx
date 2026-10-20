@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TrackView } from "@/components/Analytics";
+import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { BookingCard, MobileBookingBar, type BookingSummary } from "@/components/DetailBooking";
 import { AllPhotosButton, MobileGallery } from "@/components/DetailGallery";
 import { FaceBadge } from "@/components/Face";
@@ -21,6 +22,7 @@ import { addMinutesToClock, formatClock, scheduleLine, scheduleSummary } from "@
 import { seoDescription } from "@/lib/seo-description";
 import { breadcrumbJsonLd, experienceJsonLd } from "@/lib/structured-data";
 import { iconForText } from "@/lib/themes";
+import { getPublishedPageDocument } from "@/lib/page-documents";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
 async function readExperience(slug: string, query: SearchParams) {
@@ -86,7 +88,7 @@ function accessFact(accessNote: string, placeName: string): { main: string; sub:
 
 export default async function ExperiencePage({ params, searchParams }: Props) {
   const query = await searchParams;
-  const e = await readExperience((await params).slug, query);
+  const [e, document] = await Promise.all([readExperience((await params).slug, query), getPublishedPageDocument("experience-detail")]);
   const checkoutCancelled = query.checkout === "cancelled";
   const sellerLegalUrl = safeHttpsUrl(e.seller.legalNoticeUrl);
   // One policy for every option: show it here so travelers see it before choosing a date.
@@ -152,13 +154,9 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
     ? e.hosts.map((host) => ({ name: host.displayName, initial: initialOf(host.displayName), image: host.avatar }))
     : [faceOf(e)];
 
-  return (
+  const renderDetail = (props: BlockProps = {}, includeBooking = true) => (
     // clip (not hidden) keeps the tilted stamp from widening the page without breaking the sticky card and bar.
     <div className="overflow-x-clip">
-      <TrackView event="experience_view" props={{ experience: e.slug }} />
-      <JsonLd data={breadcrumbJsonLd(config.siteUrl, [{ name: "Home", path: "/" }, { name: "Experiences", path: "/experiences" }, { name: e.title, path: `/experiences/${e.slug}` }])} />
-      <JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview)} />
-
       <MobileGallery photos={photos} title={e.title} preview={isPreview} />
 
       <div className="container-page">
@@ -213,7 +211,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
 
         <DesktopGallery photos={photos} title={e.title} preview={isPreview} />
 
-        <div className="grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4">
+        <div className={includeBooking ? "grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4" : "grid gap-10 pt-6 lg:pt-4"}>
           <div className="min-w-0">
             <section className="pt-6" aria-label="Overview">
               <p className="text-lg leading-relaxed">{e.lead}</p>
@@ -229,7 +227,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
               ) : null}
             </section>
 
-            <Section title="What you'll do">
+            <Section title={blockText(props, "overviewHeading", "What you'll do")}>
               <div className="space-y-4">
                 {paragraphs.slice(0, 2).map((paragraph, i) => (
                   <p key={i}>{paragraph}</p>
@@ -251,7 +249,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
             </Section>
 
             {e.timeline.length ? (
-              <Section title="How the time flows">
+              <Section title={blockText(props, "detailsHeading", "How the time flows")}>
                 <ol>
                   {e.timeline.map((step, i) => {
                     const photo = step.photoIndex !== null ? (e.photos[step.photoIndex] ?? null) : null;
@@ -402,15 +400,23 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
             </Section>
           </div>
 
-          <aside id="book" aria-labelledby="book-heading" className="hidden lg:sticky lg:top-[88px] lg:block lg:self-start lg:pt-12">
+          {includeBooking ? <aside id="book" aria-labelledby="book-heading" className="hidden lg:sticky lg:top-[88px] lg:block lg:self-start lg:pt-12">
             <BookingCard summary={booking} />
-          </aside>
+          </aside> : null}
         </div>
       </div>
-
-      <MobileBookingBar summary={booking} />
     </div>
   );
+  return <>
+    <TrackView event="experience_view" props={{ experience: e.slug }} />
+    <JsonLd data={breadcrumbJsonLd(config.siteUrl, [{ name: "Home", path: "/" }, { name: "Experiences", path: "/experiences" }, { name: e.title, path: `/experiences/${e.slug}` }])} />
+    <JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview)} />
+    <PageDocumentContent document={document} pageId="experience-detail" fallback={renderDetail()} slots={{
+      ExperienceDetail: (props) => renderDetail(props, false),
+      BookingCTA: (props) => <div className="container-page mt-8 hidden lg:block"><aside id="book" aria-labelledby="book-heading"><BookingCard summary={booking} label={blockText(props, "label", "Check dates and book")} /></aside></div>
+    }} />
+    <MobileBookingBar summary={booking} />
+  </>;
 }
 
 /** Desktop: the cover and up to four more photos, with every photo one click away. */

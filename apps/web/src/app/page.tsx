@@ -1,5 +1,7 @@
 import NextImage from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
+import { PageDocumentContent, blockText } from "@/components/PageDocument";
 import { AmbientVideo } from "@/components/AmbientVideo";
 import { ExperienceCard, InviteCard } from "@/components/ExperienceCard";
 import { FaceBadge } from "@/components/Face";
@@ -18,6 +20,7 @@ import { scheduleLine } from "@/lib/schedule";
 import { BANNER_VIDEO, HERO_PHOTO, HOST_BAND_VIDEO, POSTCARDS, SAMPLE_MEDIA, STRIP_VIDEOS } from "@/lib/site-media";
 import { shortTitle, themeEntries, themeOf, type Theme } from "@/lib/themes";
 import type { ExperienceDetailForSite } from "@/lib/experience-types";
+import { getPublishedPageDocument } from "@/lib/page-documents";
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
@@ -28,10 +31,14 @@ const STEPS: { icon: HandIconName; title: string; body: string }[] = [
   { icon: "mail", title: "Get the details by email", body: "NIHO emails your confirmation and the meeting details." },
 ];
 
+export async function generateMetadata(): Promise<Metadata> {
+  const document = await getPublishedPageDocument("home");
+  return document ? { title: document.title } : {};
+}
+
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const query = await searchParams;
-  const api = await getApi(query);
-  const result = await listExperiencesForSite("kamakura", query);
+  const [api, result, document] = await Promise.all([getApi(query), listExperiencesForSite("kamakura", query), getPublishedPageDocument("home")]);
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const summaries = result.ok ? result.data.experiences : [];
   const details = await loadDetails(api, summaries, config.publicApiVersion !== "1.0");
@@ -50,7 +57,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   const capacities = listed.flatMap((experience) => experience.offers.map((offer) => offer.capacity));
   const days = upcomingDays(new Date(), 14);
 
-  return (
+  const fallback = (
     <>
       <section className="relative" aria-label="Welcome">
         <div className="relative h-[560px] overflow-hidden bg-[#222] lg:h-[680px]">
@@ -245,6 +252,21 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
       </section>
     </>
   );
+  return <PageDocumentContent document={document} pageId="home" fallback={fallback} slots={{ ExperienceGrid: (props) => (
+    <section className="container-page pt-14 lg:pt-[88px]" aria-label="Experiences">
+      <SectionHeading
+        eyebrow={cards.length ? `${numberWord(cards.length)} to choose from` : undefined}
+        title={blockText(props, "heading", "Experiences hosted by neighbors")}
+        action={cards.length ? <Link href="/experiences" className="link-leaf">See all</Link> : null}
+      />
+      {cards.length ? (
+        <ul className={`grid gap-x-6 gap-y-11 sm:grid-cols-2 ${props.columns === "two" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+          {cards.map((card, index) => <li key={card.slug}><ExperienceCard card={card} priority={index === 0} preview={isPreview} previewLabel={previewListingLabel} /></li>)}
+          <li><InviteCard /></li>
+        </ul>
+      ) : <><EmptyResults clearHref={null} />{props.emptyMessage ? <p>{String(props.emptyMessage)}</p> : null}</>}
+    </section>
+  ) }} />;
 }
 
 function Featured({ experience: e, preview }: { experience: ExperienceDetailForSite; preview: boolean }) {

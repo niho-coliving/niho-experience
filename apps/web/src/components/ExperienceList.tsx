@@ -29,6 +29,7 @@ export function ExperienceList({
   previewLabel,
   nihoWebOrigin,
   empty,
+  columns = "three",
 }: {
   cards: CardModel[];
   days: DayOption[];
@@ -38,6 +39,7 @@ export function ExperienceList({
   preview: boolean;
   previewLabel: string;
   nihoWebOrigin: string;
+  columns?: "two" | "three";
   /** Shown instead of the list when the server returned no experiences (search or empty catalog). */
   empty: ReactNode;
 }) {
@@ -190,7 +192,7 @@ export function ExperienceList({
           {status}
         </p>
         {visible.length ? (
-          <ul className="grid gap-x-6 gap-y-11 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className={`grid gap-x-6 gap-y-11 sm:grid-cols-2 ${columns === "two" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
             {visible.map((card, index) => {
               const occurrence = matches?.get(card.slug);
               return (

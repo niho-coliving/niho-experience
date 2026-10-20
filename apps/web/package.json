@@ -11,13 +11,15 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p e2e",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:documents": "playwright test --config playwright.documents.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/caveat": "^5.3.0",
     "@fontsource-variable/fraunces": "^5.2.8",
     "@fontsource-variable/nunito": "^5.2.7",
     "@niho-experience/api-client": "*",
+    "@niho/web": "github:niho-coliving/niho-web#103cc8567fc6a6cb29adc66bbb6b63eaac551adb",
     "next": "16.3.8",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

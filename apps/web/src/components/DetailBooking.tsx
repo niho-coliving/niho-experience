@@ -65,7 +65,7 @@ function Price({ summary, size = "lg" }: { summary: BookingSummary; size?: "lg" 
 }
 
 /** Desktop: the sticky card beside the description. Party size and totals stay on the booking page. */
-export function BookingCard({ summary }: { summary: BookingSummary }) {
+export function BookingCard({ summary, label = "Check dates and book" }: { summary: BookingSummary; label?: string }) {
   const dates = useNextDates(summary);
   return (
     <div className="rounded-[26px] border border-line bg-white p-6 shadow-[0_12px_36px_rgb(0_0_0/0.08)]">
@@ -119,7 +119,7 @@ export function BookingCard({ summary }: { summary: BookingSummary }) {
             ) : null}
           </div>
           <Link href={bookHref(summary.slug)} className={buttonClass("primary", "mt-5 w-full")}>
-            Check dates and book
+            {label}
           </Link>
           <ul className="mt-[18px] grid gap-2 text-sm text-ink-soft">
             {summary.assurances.map((item) => (

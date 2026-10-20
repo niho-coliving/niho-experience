@@ -22,24 +22,23 @@ export function PreviewBanner({ catalog = "synthetic" }: { catalog?: "synthetic"
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({ brandLabel, exploreLabel = "Experiences", hostLabel }: { brandLabel?: string; exploreLabel?: string; hostLabel?: string } = {}) {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur-md backdrop-saturate-[1.2]">
       <div className="container-page flex h-16 items-center gap-1.5">
         <Link href="/" className="flex shrink-0 items-baseline gap-1.5 font-display text-xl font-semibold tracking-[-0.01em]">
-          <span>NIHO</span>
-          <span className="font-normal text-ink-soft max-[359px]:sr-only">Experience</span>
+          {brandLabel ? <span>{brandLabel}</span> : <><span>NIHO</span><span className="font-normal text-ink-soft max-[359px]:sr-only">Experience</span></>}
         </Link>
         <nav aria-label="Main" className="ml-auto">
           <ul className="flex items-center gap-0.5 text-[0.9375rem] font-bold sm:gap-1">
             <li>
               <Link href="/experiences" className="rounded-full px-2.5 py-2 hover:bg-sand sm:px-3">
-                Experiences
+                {exploreLabel}
               </Link>
             </li>
             <li className="hidden sm:block">
               <Link href="/host" className="rounded-full px-3 py-2 hover:bg-sand">
-                Host with NIHO
+                {hostLabel || "Host with NIHO"}
               </Link>
             </li>
           </ul>
@@ -54,15 +53,16 @@ export function SiteHeader() {
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ description = "Small experiences hosted by people who live in Kamakura. Made by NIHO, a shared living room in the neighborhood.", copyright }: { description?: string; copyright?: string } = {}) {
   return (
     <footer className="mt-24 border-t border-line bg-white">
       <div className="container-page grid gap-8 pt-11 pb-14 sm:grid-cols-[2fr_1fr_auto] sm:items-start">
         <div className="max-w-md">
           <p className="font-display text-xl font-semibold">NIHO Experience</p>
           <p className="mt-2 text-sm text-muted">
-            Small experiences hosted by people who live in Kamakura. Made by NIHO, a shared living room in the neighborhood.
+            {description}
           </p>
+          {copyright ? <p className="mt-2 text-sm text-muted">{copyright}</p> : null}
         </div>
         <nav aria-label="Footer">
           <ul className="grid gap-2 text-sm font-bold">
