@@ -1,4 +1,4 @@
-import type { ExperienceSummary } from "@niho-experience/api-client";
+import type { ExperienceSummaryForSite } from "./experience-types";
 
 /** Public listing query parameters only. Booking input never travels in the URL. */
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -12,7 +12,7 @@ export function normalizeExperienceQuery(value: string | string[] | undefined): 
 }
 
 /** Search only the public summary fields already returned for the listing. */
-export function filterExperienceSummaries(items: ExperienceSummary[], query: string): ExperienceSummary[] {
+export function filterExperienceSummaries(items: ExperienceSummaryForSite[], query: string): ExperienceSummaryForSite[] {
   const terms = normalizeExperienceQuery(query).toLocaleLowerCase("en-US").split(" ").filter(Boolean);
   if (!terms.length) return items;
 

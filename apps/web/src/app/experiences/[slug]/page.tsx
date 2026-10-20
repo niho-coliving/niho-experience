@@ -6,8 +6,9 @@ import { JsonLd } from "@/components/JsonLd";
 import { Photo } from "@/components/Photo";
 import { PolicyDetails } from "@/components/Policy";
 import { Notice, Pill } from "@/components/ui";
-import { getApi } from "@/lib/api";
+import { getExperienceForSite } from "@/lib/api";
 import { config, isPreview, previewListingLabel } from "@/lib/config";
+import { imageAlt, hostBio } from "@/lib/experience-copy";
 import { safeHttpsUrl } from "@/lib/safe-url";
 import { seoDescription } from "@/lib/seo-description";
 import type { SearchParams } from "@/lib/filters";
@@ -16,7 +17,7 @@ import { breadcrumbJsonLd, experienceJsonLd } from "@/lib/structured-data";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
 async function readExperience(slug: string, query: SearchParams) {
-  const result = await (await getApi(query)).getExperience(slug);
+  const result = await getExperienceForSite(slug, query);
   if (!result.ok) { if (result.kind === "not_found") notFound(); throw new Error("Public experience unavailable"); }
   return result.data.experience;
 }
@@ -42,12 +43,12 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
       {checkoutCancelled ? <div className="mt-5"><Notice tone="info" title="Checkout cancelled" role="status" action={<Link href={`/experiences/${e.slug}/book`} className="font-bold text-moss underline underline-offset-4">Choose a date</Link>} /></div> : null}
       <header className="mt-4 max-w-3xl space-y-3"><p className="eyebrow">{e.region.name}</p>{isPreview ? <Pill tone="sample">{previewListingLabel}</Pill> : null}<h1 className="text-[2.125rem] leading-tight sm:text-5xl">{e.title}</h1><p className="text-lg text-ink-soft">{e.lead}</p></header>
       <dl className="mt-6 grid grid-cols-2 gap-4 rounded-[var(--radius-card)] border border-line bg-surface p-4 sm:grid-cols-4"><Fact label="Duration" value={e.offers.length ? formatDuration(e.offers[0]!.durationMinutes) : "Ask host"} /><Fact label="Language" value={e.languageNote} /><Fact label="Provider" value={e.provider.name} /><Fact label="Price" value={e.offers.length ? `From ${formatYen(Math.min(...e.offers.map((o) => o.pricing.adultPriceYen)))} per adult` : "See options"} /></dl>
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr]" role="group" aria-label="Experience photos"><Photo image={e.cover} alt={e.title} priority preview={isPreview} sizes="(min-width: 64rem) 780px, 100vw" aspect="aspect-[4/3] sm:aspect-[16/10]" className="sm:col-span-2 lg:col-span-1 lg:row-span-2" />{e.photos.slice(1, 3).map((photo, index) => <Photo key={`${photo.url}-${index}`} image={photo} alt={`${e.title}, another view ${index + 2}`} preview={isPreview} sizes="(min-width: 64rem) 380px, 50vw" aspect="aspect-[4/3] sm:aspect-[16/10]" />)}</div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr]" role="group" aria-label="Experience photos"><Photo image={e.cover} alt={imageAlt(e.cover, e.title)} priority preview={isPreview} sizes="(min-width: 64rem) 780px, 100vw" aspect="aspect-[4/3] sm:aspect-[16/10]" className="sm:col-span-2 lg:col-span-1 lg:row-span-2" />{e.photos.slice(1, 3).map((photo, index) => <Photo key={`${photo.url}-${index}`} image={photo} alt={imageAlt(photo, `${e.title}, another view ${index + 2}`)} preview={isPreview} sizes="(min-width: 64rem) 380px, 50vw" aspect="aspect-[4/3] sm:aspect-[16/10]" />)}</div>
     </div>
     <div className="container-page mt-10 grid gap-12 lg:grid-cols-[minmax(0,1fr)_24rem]"><div className="min-w-0 space-y-10">
       <Section title="What you'll do"><div className="space-y-4">{e.description.split(/\n\s*\n/).map((p, i) => <p key={i}>{p}</p>)}</div>{e.highlights.length ? <List items={e.highlights} /> : null}</Section>
       {e.timeline.length ? <Section title="How the time flows"><ol className="space-y-4 border-l-2 border-line pl-6">{e.timeline.map((step, i) => <li key={i}><p className="font-bold">{step.time ? `${step.time} · ` : ""}{step.title}</p><p className="text-ink-soft">{step.text}</p></li>)}</ol></Section> : null}
-      <Section title="The people behind the experience"><p className="text-ink-soft">Offered by <strong className="text-ink">{e.provider.name}</strong>{e.provider.tagline ? ` — ${e.provider.tagline}` : "."}</p>{e.hosts.length ? <><h3 className="mt-5 text-lg">{e.hosts.length > 1 ? "Your hosts" : "Your host"}</h3><div className="mt-3 grid gap-3 sm:grid-cols-2">{e.hosts.map((host) => <div key={host.displayName} className="flex items-center gap-3 rounded-xl bg-sand p-4">{host.avatar ? <Photo image={host.avatar} alt={host.displayName} sizes="64px" rounded="rounded-full" aspect="aspect-square" className="size-16 shrink-0" /> : null}<p className="font-bold">{host.displayName}</p></div>)}</div></> : null}</Section>
+      <Section title="The people behind the experience"><p className="text-ink-soft">Offered by <strong className="text-ink">{e.provider.name}</strong>{e.provider.tagline ? ` — ${e.provider.tagline}` : "."}</p>{e.hosts.length ? <><h3 className="mt-5 text-lg">{e.hosts.length > 1 ? "Your hosts" : "Your host"}</h3><div className="mt-3 grid gap-3 sm:grid-cols-2">{e.hosts.map((host) => { const bio = hostBio(host); return <div key={host.displayName} className="flex items-start gap-3 rounded-xl bg-sand p-4">{host.avatar ? <Photo image={host.avatar} alt={imageAlt(host.avatar, host.displayName)} sizes="64px" rounded="rounded-full" aspect="aspect-square" className="size-16 shrink-0" /> : null}<div><p className="font-bold">{host.displayName}</p>{bio ? <p className="mt-1 text-sm text-ink-soft">{bio}</p> : null}</div></div>; })}</div></> : null}</Section>
       <div className="grid gap-8 sm:grid-cols-2"><Section title="Included"><List items={e.included} /></Section><Section title="Not included"><List items={e.notIncluded} /></Section></div>
       <Section title="Where you'll meet">{e.meetingPointDisclosure === "PUBLIC" && e.meetingPoint ? <><p>{e.meetingPoint.name}</p>{e.meetingPoint.address ? <p className="text-ink-soft">{e.meetingPoint.address}</p> : null}{e.meetingPoint.accessNote ? <p className="text-ink-soft">{e.meetingPoint.accessNote}</p> : null}</> : <p>The meeting point is shared after your booking is confirmed.</p>}</Section>
       {e.knowBeforeYouGo.length ? <Section title="Good to know"><List items={e.knowBeforeYouGo} /></Section> : null}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { TrackView } from "@/components/Analytics";
 import { ExperienceGrid } from "@/components/ExperienceCard";
 import { EmptyResults, ErrorState } from "@/components/States";
-import { getApi } from "@/lib/api";
+import { listExperiencesForSite } from "@/lib/api";
 import { config, isPreview, previewListingLabel } from "@/lib/config";
 import { filterExperienceSummaries, normalizeExperienceQuery, type SearchParams } from "@/lib/filters";
 import { pluralize } from "@/lib/format";
@@ -23,7 +23,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 export default async function ExperiencesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const query = await searchParams;
   const searchQuery = normalizeExperienceQuery(query.q);
-  const result = await (await getApi(query)).listExperiences({ region: "kamakura" });
+  const result = await listExperiencesForSite("kamakura", query);
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const catalog = result.ok ? result.data.experiences : [];
   const items = filterExperienceSummaries(catalog, searchQuery);

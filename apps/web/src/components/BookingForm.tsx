@@ -2,17 +2,18 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { computeExpectedTotalYen, createClientRequestKey, type CheckoutAnswer, type ExperienceApiClient, type ExperienceDetail, type ExperienceCheckoutRequest, type ExperienceOffer } from "@niho-experience/api-client";
+import { computeExpectedTotalYen, createClientRequestKey, type CheckoutAnswer, type ExperienceApiClient, type ExperienceCheckoutRequest, type ExperienceOffer } from "@niho-experience/api-client";
 import { getBrowserApi } from "@/lib/browser-api";
 import { formatLongDay, formatYen } from "@/lib/format";
 import { safeHttpsUrl } from "@/lib/safe-url";
 import { track } from "@/lib/analytics";
+import type { ExperienceDetailForSite } from "@/lib/experience-types";
 import { checkoutErrorCopy } from "./States";
 import { PolicyDetails } from "./Policy";
 import { Notice, buttonClass } from "./ui";
 import type { BookingSelection } from "./SlotPicker";
 
-export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, onBack }: { experience: ExperienceDetail; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; onBack: () => void }) {
+export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, onBack }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; onBack: () => void }) {
   const router = useRouter();
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
   const [guestName, setGuestName] = useState("");

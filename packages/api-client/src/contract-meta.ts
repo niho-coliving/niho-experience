@@ -4,7 +4,7 @@
  * 配備と `verify:live` の結果で判断し、画面・文書で接続済みと表示しない。
  */
 export const EXPERIENCE_API_CONTRACT = {
-  version: "1.0.0",
+  version: "1.1.0",
   status: "agreed",
 } as const;
 

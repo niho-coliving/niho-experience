@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "NIHO Experience Public API",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "niho-experience が使う NIHO 共通基盤の公開 API（選別して配布する版）。正本は niho-app の contracts/openapi.yaml。ここに無い項目・操作は使わない。",
     "x-niho-contract-status": "agreed",
     "x-niho-contract-source": "niho-app contracts/openapi.yaml"
@@ -135,6 +135,162 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PublicExperienceDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "path / query の形が不正",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProjectionErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "掲載中でない（不存在・申請中・停止・取り下げ・ページの非公開・拠点の非公開を区別しない）。本文なし",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/experiences/v1.1/catalog": {
+      "get": {
+        "tags": [
+          "PublicProjection"
+        ],
+        "summary": "体験サイト: 掲載中の体験の一覧",
+        "description": "体験サイトに掲載中の体験の一覧（NIHO の審査を通り、提供者が公開中で、英語の原稿のものだけ）。残席は返さない（availability を使う）。掲載の古い順に 200 件まで。登録の無い地域は空の一覧。認証・cookie は使わない。",
+        "operationId": "listPublicExperiencesV11",
+        "security": [],
+        "x-niho-public-projection": {
+          "status": "admitted",
+          "namespace": "experiences",
+          "mode": "pure",
+          "cache": "shared"
+        },
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "description": "地域の key（例: kamakura）",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "public, max-age=60, stale-while-revalidate=300"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicExperienceCatalogResponseV11"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "path / query の形が不正",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProjectionErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/experiences/v1.1/{experienceSlug}": {
+      "get": {
+        "tags": [
+          "PublicProjection"
+        ],
+        "summary": "体験サイト: 体験の詳細",
+        "description": "掲載中の体験の公開本文・商品条件・販売者・同意文書。残席は返さない。画像は不透明な URL。集合場所を公開しない体験は集合場所と外観写真を出さない。",
+        "operationId": "getPublicExperienceV11",
+        "security": [],
+        "x-niho-public-projection": {
+          "status": "admitted",
+          "namespace": "experiences",
+          "mode": "pure",
+          "cache": "shared"
+        },
+        "parameters": [
+          {
+            "name": "experienceSlug",
+            "in": "path",
+            "required": true,
+            "description": "体験サイトでの体験の slug（掲載の slug。拠点・ページの slug とは別）",
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "public, max-age=60, stale-while-revalidate=300"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicExperienceDetailResponseV11"
                 }
               }
             }
@@ -746,6 +902,23 @@
           }
         }
       },
+      "PublicExperienceCatalogResponseV11": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "experiences"
+        ],
+        "properties": {
+          "experiences": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/PublicExperienceSummaryV11"
+            }
+          }
+        }
+      },
       "PublicExperienceCheckoutAnswer": {
         "type": "object",
         "x-niho-public-dto": true,
@@ -950,6 +1123,40 @@
             "minLength": 8,
             "maxLength": 120,
             "description": "申込の試行ごとの乱数（UUID v4 推奨）。通信失敗の再送は同じ値、内容を変えたら新しい値。"
+          },
+          "attributionId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "description": "個人情報を含まない任意の UUID v4。同じ値を持つ流入と確定予約の非公開集計にだけ使い、応答・URL・ログへ出さない。"
+          },
+          "utmSource": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$",
+            "description": "最初の流入時の utm_source。小文字英数字・アンダースコア・ハイフンだけ。"
+          },
+          "utmMedium": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$",
+            "description": "最初の流入時の utm_medium。小文字英数字・アンダースコア・ハイフンだけ。"
+          },
+          "utmCampaign": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$",
+            "description": "最初の流入時の utm_campaign。小文字英数字・アンダースコア・ハイフンだけ。"
+          },
+          "utmContent": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$",
+            "description": "最初の流入時の utm_content。小文字英数字・アンダースコア・ハイフンだけ。"
+          },
+          "landingPageType": {
+            "type": "string",
+            "enum": [
+              "HOME",
+              "LIST",
+              "DETAIL"
+            ],
+            "description": "体験サイトで最初に見た旅行者向けページの種類。提供者向けのページは含めない。"
           }
         }
       },
@@ -1193,6 +1400,192 @@
           }
         }
       },
+      "PublicExperienceDetailResponseV11": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "experience"
+        ],
+        "properties": {
+          "experience": {
+            "$ref": "#/components/schemas/PublicExperienceDetailV11"
+          }
+        }
+      },
+      "PublicExperienceDetailV11": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "title",
+          "contentLanguage",
+          "region",
+          "canonicalUrl",
+          "lead",
+          "languageNote",
+          "highlights",
+          "timeline",
+          "description",
+          "included",
+          "notIncluded",
+          "notSuitableFor",
+          "knowBeforeYouGo",
+          "cover",
+          "photos",
+          "meetingPointDisclosure",
+          "meetingPoint",
+          "hosts",
+          "provider",
+          "seller",
+          "offers",
+          "booking",
+          "updatedAt"
+        ],
+        "properties": {
+          "slug": {
+            "$ref": "#/components/schemas/PublicExperienceSlug"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 95
+          },
+          "contentLanguage": {
+            "$ref": "#/components/schemas/PublicExperienceContentLanguage"
+          },
+          "region": {
+            "$ref": "#/components/schemas/PublicExperienceRegion"
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "description": "検索エンジン向けの正規 URL（NIHO が決める）。体験サイトは link rel=canonical にそのまま使う。"
+          },
+          "lead": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "languageNote": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "当日の言語（提供者の記述。例: English & Japanese）。"
+          },
+          "highlights": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "timeline": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "$ref": "#/components/schemas/PublicExperienceTimelineItem"
+            }
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "プレーンテキスト。段落は空行区切り。HTML・Markdown として解釈しない。"
+          },
+          "included": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "notIncluded": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "notSuitableFor": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "knowBeforeYouGo": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "cover": {
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicExperienceImageV11"
+              }
+            ]
+          },
+          "photos": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/PublicExperienceImageV11"
+            }
+          },
+          "meetingPointDisclosure": {
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "AFTER_BOOKING"
+            ],
+            "description": "AFTER_BOOKING のときは `meetingPoint` を常に null にし（集合場所は予約確定後に NIHO の状態ページとメールで案内）、画面では「予約確定後に案内」と伝える。"
+          },
+          "meetingPoint": {
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicExperienceMeetingPoint"
+              }
+            ]
+          },
+          "hosts": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/PublicExperienceHostV11"
+            }
+          },
+          "provider": {
+            "$ref": "#/components/schemas/PublicExperienceProviderV11"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/PublicExperienceSeller"
+          },
+          "offers": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/PublicExperienceOffer"
+            }
+          },
+          "booking": {
+            "$ref": "#/components/schemas/PublicExperienceBookingTerms"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "PublicExperienceDurationRange": {
         "type": "object",
         "x-niho-public-dto": true,
@@ -1240,6 +1633,39 @@
           }
         }
       },
+      "PublicExperienceHostV11": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "displayName",
+          "avatar",
+          "bio"
+        ],
+        "description": "迎える人。表示名と顔写真だけ。",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "avatar": {
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicExperienceImageV11"
+              }
+            ]
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4000,
+            "description": "迎える人の紹介。提供者本人が入力した本文だけを返す。"
+          }
+        }
+      },
       "PublicExperienceImage": {
         "type": "object",
         "x-niho-public-dto": true,
@@ -1251,6 +1677,27 @@
           "url": {
             "type": "string",
             "description": "NIHO の公開 Web origin の不透明な画像 URL（`/api/public/experiences/{slug}/media/{mediaKey}?v=`）。EXIF を除いた公開用の画像だけを返し、保存先の名前・署名・期限を含まない。差し替えると URL が変わる。"
+          }
+        }
+      },
+      "PublicExperienceImageV11": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "alt"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "NIHO の公開 Web origin の不透明な画像 URL（`/api/public/experiences/{slug}/media/{mediaKey}?v=`）。EXIF を除いた公開用の画像だけを返し、保存先の名前・署名・期限を含まない。差し替えると URL が変わる。"
+          },
+          "alt": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200,
+            "description": "写真の説明。未入力の場合は null。"
           }
         }
       },
@@ -1620,6 +2067,41 @@
           }
         }
       },
+      "PublicExperienceProviderV11": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind",
+          "tagline",
+          "logo"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PublicExperienceProviderKind"
+          },
+          "tagline": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "logo": {
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicExperienceImageV11"
+              }
+            ]
+          }
+        }
+      },
       "PublicExperienceRegion": {
         "type": "object",
         "x-niho-public-dto": true,
@@ -1712,6 +2194,66 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/PublicExperienceImage"
+              }
+            ]
+          },
+          "provider": {
+            "$ref": "#/components/schemas/PublicExperienceProviderSummary"
+          },
+          "priceFrom": {
+            "$ref": "#/components/schemas/PublicExperiencePriceFrom"
+          },
+          "duration": {
+            "$ref": "#/components/schemas/PublicExperienceDurationRange"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "公開本文・商品条件の最終更新（UTC）。sitemap の lastmod に使える。"
+          }
+        }
+      },
+      "PublicExperienceSummaryV11": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "title",
+          "lead",
+          "contentLanguage",
+          "region",
+          "cover",
+          "provider",
+          "priceFrom",
+          "duration",
+          "updatedAt"
+        ],
+        "properties": {
+          "slug": {
+            "$ref": "#/components/schemas/PublicExperienceSlug"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 95
+          },
+          "lead": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "contentLanguage": {
+            "$ref": "#/components/schemas/PublicExperienceContentLanguage"
+          },
+          "region": {
+            "$ref": "#/components/schemas/PublicExperienceRegion"
+          },
+          "cover": {
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicExperienceImageV11"
               }
             ]
           },

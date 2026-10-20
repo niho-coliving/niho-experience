@@ -4,13 +4,13 @@ import { notFound } from "next/navigation";
 import { TrackView } from "@/components/Analytics";
 import { BookingFlow } from "@/components/BookingFlow";
 import { ButtonLink, Notice } from "@/components/ui";
-import { getApi } from "@/lib/api";
+import { getExperienceForSite } from "@/lib/api";
 import { config, isPreview } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Your booking", robots: { index: false, follow: false } };
 export default async function BookPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const result = await (await getApi()).getExperience(slug);
+  const result = await getExperienceForSite(slug);
   if (!result.ok) { if (result.kind === "not_found") notFound(); throw new Error("Public experience unavailable"); }
   const experience = result.data.experience;
   if (!config.bookingsEnabled || !experience.booking.checkoutAvailable) {

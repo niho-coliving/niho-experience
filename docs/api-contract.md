@@ -1,8 +1,8 @@
-# 公開API契約（v1.0.0・合意済み）
+# 公開API契約（v1.1.0・合意済み）
 
 作成日：2026-10-19。担当：契約・NIHO連携（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）。
 
-**状態：合意済み（agreed）・v1.0.0。** 正本は NIHO 共通基盤の `contracts/openapi.yaml` です。連携A（[niho-app#19122](https://github.com/niho-coliving/niho-app/issues/19122)）で同じ操作を実装し、NIHO が選別して書き出した `contracts/exports/experience-public-api.openapi.json` を**変更せずに**ここへ置いています（sha256 は `contract/experience-public-api.openapi.json.sha256`。test が一致を確かめる）。NIHO 側は実際の応答をこの契約で検証する integration test を持っています。
+**状態：合意済み（agreed）・v1.1.0。** 正本は NIHO 共通基盤の `contracts/openapi.yaml` です。連携A（[niho-app#19122](https://github.com/niho-coliving/niho-app/issues/19122)）で同じ操作を実装し、NIHO が選別して書き出した `contracts/exports/experience-public-api.openapi.json` を**変更せずに**ここへ置いています（sha256 は `contract/experience-public-api.openapi.json.sha256`。test が一致を確かめる）。NIHO 側は実際の応答をこの契約で検証する integration test を持っています。
 
 実 API と接続済みかどうかは、NIHO の配備と `verify:live`（§11）の結果で判断します。それまで画面に「接続済み」と表示しません。仮契約 v0.1.0 からの変更は §14 にまとめています。
 
@@ -32,12 +32,15 @@
 | --- | --- | --- | --- |
 | 一覧 | `GET /api/public/experiences?region=` | SSR | 60 秒まで |
 | 詳細 | `GET /api/public/experiences/{experienceSlug}` | SSR | 60 秒まで |
+| 写真alt付き一覧 | `GET /api/public/experiences/v1.1/catalog?region=` | SSR | 60 秒まで |
+| 写真alt・提供者bio付き詳細 | `GET /api/public/experiences/v1.1/{experienceSlug}` | SSR | 60 秒まで |
 | 開催回と残席 | `GET /api/public/experiences/{experienceSlug}/availability?offerId=` | ブラウザ | `no-store` |
 | 予約の開始 | `POST /api/public/experiences/{experienceSlug}/checkout` | ブラウザ | `no-store` |
 | 画像 | `GET /api/public/experiences/{experienceSlug}/media/{mediaKey}?v=` | ブラウザ（`<img>`） | 1 時間（`v` が変われば別の URL） |
 
 - 掲載中でない体験（不存在・下書き・審査中・停止・販売者の準備が外れた）は、区別せず本文なしの 404 です。
 - `experienceSlug` は体験サイトでの slug です。NIHO の拠点・ページの slug や内部 ID ではありません。掲載後は変わりません。
+- v1.0 の応答は `additionalProperties: false` なので、v1.1 の `alt` と `bio` は別の読取 path にだけ載せます。画面担当②は `listExperiencesV11` / `getExperienceV11` を使えます。旧 path と旧 client はそのまま使えます。
 - 画像の URL は詳細・一覧が返すもの（`PublicExperienceImage.url`）をそのまま使い、組み立てません。`v` は画像の版で、差し替えると URL が変わり、古い `v` は 404 になります。中身は EXIF を除いた WebP の派生だけで、objectKey・署名・期限を URL に含みません。
 
 ## 4. 公開してよい項目・出さない項目
@@ -48,8 +51,9 @@
 | --- | --- | --- |
 | 題名・紹介・見どころ・当日の流れ・説明・含まれる/含まれない・注意事項 | ○ | 提供者が公開ページ用に書き、掲載に同意した本文 |
 | 写真 | ○（派生画像の URL だけ） | EXIF を除いた公開用の派生。保存先（objectKey）・原本・署名の仕組みは出さない |
-| 迎える人 | ○（表示名と顔写真だけ） | 提供者が選んだ人。ユーザー ID・連絡先は出さない |
-| 提供者 | ○（名前・種類・ひとこと・ロゴ） | 公開ページの表示用 |
+| 迎える人 | ○（表示名・顔写真・v1.1 の紹介文） | bio は本人が掲載を許諾した本文だけ。ユーザー ID・連絡先は出さない |
+| 提供者 | ○（名前・種類・ひとこと・ロゴ） | 公開ページの表示用。外部提供者は `INDIVIDUAL` / `BUSINESS` |
+| 写真の説明 | ○（v1.1 の `alt`） | 原稿の写真と同時に提供者が保存した200字以内の説明。未入力は null |
 | 販売者 | ○（表示名・特定商取引法の表示 URL） | 決済の相手を予約前に示すため |
 | 集合場所 | 条件つき | 公開してよい場所だけ `meetingPoint`。個人宅・非公開住所は `AFTER_BOOKING` で `meetingPoint` を常に `null` にし、予約確定後に NIHO の確認ページとメールだけで伝える（NIHO の公開投影の guard は閉じた object だけを許し、否定の規則を schema に書けないため、この規則は `createContractValidator` が確かめる） |
 | 料金・定員・上限人数・最少人数・所要・開始時刻・曜日・取消条件・受付方式・申込時の質問 | ○ | 予約前の確認に必要 |
@@ -77,6 +81,7 @@
 2. ブラウザで残席を読み、予約できる開催回だけを選べるようにする。
 3. 予約入力：名前・メール・（任意の）備考・申込時の質問だけ。合計・販売者・取消条件・同意文書を送信前に見せる。会員登録は求めない。
 4. `POST …/checkout`。`clientRequestKey`（試行ごとの UUID）と、画面に出した合計 `expectedTotalYen` を送る。
+   v1.1 契約は任意の `attributionId`（小文字 UUID v4）、`utmSource` / `utmMedium` / `utmCampaign` / `utmContent`（小文字英数字・`_`・`-` の1〜64字）、`landingPageType`（`HOME` / `LIST` / `DETAIL`）を受け付けます。ただし、オーナーと担当2による同意・目的・保存期間・閲覧権限の承認までは、公開サイトでこれらの値を収集・保存・送信しません。承認後に実装する場合、流入元は NIHO の申込行だけに記録し、応答・URL・ログには出さず、同じ `clientRequestKey` の再送では流入元も同一にします。
 5. `201` の `checkoutUrl` へ遷移する。遷移先が Stripe Checkout（`https://checkout.stripe.com`）か NIHO の予約確認ページでなければ遷移しない（`isAllowedCheckoutRedirect`）。
 6. 決済の後、Stripe は **NIHO の予約確認ページ**へ戻す。確認中・確定・要対応の表示と確認メールは NIHO が行う。決済を取りやめたときは、体験サイトの `/experiences/{experienceSlug}?checkout=cancelled` へ戻る（入力は旅行者の同じタブに残してよい）。
 7. 戻り先は NIHO が登録情報から作る。要求に戻り先 URL を入れない。このサイトは「予約完了」を表示しない（確認中を成功と誤表示しない）。
@@ -114,7 +119,7 @@
 
 ## 9. 提供者の入口
 
-「体験を提供する」は NIHO のログイン・登録画面へ遷移します。遷移先は NIHO が用意する固定の URL で、戻り先や商品をクエリで渡しません。path は連携B（[niho-app#19123](https://github.com/niho-coliving/niho-app/issues/19123)）で確定します。セルフ登録を開放するまでは、受付方法（問い合わせ等）だけを案内し、動いていない登録画面を見せません。
+「体験を提供する」は NIHO の `/experiences/provider` へ遷移します。未ログインなら NIHO ログインへ誘導され、同じ画面へ戻ります。ここで個人事業主・小規模店舗が登録し、原稿、Stripe、掲載申請、予約・売上を管理します。体験サイト側にログイン状態を持ち込みません。NIHO 側の配備と受入が終わるまでは、画面担当②は問い合わせの案内を維持してください。
 
 ## 10. mock
 
@@ -154,7 +159,7 @@ const client = createExperienceApiClient({
 | --- | --- | --- |
 | 体験サイトの公開ドメイン | 本番公開前 | `canonicalUrl`、CORS の許可 origin、決済取りやめの戻り先 |
 | 地域の key の一覧 | 最初の掲載時（v1 は `kamakura`） | `region` |
-| 提供者入口の path | 連携B | §9 |
+| 提供者入口の公開可否 | NIHO 側の配備後 | §9 |
 | 販売条件・キャンセル基準・サポート分担 | 有料で公開する前 | 文言と `seller` の表示 |
 
 ## 14. 仮契約 v0.1.0 からの変更（v1.0.0）

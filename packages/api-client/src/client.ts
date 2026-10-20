@@ -7,9 +7,11 @@
 import type {
   ExperienceAvailabilityResponse,
   ExperienceCatalogResponse,
+  ExperienceCatalogResponseV11,
   ExperienceCheckoutError,
   ExperienceCheckoutRequest,
   ExperienceDetailResponse,
+  ExperienceDetailResponseV11,
   CheckoutErrorCode,
   OfferId,
   RegionKey,
@@ -135,6 +137,28 @@ function hasExperienceDetailShape(value: unknown): boolean {
     value.experience.offers.every(isObject);
 }
 
+function hasV11ImageObject(value: unknown): boolean {
+  return isObject(value) && typeof value.url === "string" && isNullableString(value.alt);
+}
+
+function hasV11Image(value: unknown): boolean {
+  return value === null || hasV11ImageObject(value);
+}
+
+function hasExperienceCatalogV11Shape(value: unknown): boolean {
+  return hasExperienceCatalogShape(value) && isObject(value) && Array.isArray(value.experiences) &&
+    value.experiences.every((experience) => isObject(experience) && hasV11Image(experience.cover));
+}
+
+function hasExperienceDetailV11Shape(value: unknown): boolean {
+  if (!hasExperienceDetailShape(value) || !isObject(value) || !isObject(value.experience)) return false;
+  const experience = value.experience;
+  return hasV11Image(experience.cover) && Array.isArray(experience.photos) && experience.photos.every(hasV11ImageObject) &&
+    Array.isArray(experience.hosts) && experience.hosts.every((host) =>
+      isObject(host) && typeof host.displayName === "string" && isNullableString(host.bio) && hasV11Image(host.avatar)) &&
+    isObject(experience.provider) && hasV11Image(experience.provider.logo);
+}
+
 function hasAvailabilityShape(value: unknown): boolean {
   return isObject(value) && Array.isArray(value.occurrences) && value.occurrences.every((occurrence) =>
     isObject(occurrence) && typeof occurrence.offerId === "string" && typeof occurrence.date === "string" &&
@@ -189,9 +213,20 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
       return readJson(`/api/public/experiences${query}`, true, hasExperienceCatalogShape);
     },
 
+    /** 写真の説明を含む v1.1 の一覧。旧版の閉じた応答とは別 path。 */
+    listExperiencesV11(params: { region?: RegionKey } = {}): Promise<ReadResult<ExperienceCatalogResponseV11>> {
+      const query = params.region ? `?region=${encodeURIComponent(params.region)}` : "";
+      return readJson(`/api/public/experiences/v1.1/catalog${query}`, true, hasExperienceCatalogV11Shape);
+    },
+
     /** 体験の詳細（SSR 可）。 */
     getExperience(slug: string): Promise<ReadResult<ExperienceDetailResponse>> {
       return readJson(`/api/public/experiences/${encodeURIComponent(slug)}`, true, hasExperienceDetailShape);
+    },
+
+    /** 提供者の紹介と写真の説明を含む v1.1 の詳細。 */
+    getExperienceV11(slug: string): Promise<ReadResult<ExperienceDetailResponseV11>> {
+      return readJson(`/api/public/experiences/v1.1/${encodeURIComponent(slug)}`, true, hasExperienceDetailV11Shape);
     },
 
     /** 開催回と残席（ブラウザから。キャッシュしない）。 */

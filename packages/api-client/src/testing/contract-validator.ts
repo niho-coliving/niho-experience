@@ -113,8 +113,8 @@ export type ContractValidator = ReturnType<typeof createContractValidator>;
  */
 function invariantErrors(schemaName: string, value: unknown): string[] {
   const details: Array<{ path: string; detail: unknown }> = [];
-  if (schemaName === "PublicExperienceDetailResponse" && isObject(value)) details.push({ path: "/experience", detail: value.experience });
-  if (schemaName === "PublicExperienceDetail") details.push({ path: "", detail: value });
+  if (["PublicExperienceDetailResponse", "PublicExperienceDetailResponseV11"].includes(schemaName) && isObject(value)) details.push({ path: "/experience", detail: value.experience });
+  if (["PublicExperienceDetail", "PublicExperienceDetailV11"].includes(schemaName)) details.push({ path: "", detail: value });
   return details.flatMap(({ path, detail }) =>
     isObject(detail) && detail.meetingPointDisclosure === "AFTER_BOOKING" && detail.meetingPoint !== null
       ? [`${path}/meetingPoint must be null when meetingPointDisclosure is AFTER_BOOKING`]

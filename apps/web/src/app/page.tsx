@@ -3,12 +3,12 @@ import { ExperienceGrid } from "@/components/ExperienceCard";
 import { Photo } from "@/components/Photo";
 import { EmptyResults, ErrorState } from "@/components/States";
 import { ButtonLink, SectionHeading } from "@/components/ui";
-import { getApi } from "@/lib/api";
+import { listExperiencesForSite } from "@/lib/api";
 import { isPreview, previewListingLabel } from "@/lib/config";
 import type { SearchParams } from "@/lib/filters";
 
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const result = await (await getApi(await searchParams)).listExperiences({ region: "kamakura" });
+  const result = await listExperiencesForSite("kamakura", await searchParams);
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const items = result.ok ? result.data.experiences : [];
   return <>
