@@ -48,10 +48,10 @@ export function faceOf(e: Pick<ExperienceDetailForSite, "hosts" | "provider">): 
   return { name: e.provider.name, initial: initialOf(e.provider.name), image: e.provider.logo };
 }
 
-/** Cards and the home host row: the data's face, or the editor's stand-in face when the data lists no hosts. */
-export function cardFaceOf(e: Pick<ExperienceDetailForSite, "slug" | "hosts" | "provider">): Face {
+/** Cards and the home host row: the data's face, or a preview-only stand-in when no hosts are listed. */
+export function cardFaceOf(e: Pick<ExperienceDetailForSite, "slug" | "hosts" | "provider">, pilotPreview = false): Face {
   const face = faceOf(e);
-  const stand = e.hosts.length ? undefined : editorialOf(e)?.face;
+  const stand = e.hosts.length ? undefined : editorialOf(e, pilotPreview)?.face;
   return stand ? { ...face, image: { url: stand } } : face;
 }
 
@@ -94,7 +94,7 @@ function durationLabel(summary: ExperienceSummaryForSite): string {
   return minMinutes === maxMinutes ? formatDuration(minMinutes) : `${formatDuration(minMinutes)}–${formatDuration(maxMinutes)}`;
 }
 
-export function buildCardModel(summary: ExperienceSummaryForSite, detail: ExperienceDetailForSite | null): CardModel {
+export function buildCardModel(summary: ExperienceSummaryForSite, detail: ExperienceDetailForSite | null, pilotPreview = false): CardModel {
   const base = {
     slug: summary.slug,
     title: summary.title,
@@ -103,7 +103,7 @@ export function buildCardModel(summary: ExperienceSummaryForSite, detail: Experi
     durationLabel: durationLabel(summary),
     priceLabel: formatYen(summary.priceFrom.amountYen),
   };
-  const withOverride = editorialOf(summary)?.withLabel;
+  const withOverride = editorialOf(summary, pilotPreview)?.withLabel;
   if (!detail) {
     return {
       ...base,
@@ -119,7 +119,7 @@ export function buildCardModel(summary: ExperienceSummaryForSite, detail: Experi
   return {
     ...base,
     withLabel: `with ${withOverride ?? hostNames(detail)}`,
-    face: cardFaceOf(detail),
+    face: cardFaceOf(detail, pilotPreview),
     groupLabel: groupSizeLabel(detail.offers),
     language: { short: shortLanguageNote(detail.languageNote), full: detail.languageNote },
     scheduleLabel: scheduleSummary(detail.offers),
@@ -128,6 +128,6 @@ export function buildCardModel(summary: ExperienceSummaryForSite, detail: Experi
   };
 }
 
-export function buildCardModels(summaries: ExperienceSummaryForSite[], details: ReadonlyMap<string, ExperienceDetailForSite>): CardModel[] {
-  return summaries.map((summary) => buildCardModel(summary, details.get(summary.slug) ?? null));
+export function buildCardModels(summaries: ExperienceSummaryForSite[], details: ReadonlyMap<string, ExperienceDetailForSite>, pilotPreview = false): CardModel[] {
+  return summaries.map((summary) => buildCardModel(summary, details.get(summary.slug) ?? null, pilotPreview));
 }

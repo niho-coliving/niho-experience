@@ -8,7 +8,7 @@ import { HandIcon } from "@/components/HandIcon";
 import { PageDocumentContent } from "@/components/PageDocument";
 import { ButtonLink, Notice } from "@/components/ui";
 import { getExperienceForSite } from "@/lib/api";
-import { config, isPreview } from "@/lib/config";
+import { config, isPilotPreview, isPreview } from "@/lib/config";
 import type { SearchParams } from "@/lib/filters";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { shortName } from "@/lib/themes";
@@ -31,7 +31,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
     : <><TrackView event="booking_unavailable" props={{ experience: slug, error_code: "bookings_paused" }} /><BookingSummaryCard experience={experience} offer={null} titleAs={titleAs} /><div className="mt-6"><Notice role="alert" tone="warn" title="Online booking is paused for now">New bookings are unavailable. Please check back later.</Notice></div><div className="mt-6"><ButtonLink href={`/experiences/${slug}`} variant="secondary">Back to the experience</ButtonLink></div></>;
   return <div className="container-page max-w-2xl pb-6">
     <Link href={`/experiences/${slug}`} className="mt-[18px] inline-flex items-center gap-1.5 text-sm font-extrabold text-ink-soft hover:text-ink">
-      <HandIcon name="back" className="size-[18px] [stroke-width:2.2]" /><span className="sr-only">Back to </span>{shortName(experience)}
+      <HandIcon name="back" className="size-[18px] [stroke-width:2.2]" /><span className="sr-only">Back to </span>{shortName(experience, isPilotPreview)}
     </Link>
     <PageDocumentContent document={document} pageId="booking" fallback={panel("h1")} slots={{ BookingPanel: () => <div className="mt-6">{panel("p")}</div> }} />
   </div>;

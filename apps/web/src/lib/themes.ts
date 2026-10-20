@@ -70,14 +70,16 @@ export const FEATURED_HOST = {
 
 type Listed = { slug: string; title: string };
 
-/** The editorial entry of one experience, or null when its slug is not listed. */
-export function editorialOf(experience: Pick<Listed, "slug">): Editorial | null {
-  return EDITORIAL[experience.slug] ?? null;
+/** Full pilot copy and assets are preview-only; theme mapping stays available for live catalog layout. */
+export function editorialOf(experience: Pick<Listed, "slug">, pilotPreview = false): Editorial | null {
+  const entry = EDITORIAL[experience.slug];
+  if (!entry) return null;
+  return pilotPreview ? entry : { theme: entry.theme };
 }
 
 /** The editorial theme of one experience, or null when its slug is not listed. */
 export function themeOf(experience: Pick<Listed, "slug">): Theme | null {
-  return editorialOf(experience)?.theme ?? null;
+  return EDITORIAL[experience.slug]?.theme ?? null;
 }
 
 /** "Kamakura Community Dinner with Locals" → "Kamakura Community Dinner". */
@@ -90,9 +92,9 @@ export function shortTitle(title: string, max = 32): string {
   return `${head.slice(0, space > 0 ? space : max - 1).trimEnd()}…`;
 }
 
-/** The editor's short name, or the title cut at its first connecting word. */
-export function shortName(experience: Listed): string {
-  return editorialOf(experience)?.short ?? shortTitle(experience.title);
+/** The pilot's short name in its preview, or the title cut at its first connecting word. */
+export function shortName(experience: Listed, pilotPreview = false): string {
+  return (pilotPreview ? EDITORIAL[experience.slug]?.short : undefined) ?? shortTitle(experience.title);
 }
 
 /** "Food, coffee, Zen, mending and calligraphy." when every listed experience has a theme; otherwise null. */

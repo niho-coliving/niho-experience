@@ -10,7 +10,7 @@ const bySlug = (slug: string) => [...pilot, ...synthetic].find((experience) => e
 describe("card display model", () => {
   it("merges the summary with the detail: hosts, group size, schedule (JST) and price", () => {
     const dinner = bySlug("kamakura-community-dinner");
-    const card = buildCardModel(toExperienceSummary(dinner), dinner);
+    const card = buildCardModel(toExperienceSummary(dinner), dinner, true);
     // The editor's words replace the host names on the card (lib/themes.ts); the detail page still names every host.
     expect(card.withLabel).toBe("with Takuya & neighbors");
     expect(card.groupLabel).toBe("Up to 8 guests");
@@ -21,17 +21,27 @@ describe("card display model", () => {
     expect(card.offers).toEqual([{ id: dinner.offers[0]!.id, minimumParticipants: dinner.offers[0]!.minimumParticipants, maxPartySize: 8 }]);
   });
 
-  it("uses the first host's face, the provider when no hosts are listed, and the editor's face only without hosts", () => {
+  it("keeps pilot-only faces out of live cards, and uses the preview face only without hosts", () => {
     const dinner = bySlug("kamakura-community-dinner");
-    expect(buildCardModel(toExperienceSummary(dinner), dinner).face).toEqual({ name: "Takuya", initial: "T", image: { url: "/sample/photos/host-takuya.jpg" } });
+    expect(buildCardModel(toExperienceSummary(dinner), dinner, true).face).toEqual({ name: "Takuya", initial: "T", image: { url: "/sample/photos/host-takuya.jpg" } });
     const zen = bySlug("engakuji-zen-meditation");
-    const zenCard = buildCardModel(toExperienceSummary(zen), zen);
+    const liveZenCard = buildCardModel(toExperienceSummary(zen), zen);
+    expect(liveZenCard.withLabel).toBe(`with ${zen.provider.name}`);
+    expect(liveZenCard.face).toEqual(faceOf(zen));
+    const zenCard = buildCardModel(toExperienceSummary(zen), zen, true);
     expect(zenCard.withLabel).toBe("with a Zen priest & guide");
     expect(zenCard.face).toEqual({ name: zen.provider.name, initial: "S", image: { url: "/sample/photos/host-guide.jpg" } });
     expect(faceOf(zen).image).toBeNull();
     expect(zenCard.groupLabel).toBe("Private · 2–4 guests");
     // Hosts in the data win over the editor's face.
-    expect(cardFaceOf({ ...zen, hosts: [{ displayName: "Ken", avatar: null }] })).toEqual({ name: "Ken", initial: "K", image: null });
+    expect(cardFaceOf({ ...zen, hosts: [{ displayName: "Ken", avatar: null }] }, true)).toEqual({ name: "Ken", initial: "K", image: null });
+  });
+
+  it("keeps pilot card copy out of live summary fallbacks", () => {
+    const dinner = bySlug("kamakura-community-dinner");
+    const summary = toExperienceSummary(dinner);
+    expect(buildCardModel(summary, null).withLabel).toBe(`with ${summary.provider.name}`);
+    expect(buildCardModel(summary, null, true).withLabel).toBe("with Takuya & neighbors");
   });
 
   it("falls back to the summary when the detail could not be read", () => {

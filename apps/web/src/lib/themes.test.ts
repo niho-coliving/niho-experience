@@ -37,16 +37,18 @@ describe("home themes", () => {
 
   it("keeps editorial words for the pilot slugs only (names, the card's with-line, a face, a video)", () => {
     const pilot = buildPilotExperiences();
-    expect(pilot.map(shortName)).toEqual(["Community dinner", "Coffee roasting", "Zazen at Engakuji", "Ceramic mending", "Calligraphy"]);
-    expect(editorialOf({ slug: "kamakura-community-dinner" })?.withLabel).toBe("Takuya & neighbors");
-    expect(editorialOf({ slug: "engakuji-zen-meditation" })).toMatchObject({ withLabel: "a Zen priest & guide", face: GUIDE_FACE });
-    expect(editorialOf({ slug: "kamakura-calligraphy" })?.video).toBe(CALLIGRAPHY_VIDEO);
+    expect(pilot.map((experience) => shortName(experience, true))).toEqual(["Community dinner", "Coffee roasting", "Zazen at Engakuji", "Ceramic mending", "Calligraphy"]);
+    expect(editorialOf({ slug: "kamakura-community-dinner" })).toEqual({ theme: themeOf({ slug: "kamakura-community-dinner" }) });
+    expect(shortName(pilot[0]!)).toBe(shortTitle(pilot[0]!.title));
+    expect(editorialOf({ slug: "kamakura-community-dinner" }, true)?.withLabel).toBe("Takuya & neighbors");
+    expect(editorialOf({ slug: "engakuji-zen-meditation" }, true)).toMatchObject({ withLabel: "a Zen priest & guide", face: GUIDE_FACE });
+    expect(editorialOf({ slug: "kamakura-calligraphy" }, true)?.video).toBe(CALLIGRAPHY_VIDEO);
     expect([FEATURED_STORY.slug, FEATURED_HOST.slug].every((slug) => pilot.some((experience) => experience.slug === slug))).toBe(true);
     // Synthetic slugs keep their theme and nothing else; their names come from the title.
     for (const experience of buildFixtureExperiences()) {
-      const entry = editorialOf(experience);
+      const entry = editorialOf(experience, true);
       if (entry) expect(Object.keys(entry)).toEqual(["theme"]);
-      expect(shortName(experience)).toBe(shortTitle(experience.title));
+      expect(shortName(experience, true)).toBe(shortTitle(experience.title));
     }
   });
 

@@ -7,7 +7,7 @@ import { EmptyResults, ErrorState } from "@/components/States";
 import { getApi, listExperiencesForSite } from "@/lib/api";
 import { buildCardModels } from "@/lib/card-model";
 import { loadDetails } from "@/lib/catalog";
-import { config, isPreview } from "@/lib/config";
+import { config, isPilotPreview, isPreview } from "@/lib/config";
 import { dayOption, parseDateParam, parseGuestsParam, upcomingDays } from "@/lib/date-filter";
 import { filterExperienceSummaries, normalizeExperienceDate, normalizeExperienceQuery, normalizeExperienceTheme, type SearchParams } from "@/lib/filters";
 import { getPublishedPageDocument } from "@/lib/page-documents";
@@ -35,7 +35,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const catalog = result.ok ? result.data.experiences : [];
   const items = filterExperienceSummaries(catalog, searchQuery);
-  const cards = buildCardModels(items, await loadDetails(api, items, config.publicApiVersion !== "1.0"));
+  const cards = buildCardModels(items, await loadDetails(api, items, config.publicApiVersion !== "1.0"), isPilotPreview);
 
   const now = new Date();
   const finderDays = upcomingDays(now, FINDER_DAYS);

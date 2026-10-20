@@ -5,3 +5,6 @@ import { resolveConfig } from "./resolve-config";
 export const config = resolveConfig(process.env);
 
 export const isPreview = config.apiMode === "mock";
+
+/** Pilot fixtures and their static editorial/sample assets are only for the mock preview. */
+export const isPilotPreview = isPreview && config.mockCatalog === "pilot";

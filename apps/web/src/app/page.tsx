@@ -13,7 +13,7 @@ import { ButtonLink, SectionHeading } from "@/components/ui";
 import { getApi, listExperiencesForSite } from "@/lib/api";
 import { buildCardModels, cardFaceOf, type Face } from "@/lib/card-model";
 import { loadDetails } from "@/lib/catalog";
-import { config, isPreview } from "@/lib/config";
+import { config, isPilotPreview, isPreview } from "@/lib/config";
 import { upcomingDays } from "@/lib/date-filter";
 import type { SearchParams } from "@/lib/filters";
 import { scheduleLine } from "@/lib/schedule";
@@ -43,23 +43,23 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const summaries = result.ok ? result.data.experiences : [];
   const details = await loadDetails(api, summaries, config.publicApiVersion !== "1.0");
-  const cards = buildCardModels(summaries, details);
+  const cards = buildCardModels(summaries, details, isPilotPreview);
   const listed = summaries.map((summary) => details.get(summary.slug)).filter((detail): detail is ExperienceDetailForSite => Boolean(detail));
 
   const themes = themeEntries(summaries);
   // Editorial features while their slug is listed (lib/themes.ts); otherwise the data decides.
-  const story = listed.find((experience) => experience.slug === FEATURED_STORY.slug) ?? null;
+  const story = isPilotPreview ? (listed.find((experience) => experience.slug === FEATURED_STORY.slug) ?? null) : null;
   const featured = story ? null : (listed.find((experience) => experience.photos.length >= 5) ?? null);
   // One clip per listed theme; the label is the verb and the experience's short name (never a host's name).
   const strips: { theme: Theme; slug: string; name: string; video: SiteVideo }[] = [];
   for (const summary of summaries) {
     const theme = themeOf(summary);
     if (theme && !strips.some((strip) => strip.theme.key === theme.key)) {
-      strips.push({ theme, slug: summary.slug, name: shortName(summary), video: editorialOf(summary)?.video ?? STRIP_VIDEOS[theme.key] });
+      strips.push({ theme, slug: summary.slug, name: shortName(summary, isPilotPreview), video: editorialOf(summary, isPilotPreview)?.video ?? STRIP_VIDEOS[theme.key] });
     }
   }
   const hostFeature =
-    listed.find((experience) => experience.slug === FEATURED_HOST.slug && experience.hosts.length) ??
+    (isPilotPreview ? listed.find((experience) => experience.slug === FEATURED_HOST.slug && experience.hosts.length) : null) ??
     listed.find((experience) => experience.provider.kind === "INDIVIDUAL") ??
     null;
   const capacities = listed.flatMap((experience) => experience.offers.map((offer) => offer.capacity));
@@ -181,7 +181,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
         </section>
       ) : null}
 
-      {hostFeature ? <HostFeature experience={hostFeature} listed={listed} /> : null}
+      {hostFeature ? <HostFeature experience={hostFeature} listed={listed} pilotPreview={isPilotPreview} /> : null}
 
       {cards.length ? (
         <section className="container-page pt-[72px] lg:pt-[104px]" aria-labelledby="numbers-heading">
@@ -347,21 +347,21 @@ function Featured({ experience: e }: { experience: ExperienceDetailForSite }) {
 }
 
 /** Hosts with names first (catalog order), then experiences run without named hosts; one face per person. */
-function hostRow(listed: ExperienceDetailForSite[], current: ExperienceDetailForSite) {
+function hostRow(listed: ExperienceDetailForSite[], current: ExperienceDetailForSite, pilotPreview: boolean) {
   const rows: { face: Face; slug: string; name: string; current: boolean }[] = [];
   for (const item of [...listed.filter((e) => e.hosts.length), ...listed.filter((e) => !e.hosts.length)]) {
-    const face = cardFaceOf(item);
+    const face = cardFaceOf(item, pilotPreview);
     if (rows.some((row) => row.face.name === face.name)) continue;
-    rows.push({ face, slug: item.slug, name: shortName(item), current: item.slug === current.slug });
+    rows.push({ face, slug: item.slug, name: shortName(item, pilotPreview), current: item.slug === current.slug });
   }
   return rows;
 }
 
-function HostFeature({ experience: e, listed }: { experience: ExperienceDetailForSite; listed: ExperienceDetailForSite[] }) {
+function HostFeature({ experience: e, listed, pilotPreview }: { experience: ExperienceDetailForSite; listed: ExperienceDetailForSite[]; pilotPreview: boolean }) {
   const name = e.hosts[0]?.displayName ?? e.provider.name;
   // The editor's words and clip while the featured slug is listed; otherwise the provider's own line and cover.
-  const editorial = e.slug === FEATURED_HOST.slug && e.hosts.length ? FEATURED_HOST : null;
-  const faces = hostRow(listed, e);
+  const editorial = pilotPreview && e.slug === FEATURED_HOST.slug && e.hosts.length ? FEATURED_HOST : null;
+  const faces = hostRow(listed, e, pilotPreview);
   return (
     <section className="mt-[72px] bg-sand pt-16 pb-[76px] lg:mt-[104px] lg:pt-24 lg:pb-[104px]" aria-labelledby="hosts-heading">
       <div className="container-page">

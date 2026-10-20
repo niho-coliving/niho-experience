@@ -16,7 +16,7 @@ const state = vi.hoisted(() => ({ documents: {} as Partial<Record<PageId, PageDo
 } }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/navigation")>()), useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("./config", () => ({ config: state.config, isPreview: false }));
+vi.mock("./config", () => ({ config: state.config, isPreview: false, isPilotPreview: false }));
 vi.mock("./page-documents", () => ({ getPublishedPageDocument: async (pageId: PageId) => state.documents[pageId] ?? null }));
 vi.mock("./api", () => ({
   getApi: async () => createExperienceApiClient({ nihoWebOrigin: "https://niho.example", fetch: createMockExperienceFetch() }),
