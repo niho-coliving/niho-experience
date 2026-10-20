@@ -174,6 +174,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
   const experiences = [...pilot, ...synthetic];
   const holds = new Map<string, HoldRecord>();
   let checkoutCounter = 0;
+  let priceChangeApplied = false;
 
   function heldSeats(): Map<string, number> {
     const seats = new Map<string, number>();
@@ -242,7 +243,15 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     }
     const total = computeExpectedTotalYen(offer.pricing, body.adultCount, body.childCount);
     if (total === null) return checkoutError("INPUT_INVALID", { field: "childCount" });
-    if (scenario === "checkout-price-changed") return checkoutError("PRICE_CHANGED", { currentTotalYen: total + 500 });
+    if (scenario === "checkout-price-changed" && !priceChangeApplied) {
+      priceChangeApplied = true;
+      const updatedOffer = { ...offer, pricing: { ...offer.pricing, adultPriceYen: offer.pricing.adultPriceYen + 500 } };
+      const updatedExperience = { ...experience, offers: experience.offers.map((candidate) => candidate.id === offer.id ? updatedOffer : candidate) };
+      const index = experiences.findIndex((candidate) => candidate.slug === experience.slug);
+      if (index >= 0) experiences[index] = updatedExperience;
+      const currentTotalYen = computeExpectedTotalYen(updatedOffer.pricing, body.adultCount, body.childCount);
+      return checkoutError("PRICE_CHANGED", { currentTotalYen });
+    }
     if (body.expectedTotalYen !== total) return checkoutError("PRICE_CHANGED", { currentTotalYen: total });
     if (body.bookingQuestionsFingerprint !== offer.bookingQuestionsFingerprint) return checkoutError("QUESTIONS_CHANGED");
 

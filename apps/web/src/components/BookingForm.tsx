@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { computeExpectedTotalYen, createClientRequestKey, type CheckoutAnswer, type ExperienceApiClient, type ExperienceCheckoutRequest, type ExperienceOffer } from "@niho-experience/api-client";
-import { getBrowserApi } from "@/lib/browser-api";
 import { dayOption } from "@/lib/date-filter";
 import { formatYen } from "@/lib/format";
 import { formatClock } from "@/lib/schedule";
@@ -21,13 +20,12 @@ import type { BookingSelection } from "./SlotPicker";
 export type BookingDraft = { guestName: string; guestEmail: string; note: string; answerSets: Record<string, Record<string, string | string[]>> };
 export type CheckoutAttempt = { signature: string; key: string };
 
-export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, attributionEnabled, draft, onDraftChange, attemptRef, onBack, titleAs = "h1" }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; attributionEnabled: boolean; draft: BookingDraft; onDraftChange: Dispatch<SetStateAction<BookingDraft>>; attemptRef: RefObject<CheckoutAttempt | null>; onBack: () => void; titleAs?: "h1" | "p" }) {
+export function BookingForm({ api, apiUnavailable, experience, offer, selection, preview, attributionEnabled, publicApiVersion, onExperienceRefresh, draft, onDraftChange, attemptRef, onBack, titleAs = "h1" }: { api: ExperienceApiClient | null; apiUnavailable: boolean; experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; attributionEnabled: boolean; publicApiVersion: "1.0" | "1.1" | "1.2"; onExperienceRefresh: (experience: ExperienceDetailForSite) => boolean; draft: BookingDraft; onDraftChange: Dispatch<SetStateAction<BookingDraft>>; attemptRef: RefObject<CheckoutAttempt | null>; onBack: () => void; titleAs?: "h1" | "p" }) {
   const router = useRouter();
-  const [api, setApi] = useState<ExperienceApiClient | null>(null);
   const { guestName, guestEmail, note } = draft;
   const questionSet = `${offer.id}:${offer.bookingQuestionsFingerprint}`;
   const answers = draft.answerSets[questionSet] ?? {};
-  const [refreshing, refresh] = useTransition();
+  const [refreshing, setRefreshing] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState("");
@@ -43,13 +41,8 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
   const headCount = selection.adultCount + selection.childCount;
   const selectionValid = Number.isInteger(selection.adultCount) && Number.isInteger(selection.childCount) && selection.adultCount >= 0 && selection.childCount >= 0 && headCount >= offer.minimumParticipants && headCount <= offer.maxPartySize && (selection.childCount === 0 || !!offer.pricing.child) && (!offer.pricing.child?.adultRequired || selection.childCount === 0 || selection.adultCount > 0);
   const retrySecondsRemaining = retryUntil === null ? 0 : Math.max(0, Math.ceil((retryUntil - clockNow) / 1000));
+  const checkingAvailability = checking && !apiUnavailable;
   const sellerLegalUrl = safeHttpsUrl(experience.seller.legalNoticeUrl);
-
-  useEffect(() => {
-    let active = true;
-    getBrowserApi(preview, nihoWebOrigin).then((client) => { if (active) setApi(client); }).catch(() => { if (active) setChecking(false); });
-    return () => { active = false; };
-  }, [preview, nihoWebOrigin]);
 
   useEffect(() => {
     if (!api) return;
@@ -73,11 +66,11 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     return () => window.clearInterval(timer);
   }, [retryUntil]);
   useEffect(() => {
-    if (checking || viewTracked.current) return;
+    if (checkingAvailability || viewTracked.current) return;
     viewTracked.current = true;
     if (availabilityOk && total !== null) track("booking_form_view", { experience: experience.slug, guests: headCount, total_jpy: total });
     else track("booking_unavailable", { experience: experience.slug, error_code: "unavailable" });
-  }, [availabilityOk, checking, experience.slug, headCount, total]);
+  }, [availabilityOk, checkingAvailability, experience.slug, headCount, total]);
 
   function updateAnswer(id: string, value: string | string[]) { onDraftChange((current) => ({ ...current, answerSets: { ...current.answerSets, [questionSet]: { ...current.answerSets[questionSet], [id]: value } } })); }
   function collectAnswers(): CheckoutAnswer[] {
@@ -91,7 +84,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting || checking || needsFreshDetails || retrySecondsRemaining > 0 || !api || total === null || !availabilityOk) return;
+    if (submitting || checkingAvailability || needsFreshDetails || retrySecondsRemaining > 0 || !api || total === null || !availabilityOk) return;
     setProblem(""); setInvalidField("");
     const answered = collectAnswers();
     const missing = offer.bookingQuestions.find((question) => question.required && !answered.some((answer) => answer.questionId === question.id));
@@ -145,6 +138,28 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     }
   }
 
+  async function refreshLatestDetails() {
+    if (!api || refreshing) return;
+    setRefreshing(true);
+    setProblem("");
+    try {
+      const result = publicApiVersion === "1.0"
+        ? await api.getExperience(experience.slug)
+        : await api.getExperienceV11(experience.slug);
+      if (!result.ok || result.data.experience.slug !== experience.slug) {
+        setProblem("We couldn't load the latest details. Please try again.");
+        return;
+      }
+      if (!onExperienceRefresh(result.data.experience)) {
+        setProblem("The latest booking details are not available yet. Please try again.");
+      }
+    } catch {
+      setProblem("We couldn't load the latest details. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   const approval = offer.acceptanceMode === "APPROVAL";
   const day = dayOption(selection.date);
   const when = `${day.label} · ${formatClock(offer.startTime)}`;
@@ -156,7 +171,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     <BookingSummaryCard experience={experience} offer={offer} titleAs={titleAs} />
     <button type="button" onClick={onBack} className="link-leaf mt-3 text-sm">Change date or guest count</button>
     <div className="mt-5 space-y-4 empty:hidden">
-      {checking ? <p role="status">Checking this date again…</p> : needsFreshDetails ? <Notice role="alert" tone="warn" title="Review the latest details">The price, questions or booking terms changed. <button type="button" disabled={refreshing} onClick={() => refresh(() => router.refresh())} className="font-bold text-moss underline">{refreshing ? "Refreshing…" : "Reload the experience"}</button> to review them and agree again. Your contact details stay on this page.</Notice> : !availabilityOk ? <Notice role="alert" tone="warn" title="This date needs another look">Nothing has been charged. <button type="button" onClick={onBack} className="font-bold text-moss underline">Check dates again</button> to see the latest availability.</Notice> : null}
+      {checkingAvailability ? <p role="status">Checking this date again…</p> : needsFreshDetails ? <Notice role="alert" tone="warn" title="Review the latest details">The price, questions or booking terms changed. <button type="button" disabled={refreshing || !api} onClick={refreshLatestDetails} className="font-bold text-moss underline">{refreshing ? "Refreshing…" : "Reload the experience"}</button> to review them and agree again. Your contact details stay on this page.</Notice> : !availabilityOk ? <Notice role="alert" tone="warn" title="This date needs another look">Nothing has been charged. <button type="button" onClick={onBack} className="font-bold text-moss underline">Check dates again</button> to see the latest availability.</Notice> : null}
       {problem ? <div ref={alertRef} tabIndex={-1} className="outline-none"><Notice role="alert" tone="danger" title="Please check your booking">{problem}</Notice></div> : null}
     </div>
 
@@ -200,7 +215,7 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
       stack
       total={<><b className="text-lg font-extrabold text-ink">{total === null ? "Unavailable" : formatYen(total)}</b> total</>}
       line={when}
-      action={<button type="submit" disabled={submitting || checking || !availabilityOk || needsFreshDetails || retrySecondsRemaining > 0 || total === null} aria-busy={submitting} className={buttonClass("primary", "min-h-[46px] w-full shrink-0 px-6 min-[30rem]:w-auto")}>{retrySecondsRemaining > 0 ? "Please wait…" : submitting ? "Preparing checkout…" : approval ? "Request to book" : preview ? "Continue to mock payment" : "Continue to secure payment"}</button>}
+      action={<button type="submit" disabled={submitting || checkingAvailability || !api || !availabilityOk || needsFreshDetails || retrySecondsRemaining > 0 || total === null} aria-busy={submitting} className={buttonClass("primary", "min-h-[46px] w-full shrink-0 px-6 min-[30rem]:w-auto")}>{retrySecondsRemaining > 0 ? "Please wait…" : submitting ? "Preparing checkout…" : approval ? "Request to book" : preview ? "Continue to mock payment" : "Continue to secure payment"}</button>}
     />
   </form>;
 }
