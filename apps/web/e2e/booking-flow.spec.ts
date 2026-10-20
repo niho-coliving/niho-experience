@@ -5,6 +5,11 @@ async function chooseFirstDate(page: Page) {
   await page.locator('input[name="occurrence"]:not([disabled])').first().check();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 }
+async function enterBookingDetails(page: Page) {
+  await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+}
 
 test("browse, review adult and child total, and reach browser-only mock checkout", async ({ page }) => {
   const requests: string[] = [];
@@ -103,6 +108,50 @@ test("a changed price requires a fresh detail and agreement", async ({ page }) =
   await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeDisabled();
   await page.getByRole("link", { name: "Reload the experience" }).click();
   await expect(page).toHaveURL(new RegExp(`${dinner}$`));
+});
+
+test("a hold limit directs the guest to choose another date", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-hold-limit`);
+  await chooseFirstDate(page);
+  await enterBookingDetails(page);
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.locator("main").getByRole("alert").last()).toContainText("different date");
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
+
+  await page.getByRole("button", { name: /Change date or guest count/ }).click();
+  await page.locator('input[name="occurrence"]:not([disabled])').first().check();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
+});
+
+test("changed booking questions require a fresh detail before checkout", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-questions-changed`);
+  await chooseFirstDate(page);
+  await enterBookingDetails(page);
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.getByRole("link", { name: "Reload the experience" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
+});
+
+test("an unavailable checkout keeps the guest's details available for retry", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-unavailable`);
+  await chooseFirstDate(page);
+  await enterBookingDetails(page);
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.locator("main").getByRole("alert").last()).toContainText("details are still here");
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
+  await expect(page.getByRole("textbox", { name: "Email" })).toHaveValue("guest@example.com");
+  await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeEnabled();
+});
+
+test("a rate limit gives the retry delay and prevents an early resubmission", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-rate-limited`);
+  await chooseFirstDate(page);
+  await enterBookingDetails(page);
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.locator("main").getByRole("alert").last()).toContainText("120 seconds");
+  await expect(page.getByRole("button", { name: "Please wait…" })).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
 });
 
 test("a failing analytics sink never blocks a preview booking", async ({ page }) => {
