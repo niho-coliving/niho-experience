@@ -66,6 +66,11 @@ describe("Umami privacy filter", () => {
     expect(sanitized).toMatchObject({ url: "/experiences?utm_source=niho", referrer: "https://partner.example" });
   });
 
+  it("removes free-text listing searches from analytics page URLs", () => {
+    const result = sanitizeUmamiPayload("pageview", { url: "https://experience.niho.life/experiences?q=guest%40example.com" }, "https://experience.niho.life");
+    expect(result).toMatchObject({ url: "/experiences" });
+  });
+
   it("rechecks event data at the final send boundary", () => {
     const origin = "https://experience.niho.life";
     const pageview = sanitizeUmamiPayload("event", { url: "/experiences?token=private", data: { guestName: "Jane" } }, origin);

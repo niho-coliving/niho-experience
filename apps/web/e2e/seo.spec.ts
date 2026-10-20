@@ -46,6 +46,12 @@ test("legacy filter query URLs point to the main list and stay out of the index"
   expect(html).toMatch(/<meta name="robots" content="noindex, follow"/);
 });
 
+test("search result URLs are canonicalized and stay out of the index", async ({ request }) => {
+  const html = await (await request.get("/experiences?q=pottery")).text();
+  expect(html).toContain('<link rel="canonical" href="http://localhost:3000/experiences"');
+  expect(html).toMatch(/<meta name="robots" content="noindex, follow"/);
+});
+
 test("preview builds are never indexable", async ({ request }) => {
   for (const path of ["/", "/host", dinner]) {
     const html = await (await request.get(path)).text();
