@@ -51,6 +51,7 @@
 - [ ] 公開ドメインと、NIHO既存ページとの正規URLの関係（#12）
 - [ ] 販売条件・キャンセル基準・サポート窓口の分担（#13）
 - [ ] 掲載する写真・原稿の利用許諾（#13）
+- [ ] `apps/web/public/sample/` の仮素材を使う表示（`apps/web/src/lib/site-media.ts` の `SAMPLE_MEDIA` のヒーロー・動画・絵はがきと、pilot fixture の写真）を、撮り直した写真・動画へ置き換え、`SAMPLE_MEDIA` を外す（出典は `public/sample/CREDITS.md`）
 - [ ] 計測ツールと同意の扱い（#14）
 - [ ] 有料販売を開始する判断者（オーナー）
 

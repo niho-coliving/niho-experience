@@ -1,9 +1,11 @@
+import "@fontsource-variable/caveat";
 import "@fontsource-variable/fraunces";
 import "@fontsource-variable/nunito";
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { AnalyticsSetup } from "@/components/Analytics";
 import { AttributionCapture } from "@/components/AttributionCapture";
+import { HandIconSprite } from "@/components/HandIcon";
 import { analyticsModeForRuntime } from "@/lib/analytics";
 import { PreviewBanner, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { config, isPreview } from "@/lib/config";
@@ -24,7 +26,7 @@ export function generateMetadata(): Metadata {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#fbf8f2",
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
 };
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white">
           Skip to content
         </a>
+        <HandIconSprite />
         <AnalyticsSetup mode={analyticsMode} websiteId={config.umamiWebsiteId} />
         <AttributionCapture enabled={config.publicApiVersion === "1.2"} />
         {isPreview ? <PreviewBanner catalog={config.mockCatalog} /> : null}

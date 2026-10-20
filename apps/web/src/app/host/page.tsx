@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { TrackView, TrackedLink } from "@/components/Analytics";
-import { Notice, SectionHeading } from "@/components/ui";
+import { HandIcon } from "@/components/HandIcon";
+import { buttonClass, Notice, SectionHeading } from "@/components/ui";
 import { config } from "@/lib/config";
 import { safeHttpsUrl } from "@/lib/safe-url";
 
@@ -53,7 +54,7 @@ export default function HostPage() {
       <TrackView event="host_view" props={{ signup_mode: startUrl ? "open" : "pilot" }} />
       <header className="max-w-2xl space-y-4">
         <p className="eyebrow">For people in Kamakura</p>
-        <h1 className="text-4xl sm:text-5xl">Share what you love with travelers</h1>
+        <h1 className="text-[2.5rem] sm:text-[3.5rem]">Share what you love with travelers</h1>
         <p className="text-lg text-ink-soft">
           You don&apos;t need to be a tour guide. If you cook for friends, make things with your hands, or know a walk worth taking, travelers would love to
           spend time with you.
@@ -67,7 +68,7 @@ export default function HostPage() {
               href={startUrl}
               event="host_start"
               props={{ signup_mode: "open" }}
-              className="inline-flex min-h-12 items-center rounded-full bg-moss px-6 text-lg font-bold text-white hover:bg-moss-hover"
+              className={buttonClass("primary", "text-lg")}
             >
               Start with your NIHO account
             </TrackedLink>
@@ -95,7 +96,7 @@ export default function HostPage() {
         <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((s, i) => (
             <li key={s.title} className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
-              <span className="font-display text-3xl font-semibold text-leaf" aria-hidden>
+              <span className="hand text-4xl" aria-hidden>
                 {i + 1}
               </span>
               <h3 className="mt-2 text-lg">{s.title}</h3>
@@ -130,9 +131,7 @@ function Column({ title, items, highlight = false }: { title: string; items: str
       <ul className="space-y-3">
         {items.map((item) => (
           <li key={item} className="flex gap-3">
-            <span aria-hidden className="font-bold text-moss">
-              ✓
-            </span>
+            <HandIcon name="check" className="mt-0.5 size-6 text-moss" />
             <span>{item}</span>
           </li>
         ))}

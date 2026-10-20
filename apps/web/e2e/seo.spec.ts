@@ -52,6 +52,14 @@ test("search result URLs are canonicalized and stay out of the index", async ({ 
   expect(html).toMatch(/<meta name="robots" content="noindex, (?:follow|nofollow)"/);
 });
 
+test("date and party-size filter URLs are canonicalized and stay out of the index", async ({ request }) => {
+  for (const path of ["/experiences?date=2026-10-24", "/experiences?guests=2"]) {
+    const html = await (await request.get(path)).text();
+    expect(html, path).toContain('<link rel="canonical" href="http://localhost:3000/experiences"');
+    expect(html, path).toMatch(/<meta name="robots" content="noindex, follow"/);
+  }
+});
+
 test("preview builds are never indexable", async ({ request }) => {
   for (const path of ["/", "/host", dinner]) {
     const html = await (await request.get(path)).text();

@@ -9,13 +9,14 @@ import { track } from "@/lib/analytics";
 import { buttonClass } from "./ui";
 
 export type BookingSelection = { offerId: string; date: string; adultCount: number; childCount: number };
-export function SlotPicker({ slug, offers, preview, availabilityIsProvisional, nihoWebOrigin, onContinue }: { slug: string; offers: ExperienceOffer[]; preview: boolean; availabilityIsProvisional: boolean; nihoWebOrigin: string; onContinue: (selection: BookingSelection) => void }) {
+export function SlotPicker({ slug, offers, preview, availabilityIsProvisional, nihoWebOrigin, onContinue, initialOfferId, initialDate }: { slug: string; offers: ExperienceOffer[]; preview: boolean; availabilityIsProvisional: boolean; nihoWebOrigin: string; onContinue: (selection: BookingSelection) => void; initialOfferId?: string; initialDate?: string }) {
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
-  const [offerId, setOfferId] = useState(offers[0]?.id ?? "");
+  // A date chosen on the detail page arrives pre-selected; it is kept only if it is still bookable (below).
+  const [offerId, setOfferId] = useState(offers.some((item) => item.id === initialOfferId) ? initialOfferId! : (offers[0]?.id ?? ""));
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(initialDate ?? "");
   const [adultCount, setAdultCount] = useState(1);
   const [childCount, setChildCount] = useState(0);
   const offer = offers.find((item) => item.id === offerId);
@@ -39,6 +40,7 @@ export function SlotPicker({ slug, offers, preview, availabilityIsProvisional, n
       setLoading(false);
       setError(!result.ok);
       setOccurrences(result.ok ? result.data.occurrences : []);
+      setDate((current) => (current && result.ok && result.data.occurrences.some((item) => item.offerId === offerId && item.date === current && item.bookable) ? current : ""));
     });
     return () => { active = false; };
   }, [api, slug, offerId]);

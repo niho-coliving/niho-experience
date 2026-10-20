@@ -10,6 +10,6 @@ export {
 } from "./mock-fetch.ts";
 export { placeholderImage, placeholderSvg } from "./placeholder-image.ts";
 export { buildFixtureExperiences, FIXTURE_CONSENT_VERSION, FIXTURE_IMAGE_SPECS } from "../fixtures/experiences.ts";
-export { buildPilotExperiences, PILOT_CONTENT_STATUS } from "../fixtures/pilot-experiences.ts";
+export { buildPilotExperiences, PILOT_CONTENT_STATUS, PILOT_IMAGE_SPECS, PILOT_SAMPLE_PHOTO_PATH } from "../fixtures/pilot-experiences.ts";
 export { buildMockOccurrences } from "../fixtures/availability.ts";
 export { toExperienceSummary } from "../fixtures/catalog.ts";

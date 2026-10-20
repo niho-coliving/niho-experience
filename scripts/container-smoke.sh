@@ -25,7 +25,7 @@ start() {
 check() {
   path="$1"; expected="$2"
   body=$(curl -fsS "http://127.0.0.1:$port$path")
-  if ! printf '%s' "$body" | grep -qF -- "$expected"; then
+  if ! printf '%s' "$body" | grep -F -- "$expected" >/dev/null; then
     echo "FAIL $path: expected \"$expected\"" >&2
     exit 1
   fi
@@ -33,7 +33,7 @@ check() {
 }
 
 start -e SITE_INDEXING=block
-check / "Meet the people who make Kamakura home"
+check / "Meet the people who make Kamakura"
 check /experiences/home-cooked-dinner-with-locals "Home-cooked dinner with locals in a shared living room"
 check /robots.txt "Disallow: /"
 check /host "starting with a small group of hosts"
