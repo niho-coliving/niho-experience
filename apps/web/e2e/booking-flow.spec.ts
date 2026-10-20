@@ -45,7 +45,7 @@ test("cancelled checkout return offers a clear way back to date selection on mob
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
     await page.setViewportSize(viewport);
     await page.goto(`${dinner}?checkout=cancelled`);
-    const status = page.getByRole("status");
+    const status = page.getByRole("status").filter({ hasText: "Checkout cancelled" });
     await expect(status).toContainText("Checkout cancelled");
     await expect(status.getByRole("link", { name: "Choose a date" })).toHaveAttribute("href", `${dinner}/book`);
   }

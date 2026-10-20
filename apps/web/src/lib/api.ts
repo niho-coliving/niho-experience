@@ -8,7 +8,7 @@ export async function getApi(searchParams?: Record<string, string | string[] | u
   if (config.apiMode === "mock") {
     const { createMockExperienceFetch } = await import("@niho-experience/api-client/mock");
     const requested = typeof searchParams?.mock === "string" ? searchParams.mock : "";
-    const scenarios = { empty: "empty-catalog", error: "network-error", slow: "slow", soldout: "sold-out" } as const;
+    const scenarios = { empty: "empty-catalog", error: "network-error", slow: "slow", soldout: "sold-out", "gallery-single-photo": "gallery-single-photo", "gallery-no-photos": "gallery-no-photos" } as const;
     const scenario = scenarios[requested as keyof typeof scenarios] ?? (config.mockLatencyMs > 0 ? "slow" : "default");
     return createExperienceApiClient({
       nihoWebOrigin: config.nihoWebOrigin,
