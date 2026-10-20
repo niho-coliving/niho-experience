@@ -22,4 +22,14 @@ test("host page keeps self-sign-up closed until NIHO provides the real registrat
   await expect(page.getByText("We're starting with a small group of hosts")).toBeVisible();
   await expect(page.getByText("Online sign-up opens after that.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Start with your NIHO account" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Manage your experiences on NIHO" })).toHaveAttribute("href", "https://niho.life/experiences/provider");
+});
+
+test("the returning host entry fits a 320px phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("/host");
+  const management = page.getByRole("link", { name: "Manage your experiences on NIHO" });
+  await management.scrollIntoViewIfNeeded();
+  await expect(management).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
