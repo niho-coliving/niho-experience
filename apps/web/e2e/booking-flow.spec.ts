@@ -21,7 +21,7 @@ test("browse, review adult and child total, and reach browser-only mock checkout
   await page.getByRole("link", { name: /Home-cooked dinner/ }).click();
   // Desktop: the sticky booking card. Phones: the bottom bar. Only one is shown at a time.
   await page.getByRole("link", { name: /^Check dates/ }).click();
-  await expect(page).toHaveURL(/\/book$/);
+  await expect(page).toHaveURL(/\/book\?guests=2$/);
   await page.getByRole("spinbutton", { name: /Adults/ }).fill("2");
   await page.getByRole("spinbutton", { name: /Children/ }).fill("1");
   // Availability varies by JST date; choose a slot that fits all three guests.
@@ -104,14 +104,23 @@ test("a newly full date can be checked again without trapping the guest", async 
 test("a changed price requires a fresh detail and agreement", async ({ page }) => {
   await page.goto(`${dinner}/book?mock=checkout-price-changed`);
   await chooseFirstDate(page);
+  const total = page.locator('section[aria-labelledby="check-heading"] dl dd').last();
+  const beforeRefresh = await total.innerText();
   await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
   await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
   await page.getByRole("checkbox", { name: /agree to version/ }).check();
   await page.getByRole("button", { name: "Continue to mock payment" }).click();
-  await expect(page.getByRole("link", { name: "Reload the experience" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reload the experience" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeDisabled();
-  await page.getByRole("link", { name: "Reload the experience" }).click();
-  await expect(page).toHaveURL(new RegExp(`${dinner}$`));
+  await page.getByRole("button", { name: "Reload the experience" }).click();
+  await expect(page.getByRole("button", { name: "Reload the experience" })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
+  await expect(total).not.toHaveText(beforeRefresh);
+  await expect(page.getByRole("checkbox", { name: /agree to version/ })).not.toBeChecked();
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeEnabled();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page).toHaveURL(/\/preview\/checkout$/);
 });
 
 test("a hold limit directs the guest to choose another date", async ({ page }) => {
@@ -132,7 +141,7 @@ test("changed booking questions require a fresh detail before checkout", async (
   await chooseFirstDate(page);
   await enterBookingDetails(page);
   await page.getByRole("button", { name: "Continue to mock payment" }).click();
-  await expect(page.getByRole("link", { name: "Reload the experience" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reload the experience" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue to mock payment" })).toBeDisabled();
   await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
 });

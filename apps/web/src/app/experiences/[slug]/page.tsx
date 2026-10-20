@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { TrackView } from "@/components/Analytics";
 import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { BookingCard, MobileBookingBar, type BookingSummary } from "@/components/DetailBooking";
+import { browseHref, readBrowseContext } from "@/lib/browse-context";
 import { AllPhotosButton, MobileGallery } from "@/components/DetailGallery";
 import { FaceBadge } from "@/components/Face";
 import { HandIcon, RubberStamp, type HandIconName } from "@/components/HandIcon";
@@ -96,6 +97,9 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const query = await searchParams;
   const [e, document] = await Promise.all([readExperience((await params).slug, query), getPublishedPageDocument("experience-detail")]);
   const checkoutCancelled = query.checkout === "cancelled";
+  const browseContext = readBrowseContext(query);
+  const preferredOfferId = typeof query.offer === "string" && e.offers.some((offer) => offer.id === query.offer) ? query.offer : undefined;
+  const bookingHref = browseHref(`/experiences/${e.slug}/book`, browseContext, preferredOfferId);
   const sellerLegalUrl = safeHttpsUrl(e.seller.legalNoticeUrl);
   // One policy for every option: show it here so travelers see it before choosing a date.
   const firstPolicy = e.offers[0]?.cancellationPolicy;
@@ -161,6 +165,8 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
     preview: isPreview,
     availabilityIsProvisional: isPreview && config.mockCatalog === "pilot",
     nihoWebOrigin: config.nihoWebOrigin,
+    browseContext,
+    preferredOfferId,
   };
 
   const hostFaces = e.hosts.length
@@ -170,11 +176,11 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const renderDetail = (props: BlockProps = {}, includeBooking = true) => (
     // clip (not hidden) keeps the tilted stamp from widening the page without breaking the sticky card and bar.
     <div className="overflow-x-clip">
-      <MobileGallery photos={photos} title={e.title} />
+      <MobileGallery photos={photos} title={e.title} backHref={browseHref("/experiences", browseContext)} />
 
       <div className="container-page">
         <nav aria-label="Breadcrumb" className="hidden pt-7 text-sm text-muted lg:block">
-          <Link href="/experiences" className="font-extrabold text-ink hover:underline">
+          <Link href={browseHref("/experiences", browseContext)} className="font-extrabold text-ink hover:underline">
             Experiences
           </Link>
           <span aria-hidden> / </span>
@@ -187,7 +193,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
               title="Checkout cancelled"
               role="status"
               action={
-                <Link href={`/experiences/${e.slug}/book`} className="font-bold text-moss underline underline-offset-4">
+                <Link href={bookingHref} className="font-bold text-moss underline underline-offset-4">
                   Choose a date
                 </Link>
               }

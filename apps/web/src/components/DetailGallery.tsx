@@ -11,7 +11,7 @@ import { Photo } from "./Photo";
 const photoAlt = (photo: PublicImageForSite, title: string, index: number, count: number) => imageAlt(photo, index === 0 ? title : `${title}, photo ${index + 1} of ${count}`);
 
 /** Phones: full-width swipe gallery with a position counter and a way back to the list. */
-export function MobileGallery({ photos, title }: { photos: PublicImageForSite[]; title: string }) {
+export function MobileGallery({ photos, title, backHref = "/experiences" }: { photos: PublicImageForSite[]; title: string; backHref?: string }) {
   const track = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const count = photos.length;
@@ -39,7 +39,7 @@ export function MobileGallery({ photos, title }: { photos: PublicImageForSite[];
         )}
       </div>
       <Link
-        href="/experiences"
+        href={backHref}
         aria-label="All experiences"
         className="absolute top-3.5 left-3.5 grid size-11 place-items-center rounded-full bg-white/95 shadow-[0_2px_8px_rgb(0_0_0/0.15)]"
       >
