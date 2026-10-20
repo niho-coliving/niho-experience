@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { buildMockOccurrences, MOCK_AVAILABILITY_WINDOW_DAYS } from "../src/fixtures/availability.ts";
 import { toExperienceSummary } from "../src/fixtures/catalog.ts";
 import { buildFixtureExperiences, FIXTURE_EXPERIENCE_SITE_ORIGIN } from "../src/fixtures/experiences.ts";
-import { buildPilotExperiences, PILOT_CONTENT_STATUS } from "../src/fixtures/pilot-experiences.ts";
+import { buildPilotExperiences, PILOT_CONTENT_STATUS, PILOT_IMAGE_SPECS, PILOT_SAMPLE_PHOTO_PATH } from "../src/fixtures/pilot-experiences.ts";
 import { createExperienceApiClient } from "../src/client.ts";
 import { createMockExperienceFetch, isMockCheckoutUrl, type MockCatalog } from "../src/mock/mock-fetch.ts";
 import { createContractValidator, findSensitiveValues } from "../src/testing/index.ts";
@@ -80,12 +80,36 @@ describe("pilot fixture（テストサイト用・推奨値）", () => {
     }
   });
 
-  it("写真は仮素材だけ（実在の写真の URL を入れていない）", () => {
+  it("写真は仮素材だけ（SVG の仮素材か、出典を残したサイト内の仮写真。外部・実在の写真の URL を入れていない）", () => {
+    const samplePhoto = new RegExp(`^${PILOT_SAMPLE_PHOTO_PATH}/[a-z0-9-]+\\.jpg$`);
+    const declared = new Set(
+      Object.values(PILOT_IMAGE_SPECS)
+        .flat()
+        .flatMap((spec) => ("samplePhoto" in spec && spec.samplePhoto ? [`${PILOT_SAMPLE_PHOTO_PATH}/${spec.samplePhoto}`] : [])),
+    );
     for (const experience of experiences) {
       const urls = [experience.cover, ...experience.photos, ...experience.hosts.map((host) => host.avatar), experience.provider.logo]
         .filter((image) => image !== null)
         .map((image) => image.url);
-      for (const url of urls) expect(url.startsWith("data:image/svg+xml")).toBe(true);
+      for (const url of urls) {
+        if (url.startsWith("data:image/svg+xml")) continue;
+        expect(url).toMatch(samplePhoto);
+        expect(declared.has(url)).toBe(true);
+      }
+    }
+  });
+
+  it("ストック写真の顔を実在のホストに付けない（顔写真は null、画面は頭文字）", () => {
+    for (const experience of experiences) {
+      for (const host of experience.hosts) expect(host.avatar).toBeNull();
+    }
+  });
+
+  it("集合場所の外観は仮写真にしない（実物と違う建物を見せない）", () => {
+    for (const experience of experiences) {
+      const index = experience.meetingPoint?.exteriorPhotoIndex;
+      if (index === undefined || index === null) continue;
+      expect(experience.photos[index]?.url.startsWith("data:image/svg+xml")).toBe(true);
     }
   });
 

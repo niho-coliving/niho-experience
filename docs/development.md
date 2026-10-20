@@ -76,7 +76,7 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 
 ## データの扱い
 
-- fixtureは架空の提供者・日程・価格のみ。実在の人物・連絡先・住所・レビュー・販売実績を入れない。写真は抽象的なSVGの仮素材で、画面に「Sample」と表示する。
+- fixtureは架空の提供者・日程・価格のみ。実在の人物・連絡先・住所・レビュー・販売実績を入れない。写真は抽象的なSVGの仮素材で、画面に「Sample」と表示する（pilot fixture とサイトの装飾の仮写真は [design-system.md](design-system.md) §6）。
 - 予約入力（氏名・メール・備考・回答）はブラウザ内だけで保持し、ブラウザからNIHO公開APIへ直接送る。Next.js Server Action、URL、storage、ログ、計測、公開cacheへ入れない。予約関連ページは `Cache-Control: private, no-store` と `X-Robots-Tag: noindex`。
 - 価格・在庫・販売者の正はNIHO。画面は契約の料金式で合計を表示し、`expectedTotalYen` として照合用に送る。
 

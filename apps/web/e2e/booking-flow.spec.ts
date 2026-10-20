@@ -15,9 +15,11 @@ test("browse, review adult and child total, and reach browser-only mock checkout
   const requests: string[] = [];
   page.on("request", (request) => { if (request.method() === "POST") requests.push(request.url()); });
   await page.goto("/");
-  await page.getByRole("link", { name: "Find an experience" }).click();
+  await page.getByRole("button", { name: "Find experiences" }).click();
+  await expect(page).toHaveURL(/\/experiences\?/);
   await page.getByRole("link", { name: /Home-cooked dinner/ }).click();
-  await page.getByRole("link", { name: "Check dates and book" }).click();
+  // Desktop: the sticky booking card. Phones: the bottom bar. Only one is shown at a time.
+  await page.getByRole("link", { name: /^Check dates/ }).click();
   await expect(page).toHaveURL(/\/book$/);
   await page.getByRole("spinbutton", { name: /Adults/ }).fill("2");
   await page.getByRole("spinbutton", { name: /Children/ }).fill("1");

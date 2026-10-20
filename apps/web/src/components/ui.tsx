@@ -4,10 +4,11 @@ import type { ComponentProps, ReactNode } from "react";
 type Variant = "primary" | "secondary" | "ghost";
 
 const base =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-base font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-base font-extrabold transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 const variants: Record<Variant, string> = {
-  primary: "bg-moss text-white hover:bg-moss-hover",
-  secondary: "border border-line-strong bg-surface text-ink hover:border-ink",
+  // Leaf fill with ink text (10.4:1). One main action per screen.
+  primary: "bg-leaf text-ink hover:bg-leaf-hover",
+  secondary: "bg-transparent text-ink shadow-[inset_0_0_0_1.5px_var(--color-ink)] hover:bg-sand",
   ghost: "text-moss underline-offset-4 hover:underline",
 };
 
@@ -69,14 +70,33 @@ export function Pill({ children, tone = "neutral" }: { children: ReactNode; tone
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-sm font-bold ${styles}`}>{children}</span>;
 }
 
-export function SectionHeading({ eyebrow, title, id, children }: { eyebrow?: string; title: string; id?: string; children?: ReactNode }) {
+/** Section title with an optional hand-written line above it. */
+export function SectionHeading({
+  eyebrow,
+  title,
+  id,
+  children,
+  align = "start",
+  action,
+}: {
+  eyebrow?: string;
+  title: ReactNode;
+  id?: string;
+  children?: ReactNode;
+  align?: "start" | "center";
+  action?: ReactNode;
+}) {
+  const centered = align === "center";
   return (
-    <div className="mb-6 max-w-2xl space-y-2">
-      {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-      <h2 id={id} className="text-2xl sm:text-3xl">
-        {title}
-      </h2>
-      {children ? <div className="text-ink-soft">{children}</div> : null}
+    <div className={`mb-7 flex flex-wrap items-end gap-x-6 gap-y-3 ${centered ? "justify-center text-center" : "justify-between"}`}>
+      <div className={`max-w-2xl ${centered ? "mx-auto" : ""}`}>
+        {eyebrow ? <p className="eyebrow mb-1.5">{eyebrow}</p> : null}
+        <h2 id={id} className="text-[2rem] sm:text-[2.75rem]">
+          {title}
+        </h2>
+        {children ? <div className="mt-3 text-ink-soft">{children}</div> : null}
+      </div>
+      {action}
     </div>
   );
 }

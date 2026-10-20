@@ -1,22 +1,386 @@
+import NextImage from "next/image";
 import Link from "next/link";
-import { ExperienceGrid } from "@/components/ExperienceCard";
-import { Photo } from "@/components/Photo";
+import type { ExperienceDetail } from "@niho-experience/api-client";
+import { AmbientVideo } from "@/components/AmbientVideo";
+import { ExperienceCard, InviteCard } from "@/components/ExperienceCard";
+import { FaceBadge } from "@/components/Face";
+import { HandIcon, RubberStamp, type HandIconName } from "@/components/HandIcon";
+import { Photo, SampleTag } from "@/components/Photo";
 import { EmptyResults, ErrorState } from "@/components/States";
-import { ButtonLink, SectionHeading } from "@/components/ui";
+import { ButtonLink, buttonClass, SectionHeading } from "@/components/ui";
 import { getApi } from "@/lib/api";
+import { buildCardModels, faceOf, type Face } from "@/lib/card-model";
+import { loadDetails } from "@/lib/catalog";
 import { isPreview, previewListingLabel } from "@/lib/config";
+import { MAX_GUESTS, upcomingDays, type DayOption } from "@/lib/date-filter";
 import type { SearchParams } from "@/lib/filters";
+import { pluralize } from "@/lib/format";
+import { scheduleLine } from "@/lib/schedule";
+import { BANNER_VIDEO, HERO_PHOTO, HOST_BAND_VIDEO, POSTCARDS, SAMPLE_MEDIA, STRIP_VIDEOS } from "@/lib/site-media";
+import { shortTitle, themeEntries, themeOf, type Theme } from "@/lib/themes";
+
+const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
+
+const STEPS: { icon: HandIconName; title: string; body: string }[] = [
+  { icon: "cal", title: "Pick a date", body: "Choose a date and how many of you are coming. Times are Japan time (JST)." },
+  { icon: "card", title: "Pay securely", body: "Checkout by Stripe in Japanese yen, tax included." },
+  { icon: "mail", title: "Get the details by email", body: "NIHO emails your confirmation and the meeting details." },
+];
 
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const result = await (await getApi(await searchParams)).listExperiences({ region: "kamakura" });
+  const api = await getApi(await searchParams);
+  const result = await api.listExperiences({ region: "kamakura" });
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
-  const items = result.ok ? result.data.experiences : [];
-  return <>
-    <section className="container-page grid items-center gap-8 pt-10 lg:grid-cols-2 lg:gap-12">
-      <div className="space-y-5"><p className="eyebrow">Kamakura · Small group experiences</p><h1 className="text-[2.5rem] leading-[1.08] sm:text-6xl">Meet the people who make Kamakura home</h1><p className="max-w-xl text-lg text-ink-soft">Cook, create and explore with local hosts. Find a small experience that feels right for you.</p><ButtonLink href="/experiences">Find an experience</ButtonLink></div>
-      {items[0]?.cover ? <Photo image={items[0].cover} alt={items[0].title} sizes="(min-width: 64rem) 560px, 100vw" aspect="aspect-[16/10]" preview={isPreview} priority /> : <div className="aspect-[16/10] rounded-[var(--radius-card)] bg-sand" aria-hidden />}
-    </section>
-    <section className="container-page mt-20"><SectionHeading eyebrow="This season" title="Experiences hosted by neighbors" />{items.length ? <ExperienceGrid items={items.slice(0, 3)} preview={isPreview} previewLabel={previewListingLabel} /> : <EmptyResults clearHref={null} />}{items.length > 3 ? <Link href="/experiences" className="mt-6 inline-block font-bold text-moss underline">See all experiences</Link> : null}</section>
-    <section className="container-page mt-20 rounded-[var(--radius-card)] bg-sand px-6 py-10"><h2 className="text-3xl">Share what you love about Kamakura</h2><p className="mt-3 text-ink-soft">NIHO helps local hosts prepare and take bookings.</p><div className="mt-5"><ButtonLink href="/host" variant="secondary">Learn about hosting</ButtonLink></div></section>
-  </>;
+  const summaries = result.ok ? result.data.experiences : [];
+  const details = await loadDetails(api, summaries);
+  const cards = buildCardModels(summaries, details);
+  const listed = summaries.map((summary) => details.get(summary.slug)).filter((detail): detail is ExperienceDetail => Boolean(detail));
+
+  const themes = themeEntries(summaries);
+  const featured = listed.find((experience) => experience.photos.length >= 5) ?? null;
+  // One clip per listed theme; the label is the verb and the experience's short name (never a host's name).
+  const strips: { theme: Theme; slug: string; name: string }[] = [];
+  for (const summary of summaries) {
+    const theme = themeOf(summary);
+    if (theme && !strips.some((strip) => strip.theme.key === theme.key)) strips.push({ theme, slug: summary.slug, name: shortTitle(summary.title) });
+  }
+  const hostFeature = listed.find((experience) => experience.provider.kind === "INDIVIDUAL") ?? null;
+  const capacities = listed.flatMap((experience) => experience.offers.map((offer) => offer.capacity));
+  const days = upcomingDays(new Date(), 14);
+
+  return (
+    <>
+      <section className="relative" aria-label="Welcome">
+        <div className="relative h-[560px] overflow-hidden bg-[#222] lg:h-[680px]">
+          <NextImage
+            src={HERO_PHOTO.src}
+            alt={HERO_PHOTO.alt}
+            fill
+            priority
+            unoptimized
+            sizes="100vw"
+            className="object-cover"
+            style={{ objectPosition: HERO_PHOTO.position }}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0)_32%,rgb(0_0_0/0.64)_100%)] lg:bg-[linear-gradient(90deg,rgb(0_0_0/0.42),rgb(0_0_0/0)_62%),linear-gradient(180deg,rgb(0_0_0/0)_40%,rgb(0_0_0/0.5)_100%)]"
+          />
+          <div className="absolute inset-x-0 bottom-16 z-[2] text-white lg:bottom-[116px]">
+            <div className="container-page">
+              <h1 className="max-w-[12ch] text-[2.625rem] leading-[1.02] [text-shadow:0_2px_18px_rgb(0_0_0/0.35)] lg:max-w-[13ch] lg:text-[4.875rem]">
+                Meet the people who make Kamakura <span className="hand inline-block -rotate-3 text-[1.22em] text-leaf">home</span>
+              </h1>
+              <p className="mt-3.5 max-w-[30rem] text-[1.0625rem] text-white/90 lg:text-[1.1875rem]">
+                Spend a few hours with people who live here. Small groups, prices in yen, and no account needed to book.
+              </p>
+            </div>
+          </div>
+          <RubberStamp className="absolute top-[18px] right-4 z-[2] size-24 -rotate-12 text-white opacity-90 lg:top-11 lg:right-14 lg:size-[134px]" />
+          {SAMPLE_MEDIA ? <SampleTag className="top-3 left-3" /> : null}
+        </div>
+        <Finder days={days} />
+      </section>
+
+      {themes.length ? (
+        <nav aria-label="Themes" className="scrollbar-none flex gap-0.5 overflow-x-auto px-3 pt-9 lg:justify-center lg:gap-7 lg:pt-[88px]">
+          {themes.map((theme) => (
+            <Link
+              key={theme.key}
+              href={`/experiences/${theme.slug}`}
+              className="flex w-[92px] shrink-0 flex-col items-center gap-2 rounded-[18px] px-1 py-2.5 text-center text-sm leading-tight font-bold text-ink-soft hover:bg-sand"
+            >
+              <HandIcon name={theme.icon} className="size-[46px] text-ink" />
+              {theme.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+
+      <section className="container-page pt-14 lg:pt-[88px]" aria-labelledby="home-cards">
+        <SectionHeading
+          id="home-cards"
+          eyebrow={cards.length ? `${numberWord(cards.length)} to choose from` : undefined}
+          title={
+            <>
+              Experiences hosted by <span className="squig">neighbors</span>
+            </>
+          }
+          action={
+            cards.length ? (
+              <Link href="/experiences" className="link-leaf">
+                See all
+              </Link>
+            ) : null
+          }
+        />
+        {cards.length ? (
+          <ul className="scrollbar-none -mx-4 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-[18px] overflow-x-auto px-4 pt-1 pb-7 sm:-mx-6 sm:auto-cols-[44%] sm:px-6 lg:mx-0 lg:grid-flow-row lg:grid-cols-3 lg:gap-x-7 lg:gap-y-[52px] lg:overflow-visible lg:p-0">
+            {cards.map((card, index) => (
+              <li key={card.slug} className="snap-center">
+                <ExperienceCard card={card} priority={index === 0} preview={isPreview} previewLabel={previewListingLabel} />
+              </li>
+            ))}
+            <li className="snap-center">
+              <InviteCard />
+            </li>
+          </ul>
+        ) : (
+          <EmptyResults clearHref={null} />
+        )}
+      </section>
+
+      {featured ? <Featured experience={featured} preview={isPreview} /> : null}
+
+      {strips.length ? (
+        <section className="pt-[72px] lg:pt-[104px]" aria-labelledby="strips-heading">
+          <div className="relative h-[340px] overflow-hidden bg-[#222] lg:h-[500px]">
+            <AmbientVideo video={BANNER_VIDEO} />
+            <div aria-hidden className="absolute inset-0 bg-black/35" />
+            <h2
+              id="strips-heading"
+              className="absolute inset-0 z-[1] flex flex-col items-center justify-center px-6 pb-[90px] text-center text-[2.125rem] text-white lg:pb-40 lg:text-[3.625rem]"
+            >
+              Slow down, you&apos;re among neighbors
+              <span className="hand mt-2 block text-[0.86em] text-leaf">
+                {strips.length === 1 ? "one small way into Kamakura" : `${numberWord(strips.length)} small ways into Kamakura`}
+              </span>
+            </h2>
+            {SAMPLE_MEDIA ? <SampleTag className="top-3 left-3" /> : null}
+          </div>
+          <ul className="scrollbar-none relative z-[2] -mt-[110px] grid snap-x snap-mandatory auto-cols-[46%] grid-flow-col gap-2.5 overflow-x-auto px-5 sm:auto-cols-[30%] lg:mx-auto lg:-mt-[190px] lg:flex lg:max-w-[75rem] lg:justify-center lg:gap-3.5 lg:overflow-visible lg:px-10">
+            {strips.map((strip) => (
+              <li key={strip.theme.key} className="snap-start lg:w-[calc((100%_-_4*0.875rem)/5)]">
+                <Link href={`/experiences/${strip.slug}`} className="relative block aspect-[1/2] overflow-hidden rounded-[20px] bg-[#333] text-white">
+                  <AmbientVideo video={STRIP_VIDEOS[strip.theme.key]} />
+                  <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0)_50%,rgb(0_0_0/0.66))]" />
+                  <span className="absolute right-3 bottom-4 left-4 z-[1]">
+                    <b className="hand block text-[2.375rem] text-white">{strip.theme.verb}</b>
+                    <small className="mt-0.5 block text-[0.8125rem] leading-snug font-bold text-white">{strip.name}</small>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {hostFeature ? <HostFeature experience={hostFeature} others={listed.filter((item) => item !== hostFeature)} preview={isPreview} /> : null}
+
+      {cards.length ? (
+        <section className="container-page pt-[72px] lg:pt-[104px]" aria-labelledby="numbers-heading">
+          <SectionHeading align="center" eyebrow="why it feels different" title="Small on purpose" id="numbers-heading" />
+          <ul className="grid grid-cols-2 gap-x-3 gap-y-11 text-center lg:grid-cols-4">
+            <Figure value="2" unit="minutes" note="From Kamakura Station West Exit to NIHO." />
+            {capacities.length ? (
+              <Figure value={String(Math.max(...capacities))} unit="guests at most" note="Small enough for one table and real conversation." />
+            ) : null}
+            <Figure value={String(cards.length)} unit={cards.length === 1 ? "way to start" : "ways to start"} note="Each one hosted by people who live here." />
+            <Figure value="2" unit="languages" note="English & Japanese, often at the same table." />
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="container-page pt-[72px] lg:pt-[104px]" aria-labelledby="steps-heading">
+        <SectionHeading eyebrow="how booking works" title="Simple, in yen, in your inbox" id="steps-heading" />
+        <ol className="grid gap-3 lg:grid-cols-3 lg:gap-4">
+          {STEPS.map((step) => (
+            <li key={step.title} className="flex items-start gap-4 rounded-[22px] bg-sand p-[22px]">
+              <HandIcon name={step.icon} className="size-[46px]" />
+              <div>
+                <b className="block text-[1.0625rem]">{step.title}</b>
+                <p className="mt-0.5 text-[0.9375rem] text-ink-soft">{step.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-[18px] flex flex-wrap items-center justify-center gap-1 text-center">
+          <span className="hand text-[1.5625rem]">no account needed — book as a guest</span>
+          <HandIcon name="arrow" className="h-[34px] w-[60px] text-moss" />
+        </p>
+      </section>
+
+      <section className="pt-[88px]" aria-labelledby="walk-heading">
+        <div className="container-page">
+          <SectionHeading align="center" eyebrow="make a day of it" title="Kamakura is small. Walk it." id="walk-heading" />
+        </div>
+        <ul tabIndex={0} aria-label="Places around Kamakura" className="scrollbar-none flex gap-[18px] overflow-x-auto px-5 pt-4 pb-7 lg:justify-center lg:gap-[26px] lg:pt-6">
+          {POSTCARDS.map((card, index) => (
+            <li key={card.src} className="w-40 shrink-0 lg:w-45" style={{ transform: `rotate(${card.rotate}deg)` }}>
+              <figure>
+                <div className="postage postage-sm aspect-[3/4]">
+                  <div className="postage-paper">
+                    <div className="relative h-full w-full overflow-hidden">
+                      <NextImage src={card.src} alt={card.alt} fill unoptimized sizes="180px" className="object-cover" style={{ objectPosition: card.position }} />
+                      {SAMPLE_MEDIA && index === 0 ? <SampleTag className="bottom-1.5 left-1.5" /> : null}
+                    </div>
+                  </div>
+                </div>
+                <figcaption className="mt-3 text-center font-hand text-2xl leading-[1.1] font-semibold">{card.place}</figcaption>
+              </figure>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="container-page pt-16" aria-labelledby="host-band-heading">
+        <div className="grid items-center gap-7 overflow-hidden rounded-[28px] bg-sand px-6 py-8 lg:grid-cols-[1.2fr_0.8fr] lg:px-16 lg:py-14">
+          <div>
+            <p className="eyebrow">for locals</p>
+            <h2 id="host-band-heading" className="mt-2 text-[1.875rem] lg:text-[2.625rem]">
+              Share what you love about Kamakura
+            </h2>
+            <p className="mt-3 text-ink-soft">NIHO helps local hosts prepare and take bookings. Start small: one table, one afternoon, a few guests.</p>
+            <ButtonLink href="/host" variant="secondary" className="mt-[22px]">
+              Learn about hosting
+            </ButtonLink>
+          </div>
+          <div className="arch relative aspect-[3/4] w-[min(100%,260px)] justify-self-center bg-line">
+            <AmbientVideo video={HOST_BAND_VIDEO} />
+            {SAMPLE_MEDIA ? <SampleTag className="bottom-5 left-1/2 -translate-x-1/2" /> : null}
+          </div>
+        </div>
+      </section>
+    </>
+  );
 }
+
+/** Date and party size, sent as a plain GET to the list (works without JavaScript). */
+function Finder({ days }: { days: DayOption[] }) {
+  const cell = "flex min-w-0 items-center gap-2.5 rounded-2xl px-3 py-2.5 hover:bg-sand lg:rounded-full";
+  const select = "w-full min-w-0 cursor-pointer appearance-none truncate bg-transparent text-[0.9375rem] leading-tight font-bold text-ink";
+  return (
+    <form
+      action="/experiences"
+      method="get"
+      role="search"
+      aria-label="Find experiences"
+      className="relative z-[3] mx-4 -mt-9 grid grid-cols-2 gap-1 rounded-[22px] bg-white p-2 shadow-[0_10px_30px_rgb(0_0_0/0.12),0_1px_2px_rgb(0_0_0/0.06)] lg:absolute lg:bottom-[-38px] lg:left-1/2 lg:mx-0 lg:mt-0 lg:w-[min(780px,calc(100%_-_80px))] lg:-translate-x-1/2 lg:grid-cols-[1fr_1fr_auto] lg:rounded-full lg:py-2 lg:pr-2 lg:pl-3.5"
+    >
+      <label className={cell}>
+        <HandIcon name="cal" className="size-[30px]" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <small className="text-xs font-extrabold text-muted">When</small>
+          <select name="date" defaultValue="" className={select}>
+            <option value="">Any day</option>
+            {days.map((day) => (
+              <option key={day.key} value={day.key}>
+                {day.label}
+              </option>
+            ))}
+          </select>
+        </span>
+      </label>
+      <label className={cell}>
+        <HandIcon name="people" className="size-[30px]" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <small className="text-xs font-extrabold text-muted">Guests</small>
+          <select name="guests" defaultValue="1" className={select}>
+            {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {pluralize(n, "guest")}
+              </option>
+            ))}
+          </select>
+        </span>
+      </label>
+      <button type="submit" className={buttonClass("primary", "col-span-2 lg:col-span-1 lg:min-h-14 lg:px-[30px]")}>
+        Find experiences
+      </button>
+    </form>
+  );
+}
+
+function Featured({ experience: e, preview }: { experience: ExperienceDetail; preview: boolean }) {
+  const [a, b, c, d, f] = e.photos;
+  const line = scheduleLine(e.offers);
+  const tile = (image: typeof a, className = "") => (
+    <Photo image={image ?? null} alt="" aspect="" rounded="" className={`h-full min-h-0 ${className}`} sizes="(min-width: 64rem) 320px, 40vw" />
+  );
+  return (
+    <section className="container-page pt-[72px] lg:pt-[104px]" aria-labelledby="featured-heading">
+      <div className="grid items-center gap-7 lg:grid-cols-[0.9fr_1.3fr] lg:gap-16">
+        <div>
+          {line ? <p className="eyebrow">{line}</p> : null}
+          <h2 id="featured-heading" className="mt-2 text-[2rem] lg:text-[2.75rem]">
+            {e.title}
+          </h2>
+          <p className="mt-3.5 max-w-[30rem] text-ink-soft">{e.lead}</p>
+          <ButtonLink href={`/experiences/${e.slug}`} variant="secondary" className="mt-[22px]">
+            See details
+          </ButtonLink>
+        </div>
+        <div className="relative grid h-80 grid-cols-[1fr_1fr_1.3fr] grid-rows-2 gap-1 overflow-hidden rounded-[22px] lg:h-[480px]">
+          {tile(b)}
+          {tile(c)}
+          {tile(a, "col-start-3 row-span-2 row-start-1")}
+          {tile(d)}
+          {tile(f)}
+          {preview ? <SampleTag /> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HostFeature({ experience: e, others, preview }: { experience: ExperienceDetail; others: ExperienceDetail[]; preview: boolean }) {
+  const name = e.hosts[0]?.displayName ?? e.provider.name;
+  const faces: { face: Face; slug: string; title: string; current: boolean }[] = [];
+  for (const item of [e, ...others]) {
+    const face = faceOf(item);
+    if (faces.some((entry) => entry.face.name === face.name)) continue;
+    faces.push({ face, slug: item.slug, title: item.title, current: item === e });
+  }
+  return (
+    <section className="mt-[72px] bg-sand pt-16 pb-[76px] lg:mt-[104px] lg:pt-24 lg:pb-[104px]" aria-labelledby="hosts-heading">
+      <div className="container-page">
+        <SectionHeading align="center" eyebrow="Meet your neighbors" title="The people are the point" id="hosts-heading" />
+        <div className="grid items-center gap-11 lg:grid-cols-2 lg:gap-[72px]">
+          <div className="postage aspect-[4/5] w-[min(100%,380px)] justify-self-center lg:order-2 lg:w-[min(100%,420px)]">
+            <div className="postage-paper">
+              <Photo image={e.cover} alt="" aspect="" rounded="" className="h-full w-full" sampleTag={preview} sizes="(min-width: 64rem) 420px, 90vw" />
+            </div>
+            <RubberStamp className="absolute -bottom-[30px] -left-6 size-[124px] -rotate-[14deg] text-moss" />
+          </div>
+          <div>
+            <p className="hand text-[3.5rem]">{name}</p>
+            {e.provider.tagline ? <p className="mt-2 font-extrabold text-ink-soft">{e.provider.tagline}</p> : null}
+            <p className="mt-3.5 max-w-[30rem] text-ink-soft">{e.lead}</p>
+            <ButtonLink href={`/experiences/${e.slug}`} variant="secondary" className="mt-6">
+              See {name}&apos;s workshop
+            </ButtonLink>
+            {faces.length > 1 ? (
+              <ul className="mt-7 flex flex-wrap items-center gap-2.5" aria-label="More hosts">
+                {faces.map((entry) => (
+                  <li key={entry.slug}>
+                    <Link href={`/experiences/${entry.slug}`} aria-label={`${entry.face.name}: ${entry.title}`} className="block rounded-full">
+                      <FaceBadge
+                        face={entry.face}
+                        className={`size-[46px] rounded-full border-[3px] text-lg ${entry.current ? "border-leaf" : "border-transparent"}`}
+                        sizes="46px"
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Figure({ value, unit, note }: { value: string; unit: string; note: string }) {
+  return (
+    <li>
+      <p>
+        <b className="block font-display text-[3.875rem] leading-none font-light tracking-[-0.03em] lg:text-[5.5rem]">{value}</b>
+        <span className="hand mt-0.5 block text-[1.875rem]">{unit}</span>
+      </p>
+      <p className="mx-auto mt-2 max-w-[15rem] text-sm text-muted">{note}</p>
+    </li>
+  );
+}
+

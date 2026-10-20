@@ -4,7 +4,11 @@
  * 合成 fixture（experiences.ts）と違い、実在の提供者の体験を載せる。オーナーが各事業者から掲載の許可を得ており、
  * テストサイトへ組み込むことを決めた（2026-10-19、docs/content/README.md）。
  * - 価格・曜日・時刻・人数・取消・受付方式は担当3の推奨値で、販売条件として確定していない（docs/content/product-ledger.md）。
- * - 写真は未入手のため仮素材。レビュー・販売実績・実際の残席は入れない。
+ * - 写真は撮影前の仮素材。オーナー判断（2026-10-20）で、出典を残した無料素材の仮写真（apps/web/public/sample/、
+ *   出典は同フォルダの CREDITS.md）を画面に「Sample photo」と出して使ってよい。実在の会員・提供者の写真としては使わない。
+ *   - ホストの顔（hosts[].avatar）は null（ストック写真の顔を実名に付けない。画面は頭文字で代替する）。
+ *   - 集合場所の外観（entrance・gate）は実物と違う建物で客を迷わせないよう、SVG の仮素材のまま。
+ * - レビュー・販売実績・実際の残席は入れない。
  * - 本番の表示には使わない。本番は NIHO 共通基盤に登録した原稿が正本。
  */
 import type { BookingQuestion, ExperienceDetail, MeetingPoint } from "../types.ts";
@@ -39,53 +43,57 @@ function canonical(slug: string): string {
   return `${FIXTURE_EXPERIENCE_SITE_ORIGIN}/experiences/${slug}`;
 }
 
-/** 写真は未入手。撮影リストは docs/content/photo-requirements.md。 */
+/**
+ * テストサイトのプレビューで出す仮写真の置き場（apps/web/public/sample/photos。サイトの origin から配信する）。
+ * 撮り直した写真が届いたら差し替える（docs/release-acceptance.md）。撮影リストは docs/content/photo-requirements.md。
+ */
+export const PILOT_SAMPLE_PHOTO_PATH = "/sample/photos";
+
+/** `samplePhoto` があればその仮写真、無ければ SVG の仮素材（data URI）。 */
+export type PilotImageSpec = PlaceholderImageSpec & { samplePhoto?: string };
+
 export const PILOT_IMAGE_SPECS = {
   dinner: [
-    { name: "pilot-dinner-table", label: "Dinner at the long table", hue: 28 },
-    { name: "pilot-dinner-kitchen", label: "Cooking together", hue: 18 },
-    { name: "pilot-dinner-dishes", label: "Seasonal dishes", hue: 45 },
-    { name: "pilot-dinner-hosts", label: "Your hosts", hue: 330 },
-    { name: "pilot-niho-living-room", label: "NIHO living room", hue: 40 },
+    { name: "pilot-dinner-table", label: "Dinner at the long table", hue: 28, samplePhoto: "dinner-long-table.jpg" },
+    { name: "pilot-dinner-kitchen", label: "Cooking together", hue: 18, samplePhoto: "dinner-cooking-together.jpg" },
+    { name: "pilot-dinner-dishes", label: "Seasonal dishes", hue: 45, samplePhoto: "dinner-oden.jpg" },
+    // ストック写真の人物を「Your hosts」と呼ばない。
+    { name: "pilot-dinner-hosts", label: "Around the table", hue: 330, samplePhoto: "dinner-around-table.jpg" },
+    { name: "pilot-niho-living-room", label: "At the table", hue: 40, samplePhoto: "dinner-table-overhead.jpg" },
     { name: "pilot-niho-entrance", label: "Side entrance and NIHO sign", hue: 205 },
   ],
   coffee: [
-    { name: "pilot-coffee-roaster", label: "Roasting", hue: 25 },
-    { name: "pilot-coffee-green-beans", label: "Green and roasted beans", hue: 90 },
-    { name: "pilot-coffee-cooling", label: "Cooling the beans", hue: 30 },
-    { name: "pilot-coffee-cup", label: "Coffee time", hue: 35 },
+    { name: "pilot-coffee-roaster", label: "Roasting", hue: 25, samplePhoto: "coffee-scoop.jpg" },
+    { name: "pilot-coffee-green-beans", label: "Green and roasted beans", hue: 90, samplePhoto: "coffee-beans-board.jpg" },
+    { name: "pilot-coffee-cooling", label: "Cooling the beans", hue: 30, samplePhoto: "coffee-drum.jpg" },
+    { name: "pilot-coffee-cup", label: "Coffee time", hue: 35, samplePhoto: "coffee-pour.jpg" },
     { name: "pilot-niho-entrance", label: "Side entrance and NIHO sign", hue: 205 },
   ],
   zen: [
-    { name: "pilot-zen-meditation", label: "Zazen", hue: 140 },
-    { name: "pilot-zen-grounds", label: "Temple grounds", hue: 120 },
-    { name: "pilot-zen-talk", label: "Talk with a Zen priest", hue: 160 },
+    { name: "pilot-zen-meditation", label: "Zazen", hue: 140, samplePhoto: "zazen-hall.jpg" },
+    { name: "pilot-zen-grounds", label: "Temple grounds", hue: 120, samplePhoto: "temple-path.jpg" },
+    { name: "pilot-zen-talk", label: "Talk with a Zen priest", hue: 160, samplePhoto: "zen-garden-view.jpg" },
     { name: "pilot-zen-gate", label: "Temple gate", hue: 100 },
   ],
   mending: [
-    { name: "pilot-mending-hands", label: "Mending a bowl", hue: 15 },
-    { name: "pilot-mending-before-after", label: "Before and after", hue: 50 },
-    { name: "pilot-mending-tools", label: "Materials and tools", hue: 10 },
+    { name: "pilot-mending-hands", label: "Mending a bowl", hue: 15, samplePhoto: "mending-hands.jpg" },
+    { name: "pilot-mending-before-after", label: "Before and after", hue: 50, samplePhoto: "kintsugi-plates.jpg" },
+    { name: "pilot-mending-tools", label: "Materials and tools", hue: 10, samplePhoto: "kintsugi-plate.jpg" },
     { name: "pilot-niho-entrance", label: "Side entrance and NIHO sign", hue: 205 },
   ],
   calligraphy: [
-    { name: "pilot-calligraphy-brush", label: "Brush on paper", hue: 0 },
-    { name: "pilot-calligraphy-tools", label: "Brush, ink and paper", hue: 220 },
-    { name: "pilot-calligraphy-work", label: "Your finished piece", hue: 260 },
+    { name: "pilot-calligraphy-brush", label: "Brush on paper", hue: 0, samplePhoto: "calligraphy-brush.jpg" },
+    { name: "pilot-calligraphy-tools", label: "Brush, ink and paper", hue: 220, samplePhoto: "calligraphy-grid.jpg" },
+    { name: "pilot-calligraphy-work", label: "Your finished piece", hue: 260, samplePhoto: "calligraphy-large.jpg" },
     { name: "pilot-niho-entrance", label: "Side entrance and NIHO sign", hue: 205 },
   ],
-  people: [
-    { name: "pilot-host-takuya", label: "Takuya", hue: 200 },
-    { name: "pilot-host-hasami", label: "Hasami", hue: 300 },
-    { name: "pilot-host-waka", label: "わか", hue: 20 },
-    { name: "pilot-host-yukino", label: "Yukino", hue: 60 },
-    { name: "pilot-host-shiryu", label: "Shiryu", hue: 240 },
-    { name: "pilot-logo-niho", label: "NIHO kamakura", hue: 210 },
-  ],
-} satisfies Record<string, PlaceholderImageSpec[]>;
+  people: [{ name: "pilot-logo-niho", label: "NIHO kamakura", hue: 210 }],
+} satisfies Record<string, PilotImageSpec[]>;
 
-function images(specs: PlaceholderImageSpec[]) {
-  return specs.map((spec) => placeholderImage(spec));
+function images(specs: PilotImageSpec[]) {
+  return specs.map((spec) =>
+    spec.samplePhoto ? { url: `${PILOT_SAMPLE_PHOTO_PATH}/${encodeURIComponent(spec.samplePhoto)}` } : placeholderImage(spec),
+  );
 }
 
 function person(name: string) {
@@ -228,9 +236,9 @@ export function buildPilotExperiences(): ExperienceDetail[] {
       meetingPointDisclosure: "PUBLIC",
       meetingPoint: nihoMeetingPoint(5),
       hosts: [
-        { displayName: "Takuya", avatar: person("pilot-host-takuya") },
-        { displayName: "Hasami", avatar: person("pilot-host-hasami") },
-        { displayName: "わか", avatar: person("pilot-host-waka") },
+        { displayName: "Takuya", avatar: null },
+        { displayName: "Hasami", avatar: null },
+        { displayName: "わか", avatar: null },
       ],
       provider: { ...NIHO_PROVIDER, logo: nihoLogo },
       seller: { displayName: "Panasonic Holdings Corporation", legalNoticeUrl: `${FIXTURE_NIHO_WEB_ORIGIN}/legal/tokushoho` },
@@ -312,7 +320,7 @@ export function buildPilotExperiences(): ExperienceDetail[] {
       photos: coffeePhotos,
       meetingPointDisclosure: "PUBLIC",
       meetingPoint: nihoMeetingPoint(4),
-      hosts: [{ displayName: "Takuya", avatar: person("pilot-host-takuya") }],
+      hosts: [{ displayName: "Takuya", avatar: null }],
       provider: { ...NIHO_PROVIDER, logo: nihoLogo },
       seller: { displayName: "Panasonic Holdings Corporation", legalNoticeUrl: `${FIXTURE_NIHO_WEB_ORIGIN}/legal/tokushoho` },
       offers: [
@@ -460,7 +468,7 @@ export function buildPilotExperiences(): ExperienceDetail[] {
       photos: mendingPhotos,
       meetingPointDisclosure: "PUBLIC",
       meetingPoint: nihoMeetingPoint(3),
-      hosts: [{ displayName: "Yukino", avatar: person("pilot-host-yukino") }],
+      hosts: [{ displayName: "Yukino", avatar: null }],
       provider: {
         name: "YUKINO Restorer",
         kind: "INDIVIDUAL",
@@ -527,7 +535,7 @@ export function buildPilotExperiences(): ExperienceDetail[] {
       photos: calligraphyPhotos,
       meetingPointDisclosure: "PUBLIC",
       meetingPoint: nihoMeetingPoint(3),
-      hosts: [{ displayName: "Shiryu", avatar: person("pilot-host-shiryu") }],
+      hosts: [{ displayName: "Shiryu", avatar: null }],
       provider: {
         name: "Shiryu",
         kind: "INDIVIDUAL",
