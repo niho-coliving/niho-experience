@@ -1,6 +1,6 @@
 # 計測ツールと同意の方式（決定案）
 
-最終更新：2026-10-19（担当3）。対象：[#14](https://github.com/niho-coliving/niho-experience/issues/14)。担当1から依頼された「計測ツール、同意の取り方、保存期間」への回答。
+最終更新：2026-10-20（担当3）。対象：[#14](https://github.com/niho-coliving/niho-experience/issues/14)、[#37](https://github.com/niho-coliving/niho-experience/issues/37)。担当1から依頼された「計測ツール、同意の取り方、保存期間」への回答。
 **アカウントの作成はオーナーが行う。** 有料プランの契約と広告タグの導入は、それぞれの授権の後にする。
 
 ## 結論
@@ -57,12 +57,13 @@ v1の規模（少数の体験、30日の検証）では、無料枠と6か月の
 - `UMAMI_WEBSITE_ID` が設定され、APIモードが `http` で、`SITE_URL` が `https://experience.niho.life` と完全一致する場合だけトラッカーを読み込む。preview（mock）と他ホストでは送信しない。
 - 現時点で本番サービス・本番配備workflowは未作成。将来、本番サービスを作る際にこのIDを本番サービスだけへ設定し、プライバシーポリシーへ計測内容を追記してから送信を有効にする。previewには設定しない。
 - ブラウザの `Do Not Track` を尊重し、URLは許可したUTMだけ残す。予約入力URL・予約結果URLのqueryや予約結果識別子、URL hash、リファラーのpath/queryは送らない。
+- オーナー決定（2026-10-20）：checkoutでは `utm_source` / `utm_medium` / `utm_campaign` / `utm_content` だけを予約行へ任意送信できる。Do Not Track が有効なら送らない。サイト内の移動中はメモリだけで値を保持し、cookie・session/local storage・独自訪問者IDを使わない。NIHO側は予約データの既存保持期間と閲覧権限を継承し、確定予約のUTM別集約にだけ使う。Umami visitorとは結合しない。
 - Cloud tracker scriptは `cloud.umami.is/script.js` の取得内容をSHA-384 SRIで固定する（2026-10-19 snapshot: `sha384-na2rtfGcck2U+oedd3Fj+22SUyB41DM4F/gLssqYa9ELN6oF1aJzA2p80zu7Vy6a`）。上流のscriptが変わるとブラウザが実行を拒否するため、更新は内容を確認したPRで行う。
 
 ## 同意と公表
 
 - 同意バナーは出さない。計測をブロックされても予約は同じように動く（担当1の実装どおり）。
-- この案は、cookie・端末保存・独自の訪問者IDを使わない計測に限る。`attribution_id` をsessionStorage等へ保存して予約と結び付ける変更は前提外であり、コードやデータ保存を始める前にオーナーと担当2が同意・公表の要否、目的、保存期間、閲覧権限を判断して承認する。承認までは識別子を生成・保存・送信しない。
+- この案は、cookie・端末保存・独自の訪問者IDを使わない計測と、4項目のUTMによる確定予約の集約に限る。`attribution_id` やUmami visitorとの個人単位の照合は実装しない。
 - プライバシーポリシーに、計測ツールの名前、送る情報（閲覧したページ、イベント、おおよその地域・端末の種類など）、目的、保存期間を書く。文面はNIHOの既存のポリシーとそろえ、他の追記と合わせて後でまとめて行う（2026-10-19 オーナー決定）。[公開文案](privacy-copy.md)を用意し、本番で計測の送信を始める前に掲載する。
 - 電気通信事業法の外部送信規律：今回の内容（この文書の計測）までは問題ないことをオーナーが確認した（2026-10-19）。送る情報や送信先を増やすときは改めて確認する。
 - cookieを使う計測や広告タグを入れる場合は、先に同意の取得を設計する。地域ごとの初期設定もそのときに決める。

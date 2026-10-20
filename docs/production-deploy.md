@@ -24,7 +24,7 @@
 
 `--set-env-vars` に渡す7項目は本サービスの初期 runtime 設定全量である。運用で値を足す際は workflow を同時に更新し、Cloud Run画面での一時変更を正本としない。`UMAMI_WEBSITE_ID` はポリシーの追記後、別PRで本番だけに追加する。
 
-`EXPERIENCE_PUBLIC_API_VERSION` は初期値 `1.0` を固定する。`1.1` はNIHO側のAPI契約PR #31 と連携Bが取り込まれ、stgとprodのv1.1エンドポイント、bio・写真alt・予約流入項目を実データで確認した後、専用の変更PRでだけ有効化する。画面コードが対応済みでも、API未配備の環境ではv1.0のままにする。
+`EXPERIENCE_PUBLIC_API_VERSION` は初期値 `1.0` を固定する。`1.1` はNIHO側のAPI契約PR #31 と連携Bが取り込まれ、stgとprodのv1.1エンドポイント、bio・写真altを実データで確認した後、専用の変更PRでだけ有効化する。`1.2` はNIHO側の公開カタログ・checkout契約（niho-app #19160/#19161）が取り込まれ、stgとprodでテーマ・開催日フィルター、UTM4項目、DNT時の送信なし、checkoutエラー本文を `verify:live` と合成E2Eで確認した後、専用の変更PRでだけ有効化する。API未配備の環境では `1.0` のままにする。
 
 ## `experience.niho.life` の入口案（有料の ALB を承認後）
 

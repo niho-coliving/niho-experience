@@ -73,6 +73,26 @@ describe("mock の読み取りが契約を満たす", () => {
     expect((await client.getExperienceV11("home-cooked-dinner-with-locals")).ok).toBe(true);
   });
 
+  it("v1.2 catalog filters explicit themes and scheduled days without claiming availability", async () => {
+    const fetchMock = createMockExperienceFetch({ now: () => NOW });
+    const availability = await fetchMock(`${ORIGIN}/api/public/experiences/home-cooked-dinner-with-locals/availability`, { method: "GET" });
+    const occurrence = ((await availability.json()) as { occurrences: Array<{ date: string; bookable: boolean; reason: string | null }> }).occurrences.find((item) => item.reason === "FULL")!;
+    const byTheme = await fetchMock(`${ORIGIN}/api/public/experiences/v1.2/catalog?region=kamakura&theme=FOOD`, { method: "GET" });
+    const byDate = await fetchMock(`${ORIGIN}/api/public/experiences/v1.2/catalog?availableOn=${occurrence.date}`, { method: "GET" });
+    const themeBody = await byTheme.json();
+    const dateBody = await byDate.json();
+    expect(validator.validateResponse("listPublicExperiencesV12", 200, themeBody)).toEqual({ ok: true });
+    expect(byTheme.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
+    expect(themeBody.experiences.map((item: { slug: string }) => item.slug)).toContain("home-cooked-dinner-with-locals");
+    expect(themeBody.experiences.every((item: { themes: string[] }) => item.themes.includes("FOOD"))).toBe(true);
+    expect(validator.validateResponse("listPublicExperiencesV12", 200, dateBody)).toEqual({ ok: true });
+    expect(dateBody.experiences.map((item: { slug: string }) => item.slug)).toContain("home-cooked-dinner-with-locals");
+    expect(dateBody.experiences.every((item: { themes: string[] }) => Array.isArray(item.themes))).toBe(true);
+    expect(occurrence.bookable).toBe(false);
+    const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: fetchMock });
+    expect((await client.listExperiencesV12({ region: "kamakura", theme: "FOOD", availableOn: occurrence.date })).ok).toBe(true);
+  });
+
   it.each(MOCK_SCENARIOS.filter((scenario) => scenario !== "network-error" && scenario !== "slow"))("%s: 一覧・詳細・残席", async (scenario) => {
     const catalog = await call(scenario, "/api/public/experiences?region=kamakura");
     expect(validator.validateResponse("listPublicExperiences", catalog.response.status, catalog.body)).toEqual({ ok: true });
@@ -136,12 +156,11 @@ describe("mock の checkout", () => {
     expect(validator.validateResponse("postPublicExperienceCheckout", 409, changedBody)).toEqual({ ok: true });
   });
 
-  it("流入元は任意で、同じ申込 key の流入元変更を拒否する", async () => {
+  it("許可されたUTMのみ任意で、同じ申込 key の流入元変更を拒否する", async () => {
     const fetchMock = createMockExperienceFetch({ now: () => NOW });
     const body = await checkoutBody(slug, {
-      attributionId: "11111111-2222-4333-8444-555555555555",
       utmSource: "niho_site",
-      landingPageType: "DETAIL",
+      utmMedium: "referral",
     });
     const path = `${ORIGIN}/api/public/experiences/${slug}/checkout`;
     const first = await fetchMock(path, post(body));

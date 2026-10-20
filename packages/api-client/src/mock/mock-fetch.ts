@@ -8,7 +8,7 @@ import { toExperienceSummary } from "../fixtures/catalog.ts";
 import { buildFixtureExperiences, FIXTURE_CONSENT_VERSION } from "../fixtures/experiences.ts";
 import { buildPilotExperiences } from "../fixtures/pilot-experiences.ts";
 import type { FetchLike } from "../client.ts";
-import type { CheckoutErrorCode, ExperienceCheckoutError, ExperienceDetail, ExperienceDetailV11, Occurrence } from "../types.ts";
+import type { CheckoutErrorCode, ExperienceCheckoutError, ExperienceDetail, ExperienceDetailV11, ExperienceSiteTheme, ExperienceSummaryV12, Occurrence } from "../types.ts";
 
 export const MOCK_SCENARIOS = [
   "default",
@@ -56,9 +56,21 @@ export function isMockCheckoutUrl(url: string): boolean {
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
 const REGION_PATTERN = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 const OFFER_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-const ATTRIBUTION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const UTM_PATTERN = /^[a-z0-9_-]{1,64}$/;
 const SHARED_CACHE = "public, max-age=60, stale-while-revalidate=300";
+const SITE_THEMES: readonly ExperienceSiteTheme[] = ["FOOD", "CULTURE", "CRAFT", "OUTDOORS", "LOCAL_LIFE"];
+// Mock tags are explicit fixture data, never inferred from titles or descriptions.
+const MOCK_THEMES: Readonly<Record<string, readonly ExperienceSiteTheme[]>> = {
+  "home-cooked-dinner-with-locals": ["FOOD", "LOCAL_LIFE"],
+  "indigo-dyeing-with-an-artisan": ["CRAFT", "CULTURE"],
+  "seaside-cycling-and-market-breakfast": ["OUTDOORS", "FOOD"],
+  "evening-pottery-session": ["CRAFT", "CULTURE"],
+  "kamakura-community-dinner": ["FOOD", "LOCAL_LIFE"],
+  "kamakura-coffee-roasting": ["FOOD", "CRAFT"],
+  "engakuji-zen-meditation": ["CULTURE", "LOCAL_LIFE"],
+  "kamakura-ceramic-mending": ["CRAFT", "CULTURE"],
+  "kamakura-calligraphy": ["CRAFT", "CULTURE"],
+};
 
 function json(status: number, body: unknown, cacheControl: string, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -125,6 +137,21 @@ function toV11(experience: ExperienceDetail): ExperienceDetailV11 {
   };
 }
 
+function toV12Summary(experience: ExperienceDetail): ExperienceSummaryV12 {
+  const summary = toExperienceSummary(experience);
+  return {
+    ...summary,
+    cover: toV11(experience).cover,
+    themes: [...(MOCK_THEMES[experience.slug] ?? [])],
+  };
+}
+
+function isLocalDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type HoldRecord = { contentKey: string; url: string; offerId: string; date: string; seats: number };
@@ -158,7 +185,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     });
   }
 
-  function handleCheckout(experience: ExperienceDetail, body: unknown): Response {
+  function handleCheckout(experience: ExperienceDetail, body: unknown, doNotTrack: boolean): Response {
     if (!isObject(body)) return checkoutError("VALIDATION_ERROR");
     switch (scenario) {
       case "checkout-rate-limited":
@@ -193,16 +220,10 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     if (body.note !== undefined && body.note !== null && (typeof body.note !== "string" || body.note.length > 500)) {
       return checkoutError("INPUT_INVALID", { field: "note" });
     }
-    if (body.attributionId !== undefined && (typeof body.attributionId !== "string" || !ATTRIBUTION_ID_PATTERN.test(body.attributionId))) {
-      return checkoutError("INPUT_INVALID", { field: "attributionId" });
-    }
     for (const field of ["utmSource", "utmMedium", "utmCampaign", "utmContent"] as const) {
       if (body[field] !== undefined && (typeof body[field] !== "string" || !UTM_PATTERN.test(body[field]))) {
         return checkoutError("INPUT_INVALID", { field });
       }
-    }
-    if (body.landingPageType !== undefined && !["HOME", "LIST", "DETAIL"].includes(String(body.landingPageType))) {
-      return checkoutError("INPUT_INVALID", { field: "landingPageType" });
     }
     if (!isCount(body.adultCount)) return checkoutError("INPUT_INVALID", { field: "adultCount" });
     if (!isCount(body.childCount)) return checkoutError("INPUT_INVALID", { field: "childCount" });
@@ -273,7 +294,8 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     }
 
     const contentKey = JSON.stringify([body.offerId, body.occurrenceDate, body.adultCount, body.childCount, body.guestName, body.guestEmail, body.note ?? null, answers,
-      body.attributionId ?? null, body.utmSource ?? null, body.utmMedium ?? null, body.utmCampaign ?? null, body.utmContent ?? null, body.landingPageType ?? null]);
+      doNotTrack ? null : body.utmSource ?? null, doNotTrack ? null : body.utmMedium ?? null,
+      doNotTrack ? null : body.utmCampaign ?? null, doNotTrack ? null : body.utmContent ?? null]);
     const existing = holds.get(body.clientRequestKey);
     if (existing) {
       return existing.contentKey === contentKey ? json(201, { checkoutUrl: existing.url }, "no-store") : checkoutError("REQUEST_MISMATCH");
@@ -314,6 +336,22 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
       return experience ? json(200, { experience: toV11(experience) }, SHARED_CACHE) : notFound();
     }
 
+    if (slug === "v1.2" && method === "GET") {
+      if (tail !== "catalog") return notFound();
+      const region = url.searchParams.get("region");
+      const theme = url.searchParams.get("theme");
+      const availableOn = url.searchParams.get("availableOn");
+      if (region !== null && !REGION_PATTERN.test(region)) return validationError("region is invalid");
+      if (theme !== null && !SITE_THEMES.includes(theme as ExperienceSiteTheme)) return validationError("theme is invalid");
+      if (availableOn !== null && !isLocalDate(availableOn)) return validationError("availableOn is invalid");
+      const listed = scenario === "empty-catalog" ? [] : experiences.filter((experience) =>
+        (region === null || experience.region.key === region) &&
+        (theme === null || (MOCK_THEMES[experience.slug] ?? []).includes(theme as ExperienceSiteTheme)) &&
+        (availableOn === null || occurrencesFor(experience).some((occurrence) => occurrence.date === availableOn)),
+      );
+      return json(200, { experiences: listed.map(toV12Summary) }, SHARED_CACHE);
+    }
+
     if (slug === undefined) {
       if (method !== "GET") return notFound();
       const region = url.searchParams.get("region");
@@ -343,7 +381,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
       } catch {
         return checkoutError("VALIDATION_ERROR");
       }
-      return handleCheckout(experience, body);
+      return handleCheckout(experience, body, new Headers(init?.headers).get("dnt") === "1");
     }
     return notFound();
   }

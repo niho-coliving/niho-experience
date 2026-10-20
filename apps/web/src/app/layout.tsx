@@ -3,6 +3,7 @@ import "@fontsource-variable/nunito";
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { AnalyticsSetup } from "@/components/Analytics";
+import { AttributionCapture } from "@/components/AttributionCapture";
 import { analyticsModeForRuntime } from "@/lib/analytics";
 import { PreviewBanner, SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { config, isPreview } from "@/lib/config";
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <AnalyticsSetup mode={analyticsMode} websiteId={config.umamiWebsiteId} />
+        <AttributionCapture enabled={config.publicApiVersion === "1.2"} />
         {isPreview ? <PreviewBanner catalog={config.mockCatalog} /> : null}
         <SiteHeader />
         <main id="main" className="flex-1">

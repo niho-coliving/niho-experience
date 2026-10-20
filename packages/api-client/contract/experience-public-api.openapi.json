@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "NIHO Experience Public API",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "niho-experience が使う NIHO 共通基盤の公開 API（選別して配布する版）。正本は niho-app の contracts/openapi.yaml。ここに無い項目・操作は使わない。",
     "x-niho-contract-status": "agreed",
     "x-niho-contract-source": "niho-app contracts/openapi.yaml"
@@ -219,6 +219,95 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PublicExperienceCatalogResponseV11"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "path / query の形が不正",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProjectionErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/experiences/v1.2/catalog": {
+      "get": {
+        "tags": [
+          "PublicProjection"
+        ],
+        "summary": "体験サイト: テーマ・開催日で絞れる一覧",
+        "description": "テーマは掲載審査時に管理者が明示選択した値で、本文から推定しない。availableOn は日本時間の開催予定日で絞る。残席・予約可否は含まず、予約可能性は no-store の availability と checkout で再確認する。公開原稿・日程の更新後も最大60秒キャッシュされる。",
+        "operationId": "listPublicExperiencesV12",
+        "security": [],
+        "x-niho-public-projection": {
+          "status": "admitted",
+          "namespace": "experiences",
+          "mode": "pure",
+          "cache": "shared"
+        },
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "description": "地域の key（例: kamakura）",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"
+            }
+          },
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "description": "管理者が明示設定したテーマ",
+            "schema": {
+              "$ref": "#/components/schemas/ExperienceSiteTheme"
+            }
+          },
+          {
+            "name": "availableOn",
+            "in": "query",
+            "required": false,
+            "description": "日本時間の開催予定日。予約可能・残席ありを保証しない。",
+            "schema": {
+              "$ref": "#/components/schemas/PublicExperienceLocalDate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "public, max-age=60, stale-while-revalidate=300"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicExperienceCatalogResponseV12"
                 }
               }
             }
@@ -548,6 +637,19 @@
               "minLength": 3,
               "maxLength": 64
             }
+          },
+          {
+            "name": "DNT",
+            "in": "header",
+            "required": false,
+            "description": "1 のとき UTM 4 項目を保存しない。ブラウザの Do Not Track 設定を尊重する。",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            }
           }
         ],
         "requestBody": {
@@ -706,6 +808,18 @@
   },
   "components": {
     "schemas": {
+      "ExperienceSiteTheme": {
+        "type": "string",
+        "x-niho-public-dto": true,
+        "enum": [
+          "FOOD",
+          "CULTURE",
+          "CRAFT",
+          "OUTDOORS",
+          "LOCAL_LIFE"
+        ],
+        "description": "掲載審査時に管理者が明示選択する一覧テーマ。本文から推定しない。"
+      },
       "PublicExperienceAvailabilityResponse": {
         "type": "object",
         "x-niho-public-dto": true,
@@ -736,7 +850,7 @@
           },
           "occurrences": {
             "type": "array",
-            "maxItems": 1000,
+            "maxItems": 1080,
             "items": {
               "$ref": "#/components/schemas/PublicExperienceOccurrence"
             }
@@ -919,6 +1033,23 @@
           }
         }
       },
+      "PublicExperienceCatalogResponseV12": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "experiences"
+        ],
+        "properties": {
+          "experiences": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/PublicExperienceSummaryV12"
+            }
+          }
+        }
+      },
       "PublicExperienceCheckoutAnswer": {
         "type": "object",
         "x-niho-public-dto": true,
@@ -1066,7 +1197,7 @@
           "consent",
           "clientRequestKey"
         ],
-        "description": "旅行者本人の入力。URL・ログ・計測・storage へ複製しない。",
+        "description": "名前・メール・備考・回答を URL・ログ・計測へ複製しない。UTM 4 項目は任意で、DNT=1 のとき保存しない。",
         "properties": {
           "offerId": {
             "$ref": "#/components/schemas/PublicExperienceOfferId"
@@ -1124,39 +1255,25 @@
             "maxLength": 120,
             "description": "申込の試行ごとの乱数（UUID v4 推奨）。通信失敗の再送は同じ値、内容を変えたら新しい値。"
           },
-          "attributionId": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "description": "個人情報を含まない任意の UUID v4。同じ値を持つ流入と確定予約の非公開集計にだけ使い、応答・URL・ログへ出さない。"
-          },
           "utmSource": {
             "type": "string",
             "pattern": "^[a-z0-9_-]{1,64}$",
-            "description": "最初の流入時の utm_source。小文字英数字・アンダースコア・ハイフンだけ。"
+            "description": "任意の utm_source。小文字英数字・アンダースコア・ハイフンだけ。DNT=1 のとき保存しない。"
           },
           "utmMedium": {
             "type": "string",
             "pattern": "^[a-z0-9_-]{1,64}$",
-            "description": "最初の流入時の utm_medium。小文字英数字・アンダースコア・ハイフンだけ。"
+            "description": "任意の utm_medium。小文字英数字・アンダースコア・ハイフンだけ。DNT=1 のとき保存しない。"
           },
           "utmCampaign": {
             "type": "string",
             "pattern": "^[a-z0-9_-]{1,64}$",
-            "description": "最初の流入時の utm_campaign。小文字英数字・アンダースコア・ハイフンだけ。"
+            "description": "任意の utm_campaign。小文字英数字・アンダースコア・ハイフンだけ。DNT=1 のとき保存しない。"
           },
           "utmContent": {
             "type": "string",
             "pattern": "^[a-z0-9_-]{1,64}$",
-            "description": "最初の流入時の utm_content。小文字英数字・アンダースコア・ハイフンだけ。"
-          },
-          "landingPageType": {
-            "type": "string",
-            "enum": [
-              "HOME",
-              "LIST",
-              "DETAIL"
-            ],
-            "description": "体験サイトで最初に見た旅行者向けページの種類。提供者向けのページは含めない。"
+            "description": "任意の utm_content。小文字英数字・アンダースコア・ハイフンだけ。DNT=1 のとき保存しない。"
           }
         }
       },
@@ -1373,7 +1490,7 @@
           "offers": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 10,
+            "maxItems": 12,
             "items": {
               "$ref": "#/components/schemas/PublicExperienceOffer"
             }
@@ -2270,6 +2387,75 @@
             "type": "string",
             "format": "date-time",
             "description": "公開本文・商品条件の最終更新（UTC）。sitemap の lastmod に使える。"
+          }
+        }
+      },
+      "PublicExperienceSummaryV12": {
+        "type": "object",
+        "x-niho-public-dto": true,
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "title",
+          "lead",
+          "contentLanguage",
+          "region",
+          "cover",
+          "provider",
+          "priceFrom",
+          "duration",
+          "updatedAt",
+          "themes"
+        ],
+        "properties": {
+          "slug": {
+            "$ref": "#/components/schemas/PublicExperienceSlug"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 95
+          },
+          "lead": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "contentLanguage": {
+            "$ref": "#/components/schemas/PublicExperienceContentLanguage"
+          },
+          "region": {
+            "$ref": "#/components/schemas/PublicExperienceRegion"
+          },
+          "cover": {
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicExperienceImageV11"
+              }
+            ]
+          },
+          "provider": {
+            "$ref": "#/components/schemas/PublicExperienceProviderSummary"
+          },
+          "priceFrom": {
+            "$ref": "#/components/schemas/PublicExperiencePriceFrom"
+          },
+          "duration": {
+            "$ref": "#/components/schemas/PublicExperienceDurationRange"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "公開本文・商品条件の最終更新（UTC）。"
+          },
+          "themes": {
+            "type": "array",
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/ExperienceSiteTheme"
+            }
           }
         }
       },

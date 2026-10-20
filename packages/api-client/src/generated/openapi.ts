@@ -141,10 +141,35 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/api/public/experiences/v1.2/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 体験サイト: テーマ・開催日で絞れる一覧
+         * @description テーマは掲載審査時に管理者が明示選択した値で、本文から推定しない。availableOn は日本時間の開催予定日で絞る。残席・予約可否は含まず、予約可能性は no-store の availability と checkout で再確認する。公開原稿・日程の更新後も最大60秒キャッシュされる。
+         */
+        get: operations["listPublicExperiencesV12"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        /**
+         * @description 掲載審査時に管理者が明示選択する一覧テーマ。本文から推定しない。
+         * @enum {string}
+         */
+        ExperienceSiteTheme: "FOOD" | "CULTURE" | "CRAFT" | "OUTDOORS" | "LOCAL_LIFE";
         PublicExperienceAvailabilityResponse: {
             /**
              * Format: date-time
@@ -196,6 +221,9 @@ export type components = {
         PublicExperienceCatalogResponseV11: {
             experiences: components["schemas"]["PublicExperienceSummaryV11"][];
         };
+        PublicExperienceCatalogResponseV12: {
+            experiences: components["schemas"]["PublicExperienceSummaryV12"][];
+        };
         /** @description 答えた質問だけを送る。記述式は text、選択式は optionIds。 */
         PublicExperienceCheckoutAnswer: {
             optionIds?: string[];
@@ -225,12 +253,10 @@ export type components = {
         PublicExperienceCheckoutErrorResponse: {
             error: components["schemas"]["PublicExperienceCheckoutError"];
         };
-        /** @description 旅行者本人の入力。URL・ログ・計測・storage へ複製しない。 */
+        /** @description 名前・メール・備考・回答を URL・ログ・計測へ複製しない。UTM 4 項目は任意で、DNT=1 のとき保存しない。 */
         PublicExperienceCheckoutRequest: {
             adultCount: number;
             answers?: components["schemas"]["PublicExperienceCheckoutAnswer"][];
-            /** @description 個人情報を含まない任意の UUID v4。同じ値を持つ流入と確定予約の非公開集計にだけ使い、応答・URL・ログへ出さない。 */
-            attributionId?: string;
             bookingQuestionsFingerprint: string;
             childCount: number;
             /** @description 申込の試行ごとの乱数（UUID v4 推奨）。通信失敗の再送は同じ値、内容を変えたら新しい値。 */
@@ -240,21 +266,16 @@ export type components = {
             expectedTotalYen: number;
             guestEmail: string;
             guestName: string;
-            /**
-             * @description 体験サイトで最初に見た旅行者向けページの種類。提供者向けのページは含めない。
-             * @enum {string}
-             */
-            landingPageType?: "HOME" | "LIST" | "DETAIL";
             note?: string | null;
             occurrenceDate: components["schemas"]["PublicExperienceLocalDate"];
             offerId: components["schemas"]["PublicExperienceOfferId"];
-            /** @description 最初の流入時の utm_campaign。小文字英数字・アンダースコア・ハイフンだけ。 */
+            /** @description 任意の utm_campaign。小文字英数字・アンダースコア・ハイフンだけ。DNT=1 のとき保存しない。 */
             utmCampaign?: string;
-            /** @description 最初の流入時の utm_content。小文字英数字・アンダースコア・ハイフンだけ。 */
+            /** @description 任意の utm_content。小文字英数字・アンダースコア・ハイフンだけ。DNT=1 のとき保存しない。 */
             utmContent?: string;
-            /** @description 最初の流入時の utm_medium。小文字英数字・アンダースコア・ハイフンだけ。 */
+            /** @description 任意の utm_medium。小文字英数字・アンダースコア・ハイフンだけ。DNT=1 のとき保存しない。 */
             utmMedium?: string;
-            /** @description 最初の流入時の utm_source。小文字英数字・アンダースコア・ハイフンだけ。 */
+            /** @description 任意の utm_source。小文字英数字・アンダースコア・ハイフンだけ。DNT=1 のとき保存しない。 */
             utmSource?: string;
         };
         PublicExperienceCheckoutResponse: {
@@ -522,6 +543,23 @@ export type components = {
              */
             updatedAt: string;
         };
+        PublicExperienceSummaryV12: {
+            contentLanguage: components["schemas"]["PublicExperienceContentLanguage"];
+            cover: components["schemas"]["PublicExperienceImageV11"] | null;
+            duration: components["schemas"]["PublicExperienceDurationRange"];
+            lead: string;
+            priceFrom: components["schemas"]["PublicExperiencePriceFrom"];
+            provider: components["schemas"]["PublicExperienceProviderSummary"];
+            region: components["schemas"]["PublicExperienceRegion"];
+            slug: components["schemas"]["PublicExperienceSlug"];
+            themes: components["schemas"]["ExperienceSiteTheme"][];
+            title: string;
+            /**
+             * Format: date-time
+             * @description 公開本文・商品条件の最終更新（UTC）。
+             */
+            updatedAt: string;
+        };
         PublicExperienceTimelineItem: {
             /** @description `photos[]` の位置。写真なしは null。 */
             photoIndex: number | null;
@@ -670,7 +708,10 @@ export interface operations {
     postPublicExperienceCheckout: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 1 のとき UTM 4 項目を保存しない。ブラウザの Do Not Track 設定を尊重する。 */
+                DNT?: "0" | "1";
+            };
             path: {
                 /** @description 体験サイトでの体験の slug（掲載の slug。拠点・ページの slug とは別） */
                 experienceSlug: string;
@@ -859,6 +900,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicExperienceCatalogResponseV11"];
+                };
+            };
+            /** @description path / query の形が不正 */
+            400: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProjectionErrorResponse"];
+                };
+            };
+        };
+    };
+    listPublicExperiencesV12: {
+        parameters: {
+            query?: {
+                /** @description 日本時間の開催予定日。予約可能・残席ありを保証しない。 */
+                availableOn?: components["schemas"]["PublicExperienceLocalDate"];
+                /** @description 地域の key（例: kamakura） */
+                region?: string;
+                /** @description 管理者が明示設定したテーマ */
+                theme?: components["schemas"]["ExperienceSiteTheme"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "public, max-age=60, stale-while-revalidate=300";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicExperienceCatalogResponseV12"];
                 };
             };
             /** @description path / query の形が不正 */

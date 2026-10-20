@@ -55,6 +55,15 @@ describe("契約の文書", () => {
     expect(info["x-niho-contract-status"]).toBe(EXPERIENCE_API_CONTRACT.status);
   });
 
+  it("v1.2 adds explicit theme/date filters and only four optional checkout UTM fields", () => {
+    const document = EXPERIENCE_CONTRACT_DOCUMENT as Record<string, any>;
+    expect(document.paths["/api/public/experiences/v1.2/catalog"]?.get?.operationId).toBe("listPublicExperiencesV12");
+    const checkout = document.components.schemas.PublicExperienceCheckoutRequest.properties;
+    expect(Object.keys(checkout).filter((key) => key.startsWith("utm"))).toEqual(["utmSource", "utmMedium", "utmCampaign", "utmContent"]);
+    expect(checkout).not.toHaveProperty("attributionId");
+    expect(checkout).not.toHaveProperty("landingPageType");
+  });
+
   it("生成した型が契約と一致する（drift が無い）", async () => {
     const committed = await readFile(new URL("../src/generated/openapi.ts", import.meta.url), "utf8");
     expect(committed).toBe(await generateContractTypes());
