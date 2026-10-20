@@ -26,9 +26,10 @@ export function ExperienceList({
   initialGuests,
   catalogDateFiltered,
   preview,
-  previewLabel,
   nihoWebOrigin,
   empty,
+  search,
+  inlineSearch,
   columns = "three",
 }: {
   cards: CardModel[];
@@ -37,11 +38,14 @@ export function ExperienceList({
   initialGuests: number | null;
   catalogDateFiltered: boolean;
   preview: boolean;
-  previewLabel: string;
   nihoWebOrigin: string;
   columns?: "two" | "three";
   /** Shown instead of the list when the server returned no experiences (search or empty catalog). */
   empty: ReactNode;
+  /** The round search button at the end of the date chips (ExperienceFiltersForm, placement "bar"). */
+  search: ReactNode;
+  /** The same search on its own line, for when the chips are not shown (no results, dates unreadable). */
+  inlineSearch: ReactNode;
 }) {
   const router = useRouter();
   const [date, setDate] = useState<string | null>(initialDate);
@@ -94,7 +98,13 @@ export function ExperienceList({
     return new Map(days.map((day) => [day.key, cards.filter((card) => matchingOccurrence(ready.get(card.slug) ?? [], card.offers, day.key, guests)).length]));
   }, [ready, days, cards, guests]);
 
-  if (!cards.length) return <div className="container-page mt-8">{empty}</div>;
+  if (!cards.length)
+    return (
+      <div className="container-page mt-6 space-y-6">
+        {inlineSearch}
+        {empty}
+      </div>
+    );
 
   const visible = cards.filter((card) => fitsPartySize(card.offers, guests) && (failed || !matches || matches.has(card.slug)));
   const chosenDay = date ? (days.find((day) => day.key === date) ?? dayOption(date)) : null;
@@ -118,62 +128,32 @@ export function ExperienceList({
   }
 
   const party = guests === null ? "" : ` for ${guests} guest${guests === 1 ? "" : "s"}`;
-  let status: string;
+  let status: ReactNode;
+  const count = <b className="font-extrabold text-ink">{pluralize(visible.length, "experience")}</b>;
   if (chosenDay && !failed && !ready) status = `Checking which experiences run on ${chosenDay.label}…`;
-  else if (chosenDay && !failed) status = `${pluralize(visible.length, "experience")} on ${chosenDay.label}${party}`;
-  else status = `${pluralize(visible.length, "experience")}${party} · prices in yen, tax included · times in JST`;
+  else if (chosenDay && !failed) status = <>{count} on {chosenDay.label}{party}</>;
+  else status = <>{count}{party} · prices in yen, tax included · times in JST</>;
 
   return (
     <div>
       {failed ? (
-        <div className="container-page mt-6">
+        <div className="container-page mt-6 space-y-4">
           <p className="flex items-start gap-2 rounded-2xl bg-sand p-4 text-ink-soft">
             <HandIcon name="cal" className="size-6 text-moss" />
             <span>We couldn&apos;t check dates just now, so date filtering is paused. Known group-size limits still apply; you can choose a date on each experience.</span>
           </p>
+          {inlineSearch}
         </div>
       ) : (
-        <div className="sticky top-16 z-20 mt-6 border-y border-line bg-white/95 backdrop-blur">
-          <div className="container-page flex items-center gap-3 py-3">
-            <div ref={chips} role="group" aria-label="Date (Japan time)" className="scrollbar-none relative flex min-w-0 flex-1 gap-2 overflow-x-auto">
-              <button
-                type="button"
-                aria-pressed={date === null}
-                onClick={() => chooseDate(null)}
-                className={`flex h-[68px] shrink-0 items-center rounded-2xl border px-4 text-sm font-extrabold ${date === null ? "border-ink bg-ink text-white" : "border-line-strong bg-white"}`}
-              >
-                Any day
-              </button>
-              {days.map((day) => {
-                const selected = date === day.key;
-                const count = catalogDateFiltered && !selected ? undefined : counts?.get(day.key);
-                const disabled = !catalogDateFiltered && count === 0 && !selected;
-                return (
-                  <button
-                    key={day.key}
-                    type="button"
-                    aria-pressed={selected}
-                    disabled={disabled}
-                    aria-label={`${day.label}${count === undefined ? "" : `, ${count ? pluralize(count, "experience") : "nothing on this day"}`}`}
-                    onClick={() => chooseDate(day.key)}
-                    className={`flex h-[68px] w-14 shrink-0 flex-col items-center justify-center rounded-2xl border leading-[1.15] disabled:cursor-not-allowed disabled:opacity-40 ${selected ? "border-ink bg-ink text-white" : "border-line-strong bg-white"}`}
-                  >
-                    <small className={`text-xs font-extrabold ${selected ? "text-white/85" : "text-muted"}`}>{day.weekday}</small>
-                    <b className="text-[1.1875rem] font-extrabold">{day.day}</b>
-                    <i className={`text-[0.6875rem] font-extrabold not-italic ${selected ? "text-white/85" : "text-moss"}`} aria-hidden>
-                      {count === undefined ? "·" : count || "—"}
-                    </i>
-                  </button>
-                );
-              })}
-            </div>
-            <label className="relative flex h-12 shrink-0 items-center gap-1.5 rounded-full border border-line-strong bg-white pr-3 pl-2.5 text-sm font-extrabold">
+        <div className="sticky top-16 z-20 mt-[22px] border-y border-line bg-white/95 backdrop-blur">
+          <div className="container-page flex flex-col gap-2.5 py-3">
+            <label className="relative flex shrink-0 items-center gap-2 self-start rounded-full border border-line-strong bg-white py-1.5 pr-3 pl-2.5 text-sm font-extrabold">
               <HandIcon name="people" className="size-[22px]" />
               <span className="sr-only">Guests</span>
               <select
                 value={guests ?? ""}
                 onChange={(event) => chooseGuests(event.target.value ? Number(event.target.value) : null)}
-                className="h-full cursor-pointer appearance-none bg-transparent pr-1"
+                className="cursor-pointer appearance-none bg-transparent px-1"
               >
                 <option value="">Any group</option>
                 {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
@@ -183,16 +163,51 @@ export function ExperienceList({
                 ))}
               </select>
             </label>
+            <div className="relative">
+              <div ref={chips} role="group" aria-label="Date (Japan time)" className="scrollbar-none relative flex min-w-0 gap-2 overflow-x-auto pr-[60px]">
+                <button
+                  type="button"
+                  aria-pressed={date === null}
+                  onClick={() => chooseDate(null)}
+                  className={`flex h-[68px] shrink-0 items-center rounded-2xl border px-4 text-sm font-extrabold ${date === null ? "border-ink bg-ink text-white" : "border-line-strong bg-white"}`}
+                >
+                  Any day
+                </button>
+                {days.map((day) => {
+                  const selected = date === day.key;
+                  const count = catalogDateFiltered && !selected ? undefined : counts?.get(day.key);
+                  const disabled = !catalogDateFiltered && count === 0 && !selected;
+                  return (
+                    <button
+                      key={day.key}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={disabled}
+                      aria-label={`${day.label}${count === undefined ? "" : `, ${count ? pluralize(count, "experience") : "nothing on this day"}`}`}
+                      onClick={() => chooseDate(day.key)}
+                      className={`flex h-[68px] w-14 shrink-0 flex-col items-center justify-center rounded-2xl border leading-[1.15] disabled:cursor-not-allowed disabled:opacity-40 ${selected ? "border-ink bg-ink text-white" : "border-line-strong bg-white"}`}
+                    >
+                      <small className={`text-xs font-extrabold ${selected ? "text-white/85" : "text-muted"}`}>{day.weekday}</small>
+                      <b className="text-[1.1875rem] font-extrabold">{day.day}</b>
+                      <i className={`text-[0.6875rem] font-extrabold not-italic ${selected ? "text-white/85" : "text-moss"}`} aria-hidden>
+                        {count === undefined ? "·" : count || "—"}
+                      </i>
+                    </button>
+                  );
+                })}
+              </div>
+              {search}
+            </div>
           </div>
         </div>
       )}
 
       <section className="container-page" aria-label="Experiences">
-        <p role="status" className="py-5 text-[0.9375rem] text-ink-soft">
+        <p role="status" className="py-[22px] text-[0.9375rem] text-ink-soft">
           {status}
         </p>
         {visible.length ? (
-          <ul className={`grid gap-x-6 gap-y-11 sm:grid-cols-2 ${columns === "two" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+          <ul className={`grid gap-x-6 gap-y-10 sm:grid-cols-2 sm:gap-y-11 ${columns === "two" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
             {visible.map((card, index) => {
               const occurrence = matches?.get(card.slug);
               return (
@@ -201,8 +216,7 @@ export function ExperienceList({
                     card={card}
                     variant="list"
                     priority={index < 2}
-                    preview={preview}
-                    previewLabel={previewLabel}
+                    dates={{ kind: "given", occurrences: ready ? (ready.get(card.slug) ?? []) : null }}
                     highlight={occurrence ? `${dayOption(occurrence.date).label} · ${formatTime(occurrence.startAt)}` : null}
                   />
                 </li>

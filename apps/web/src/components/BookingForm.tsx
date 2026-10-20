@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { computeExpectedTotalYen, createClientRequestKey, type CheckoutAnswer, type ExperienceApiClient, type ExperienceCheckoutRequest, type ExperienceOffer } from "@niho-experience/api-client";
 import { getBrowserApi } from "@/lib/browser-api";
-import { formatLongDay, formatYen } from "@/lib/format";
+import { dayOption } from "@/lib/date-filter";
+import { formatYen } from "@/lib/format";
+import { formatClock } from "@/lib/schedule";
 import { safeHttpsUrl } from "@/lib/safe-url";
 import { track } from "@/lib/analytics";
 import { readBookingAttribution } from "@/lib/booking-attribution";
 import type { ExperienceDetailForSite } from "@/lib/experience-types";
 import { checkoutErrorCopy } from "./States";
-import { PolicyDetails } from "./Policy";
+import { BookingBar, BookingSummaryCard, StepHeading, fieldInputClass, fieldLabelClass } from "./BookingParts";
+import { HandIcon, type HandIconName } from "./HandIcon";
+import { policyTitle } from "./Policy";
 import { Notice, buttonClass } from "./ui";
 import type { BookingSelection } from "./SlotPicker";
 
-export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, attributionEnabled, onBack }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; attributionEnabled: boolean; onBack: () => void }) {
+export function BookingForm({ experience, offer, selection, preview, nihoWebOrigin, attributionEnabled, onBack, titleAs = "h1" }: { experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; nihoWebOrigin: string; attributionEnabled: boolean; onBack: () => void; titleAs?: "h1" | "p" }) {
   const router = useRouter();
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
   const [guestName, setGuestName] = useState("");
@@ -138,25 +142,70 @@ export function BookingForm({ experience, offer, selection, preview, nihoWebOrig
     }
   }
 
-  return <form onSubmit={submit} className="space-y-6">
-    <button type="button" onClick={onBack} className="font-bold text-moss underline">← Change date or guest count</button>
-    <div className="rounded-[var(--radius-card)] border border-line bg-sand p-4"><h2 className="text-xl">Your booking</h2><p className="mt-2 font-bold">{experience.title} · {offer.name}</p><p>{formatLongDay(`${selection.date}T12:00:00+09:00`)} · {offer.startTime} JST</p><p>{selection.adultCount} adult{selection.adultCount === 1 ? "" : "s"}{selection.childCount ? ` · ${selection.childCount} child${selection.childCount === 1 ? "" : "ren"}` : ""}</p><p className="mt-2">Adults: {selection.adultCount} × {formatYen(offer.pricing.adultPriceYen)}{selection.childCount && offer.pricing.child ? <><br />Children: {selection.childCount} × {formatYen(offer.pricing.child.priceYen)}</> : null}</p><p className="mt-2 text-2xl font-bold">Total {total === null ? "Unavailable" : formatYen(total)}</p><p className="text-sm text-muted">Japanese yen, tax included. No additional fee.</p><p className="mt-2">Sold by <strong>{experience.seller.displayName}</strong>.</p>{sellerLegalUrl ? <a href={sellerLegalUrl} className="font-bold text-moss underline" rel="noopener noreferrer">Seller information</a> : null}<p className="mt-2 text-sm">{offer.acceptanceMode === "APPROVAL" ? "Your card is authorized, then the host reviews your request. You are charged only if approved." : "Your booking is confirmed after payment is completed by NIHO."}</p></div>
-    <section id="terms"><h2 className="mb-3 text-2xl">Cancellation policy</h2><PolicyDetails policy={offer.cancellationPolicy} /></section>
-    {checking ? <p role="status">Checking this date again…</p> : needsFreshDetails ? <Notice role="alert" tone="warn" title="Review the latest details">The price, questions or booking terms changed. <a href={`/experiences/${experience.slug}`} className="font-bold text-moss underline">Reload the experience</a> before choosing a date and agreeing again.</Notice> : !availabilityOk ? <Notice role="alert" tone="warn" title="This date needs another look">Nothing has been charged. <button type="button" onClick={onBack} className="font-bold text-moss underline">Check dates again</button> to see the latest availability.</Notice> : null}
-    {problem ? <div ref={alertRef} tabIndex={-1} className="outline-none"><Notice role="alert" tone="danger" title="Please check your booking">{problem}</Notice></div> : null}
-    <fieldset className="space-y-4"><legend className="mb-2 text-2xl font-semibold">Your details</legend><p className="text-sm text-muted">No account is needed. NIHO sends confirmation and meeting details to your email.</p>
-      <label className="block font-bold">Full name<input name="guestName" autoComplete="name" required maxLength={100} value={guestName} onChange={(event) => setGuestName(event.target.value)} className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base" /></label>
-      <label className="block font-bold">Email<input name="guestEmail" type="email" autoComplete="email" required maxLength={254} value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base" /></label>
-      <label className="block font-bold">Note for your host <span className="font-normal text-muted">(optional)</span><textarea name="note" rows={3} maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} className="mt-1 w-full rounded-xl border border-line-strong bg-surface px-3 py-2 text-base" /></label>
-    </fieldset>
-    {offer.bookingQuestions.length ? <fieldset className="space-y-4"><legend className="mb-2 text-2xl font-semibold">Questions from your host</legend>{offer.bookingQuestions.map((question) => <div key={question.id}>
-      <label htmlFor={`question-${question.id}`} className="block font-bold">{question.prompt}{question.required ? " *" : " (optional)"}</label>{question.description ? <p className="text-sm text-muted">{question.description}</p> : null}
-      {question.inputType === "SHORT_TEXT" || question.inputType === "LONG_TEXT" ? question.inputType === "LONG_TEXT" ? <textarea id={`question-${question.id}`} maxLength={1000} value={typeof answers[question.id] === "string" ? answers[question.id] as string : ""} onChange={(event) => updateAnswer(question.id, event.target.value)} aria-invalid={invalidField === question.id || undefined} className="mt-1 w-full rounded-xl border border-line-strong bg-surface px-3 py-2 text-base" /> : <input id={`question-${question.id}`} maxLength={200} value={typeof answers[question.id] === "string" ? answers[question.id] as string : ""} onChange={(event) => updateAnswer(question.id, event.target.value)} aria-invalid={invalidField === question.id || undefined} className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base" /> :
-      question.inputType === "SINGLE_SELECT" ? <select id={`question-${question.id}`} value={Array.isArray(answers[question.id]) ? (answers[question.id] as string[])[0] ?? "" : ""} onChange={(event) => updateAnswer(question.id, event.target.value ? [event.target.value] : [])} aria-invalid={invalidField === question.id || undefined} className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base"><option value="">Choose an answer</option>{question.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select> :
-      <div id={`question-${question.id}`} className="mt-2 space-y-2">{question.options.map((option) => { const selected = Array.isArray(answers[question.id]) ? answers[question.id] as string[] : []; return <label key={option.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={selected.includes(option.id)} onChange={(event) => updateAnswer(question.id, event.target.checked ? [...selected, option.id] : selected.filter((id) => id !== option.id))} className="size-5 accent-moss" />{option.label}</label>; })}</div>}
-    </div>)}</fieldset> : null}
-    <div className="rounded-xl border border-line bg-sand p-4"><p className="mb-2 font-bold">Booking terms</p><ul className="mb-3 list-disc pl-5">{experience.booking.legalDocuments.map((doc) => { const url = safeHttpsUrl(doc.url); return url ? <li key={doc.kind}><a href={url} target="_blank" rel="noopener noreferrer" className="font-bold text-moss underline">{doc.kind === "COMMERCIAL_TRANSACTIONS" ? "Seller information" : doc.kind === "PRIVACY" ? "Privacy policy" : "Terms of service"}</a></li> : null; })}</ul><label className="flex gap-3"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required aria-invalid={invalidField === "consent" || undefined} className="mt-1 size-5 shrink-0 accent-moss" /><span>I have reviewed the total, seller, cancellation policy and linked terms, and agree to version {experience.booking.consentVersion}.</span></label></div>
-    <button type="submit" disabled={submitting || checking || !availabilityOk || needsFreshDetails || retrySecondsRemaining > 0 || total === null} aria-busy={submitting} className={buttonClass("primary", "w-full text-lg")}>{retrySecondsRemaining > 0 ? "Please wait…" : submitting ? "Preparing checkout…" : offer.acceptanceMode === "APPROVAL" ? "Request to book" : preview ? "Continue to mock payment" : "Continue to secure payment"}</button>
-    <p className="text-center text-sm text-muted">{preview ? "Preview only: no card details or payment." : "NIHO will confirm your booking after payment. No charge is made on this page."}</p>
+  const approval = offer.acceptanceMode === "APPROVAL";
+  const day = dayOption(selection.date);
+  const when = `${day.label} · ${formatClock(offer.startTime)}`;
+  const guests = `${selection.adultCount} adult${selection.adultCount === 1 ? "" : "s"}${selection.childCount ? `, ${selection.childCount} child${selection.childCount === 1 ? "" : "ren"}` : ""}`;
+  const answerText = (id: string) => (typeof answers[id] === "string" ? (answers[id] as string) : "");
+  const optional = <small className="font-bold text-muted">(optional)</small>;
+
+  return <form onSubmit={submit}>
+    <BookingSummaryCard experience={experience} offer={offer} titleAs={titleAs} />
+    <button type="button" onClick={onBack} className="link-leaf mt-3 text-sm">Change date or guest count</button>
+    <div className="mt-5 space-y-4 empty:hidden">
+      {checking ? <p role="status">Checking this date again…</p> : needsFreshDetails ? <Notice role="alert" tone="warn" title="Review the latest details">The price, questions or booking terms changed. <a href={`/experiences/${experience.slug}`} className="font-bold text-moss underline">Reload the experience</a> before choosing a date and agreeing again.</Notice> : !availabilityOk ? <Notice role="alert" tone="warn" title="This date needs another look">Nothing has been charged. <button type="button" onClick={onBack} className="font-bold text-moss underline">Check dates again</button> to see the latest availability.</Notice> : null}
+      {problem ? <div ref={alertRef} tabIndex={-1} className="outline-none"><Notice role="alert" tone="danger" title="Please check your booking">{problem}</Notice></div> : null}
+    </div>
+
+    <section aria-labelledby="details-heading">
+      <StepHeading id="details-heading" step={3}>Your details</StepHeading>
+      <p className="text-sm text-muted">No account is needed. NIHO sends confirmation and meeting details to your email.</p>
+      <label className={fieldLabelClass}>Full name<input name="guestName" autoComplete="name" required maxLength={100} value={guestName} onChange={(event) => setGuestName(event.target.value)} className={fieldInputClass} /></label>
+      <label className={fieldLabelClass}>Email<input name="guestEmail" type="email" inputMode="email" autoComplete="email" required maxLength={254} value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} className={fieldInputClass} /></label>
+      {offer.bookingQuestions.length ? <fieldset className="mt-6"><legend className="font-sans text-sm font-extrabold tracking-[0.02em] text-muted">Questions from your host</legend>{offer.bookingQuestions.map((question) => <div key={question.id}>
+        <label htmlFor={`question-${question.id}`} className={fieldLabelClass}>{question.prompt}{question.required ? " *" : <> {optional}</>}</label>{question.description ? <p className="mt-0.5 text-[0.8125rem] text-muted">{question.description}</p> : null}
+        {question.inputType === "SHORT_TEXT" || question.inputType === "LONG_TEXT" ? question.inputType === "LONG_TEXT" ? <textarea id={`question-${question.id}`} maxLength={1000} value={answerText(question.id)} onChange={(event) => updateAnswer(question.id, event.target.value)} aria-invalid={invalidField === question.id || undefined} className={`${fieldInputClass} min-h-[84px] resize-y`} /> : <input id={`question-${question.id}`} maxLength={200} value={answerText(question.id)} onChange={(event) => updateAnswer(question.id, event.target.value)} aria-invalid={invalidField === question.id || undefined} className={fieldInputClass} /> :
+        question.inputType === "SINGLE_SELECT" ? <select id={`question-${question.id}`} value={Array.isArray(answers[question.id]) ? (answers[question.id] as string[])[0] ?? "" : ""} onChange={(event) => updateAnswer(question.id, event.target.value ? [event.target.value] : [])} aria-invalid={invalidField === question.id || undefined} className={fieldInputClass}><option value="">Choose an answer</option>{question.options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select> :
+        <div id={`question-${question.id}`} className="mt-2 space-y-2">{question.options.map((option) => { const selected = Array.isArray(answers[question.id]) ? answers[question.id] as string[] : []; return <label key={option.id} className="flex min-h-11 items-center gap-2.5"><input type="checkbox" checked={selected.includes(option.id)} onChange={(event) => updateAnswer(question.id, event.target.checked ? [...selected, option.id] : selected.filter((id) => id !== option.id))} className="size-5 accent-moss" />{option.label}</label>; })}</div>}
+      </div>)}</fieldset> : null}
+      <label className={fieldLabelClass}>Anything else for your hosts? {optional}<textarea name="note" rows={3} maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} className={`${fieldInputClass} min-h-[84px] resize-y`} /></label>
+    </section>
+
+    <section aria-labelledby="check-heading">
+      <StepHeading id="check-heading" step={4}>{approval ? "Check and send" : "Check and pay"}</StepHeading>
+      <dl className="rounded-[22px] bg-sand px-[18px] py-4 text-[0.9375rem]">
+        <Row label="Date" value={`${when} JST`} />
+        <Row label="Guests" value={guests} />
+        <Row label="Adults" value={`${selection.adultCount} × ${formatYen(offer.pricing.adultPriceYen)}`} />
+        {selection.childCount && offer.pricing.child ? <Row label="Children" value={`${selection.childCount} × ${formatYen(offer.pricing.child.priceYen)}`} /> : null}
+        <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-line-strong pt-3">
+          <dt className="text-ink-soft">Total<small className="block text-[0.78125rem] font-bold text-muted">Japanese yen, tax included. No additional fee.</small></dt>
+          <dd className="text-xl font-extrabold">{total === null ? "Unavailable" : formatYen(total)}</dd>
+        </div>
+      </dl>
+      <Note icon="umbrella" id="terms"><b className="font-extrabold text-ink">{policyTitle(offer.cancellationPolicy)}.</b> This policy applies to the option and date you select.</Note>
+      <Note icon={approval ? "people" : "check"}>{approval ? "Your card is authorized, then the host reviews your request. You are charged only if approved." : "Your booking is confirmed after payment is completed by NIHO."}</Note>
+      <Note icon="card">Secure payment by Stripe. Sold by <strong className="text-ink">{experience.seller.displayName}</strong>.{sellerLegalUrl ? <> <a href={sellerLegalUrl} className="font-extrabold text-ink underline" rel="noopener noreferrer">Seller information</a></> : null}</Note>
+      <div className="mt-5 border-t border-line pt-4">
+        <p className="text-sm text-ink-soft">Booking terms: {experience.booking.legalDocuments.map((doc, index) => { const url = safeHttpsUrl(doc.url); return url ? <span key={doc.kind}>{index ? " · " : null}<a href={url} target="_blank" rel="noopener noreferrer" className="font-extrabold text-ink underline">{doc.kind === "COMMERCIAL_TRANSACTIONS" ? "Seller information" : doc.kind === "PRIVACY" ? "Privacy policy" : "Terms of service"}</a></span> : null; })}</p>
+        <label className={`mt-3.5 flex items-start gap-3 text-[0.90625rem] ${invalidField === "consent" ? "text-danger" : "text-ink-soft"}`}><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required aria-invalid={invalidField === "consent" || undefined} className="mt-px size-[22px] shrink-0 accent-moss" /><span>I have reviewed the total, seller, cancellation policy and linked terms, and agree to version {experience.booking.consentVersion}.</span></label>
+      </div>
+    </section>
+    <p className="mt-6 text-center text-sm text-muted">{preview ? "Preview only: no card details or payment." : "NIHO will confirm your booking after payment. No charge is made on this page."}</p>
+
+    <BookingBar
+      stack
+      total={<><b className="text-lg font-extrabold text-ink">{total === null ? "Unavailable" : formatYen(total)}</b> total</>}
+      line={when}
+      action={<button type="submit" disabled={submitting || checking || !availabilityOk || needsFreshDetails || retrySecondsRemaining > 0 || total === null} aria-busy={submitting} className={buttonClass("primary", "min-h-[46px] w-full shrink-0 px-6 min-[30rem]:w-auto")}>{retrySecondsRemaining > 0 ? "Please wait…" : submitting ? "Preparing checkout…" : approval ? "Request to book" : preview ? "Continue to mock payment" : "Continue to secure payment"}</button>}
+    />
   </form>;
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return <div className="flex justify-between gap-3 py-[5px]"><dt className="text-ink-soft">{label}</dt><dd className="text-right font-extrabold">{value}</dd></div>;
+}
+
+function Note({ icon, id, children }: { icon: HandIconName; id?: string; children: ReactNode }) {
+  return <p id={id} className="mt-3.5 flex items-start gap-2.5 text-[0.90625rem] text-ink-soft"><HandIcon name={icon} className="size-[26px] shrink-0 text-moss [stroke-width:1.6]" /><span>{children}</span></p>;
 }

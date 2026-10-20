@@ -16,7 +16,8 @@ test("browse, review adult and child total, and reach browser-only mock checkout
   page.on("request", (request) => { if (request.method() === "POST") requests.push(request.url()); });
   await page.goto("/");
   await page.getByRole("button", { name: "Find experiences" }).click();
-  await expect(page).toHaveURL(/\/experiences$/);
+  // The home finder starts at two adults (owner-approved mock, 2026-10-20).
+  await expect(page).toHaveURL(/\/experiences\?guests=2$/);
   await page.getByRole("link", { name: /Home-cooked dinner/ }).click();
   // Desktop: the sticky booking card. Phones: the bottom bar. Only one is shown at a time.
   await page.getByRole("link", { name: /^Check dates/ }).click();
@@ -25,9 +26,10 @@ test("browse, review adult and child total, and reach browser-only mock checkout
   await page.getByRole("spinbutton", { name: /Children/ }).fill("1");
   // Availability varies by JST date; choose a slot that fits all three guests.
   await page.getByRole("radio", { name: /(?:[3-9]|[1-9]\d+) places currently available/ }).first().check();
-  await expect(page.getByText("Total: ¥16,000")).toBeVisible();
+  // The total sits in the bottom bar on both screens.
+  await expect(page.getByText("¥16,000 total")).toBeVisible();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByText("Total ¥16,000")).toBeVisible();
+  await expect(page.getByText("¥16,000 total")).toBeVisible();
   await expect(page.getByText(/Sold by/)).toBeVisible();
   await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
   await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
@@ -58,7 +60,7 @@ test("provisional pilot dates do not claim remaining seats", async ({ page }) =>
   await page.goto(`/experiences/${slug}/book`);
 
   if (pilot) {
-    await expect(page.getByText("Sample date · availability not confirmed").first()).toBeVisible();
+    await expect(page.getByText(/Sample dates: availability is not confirmed/)).toBeVisible();
     await expect(page.getByText(/\d+ places? currently available/)).toHaveCount(0);
   } else {
     await expect(page.getByText(/\d+ places? currently available/).first()).toBeVisible();
@@ -68,7 +70,7 @@ test("provisional pilot dates do not claim remaining seats", async ({ page }) =>
 test("required booking answer and consent are shown before checkout", async ({ page }) => {
   await page.goto("/experiences/indigo-dyeing-with-an-artisan/book");
   await chooseFirstDate(page);
-  await expect(page.getByRole("heading", { name: "Your booking" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Your details/ })).toBeVisible();
   await expect(page.getByLabel(/Which shade would you like to dye/)).toBeVisible();
   await expect(page.getByText(/version 2026-10-01/)).toBeVisible();
   await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");

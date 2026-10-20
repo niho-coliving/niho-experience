@@ -4,9 +4,9 @@
  * Icons are decoration: they are always aria-hidden and the text next to them carries the meaning.
  */
 
-export type HandIconName = "bowl" | "bean" | "enso" | "mend" | "brush" | "clock" | "chat" | "people" | "train" | "pin" | "cal" | "check" | "cross" | "card" | "mail" | "table" | "house" | "umbrella" | "arrow";
+export type HandIconName = "bowl" | "bean" | "enso" | "mend" | "brush" | "clock" | "chat" | "people" | "train" | "pin" | "cal" | "check" | "cross" | "card" | "mail" | "table" | "house" | "umbrella" | "arrow" | "search";
 
-export const HAND_ICON_NAMES: readonly HandIconName[] = ["bowl", "bean", "enso", "mend", "brush", "clock", "chat", "people", "train", "pin", "cal", "check", "cross", "card", "mail", "table", "house", "umbrella", "arrow"];
+export const HAND_ICON_NAMES: readonly HandIconName[] = ["bowl", "bean", "enso", "mend", "brush", "clock", "chat", "people", "train", "pin", "cal", "check", "cross", "card", "mail", "table", "house", "umbrella", "arrow", "search"];
 
 // Static, trusted markup (no user data). The #sketch filter gives strokes a slightly wobbly, hand-drawn line.
 const SPRITE = `
@@ -30,7 +30,10 @@ const SPRITE = `
 <symbol id="i-house" viewBox="0 0 48 48"><g filter="url(#sketch)"><path d="M8.6 22.4L24 9.8l15.6 12.8"/><path d="M12.4 20.4c-.4 6.4-.4 12.4.2 18.2 7.6.6 15.4.6 23 0 .5-5.8.5-11.8 0-18"/><path d="M20.6 38.4c-.2-3.6-.1-7 .3-10.2 2.2-.3 4.4-.3 6.4 0 .4 3.2.4 6.6.2 10.2"/></g></symbol>
 <symbol id="i-umbrella" viewBox="0 0 48 48"><g filter="url(#sketch)"><path d="M6.6 24.2C8 14.8 15.2 9 24 9s16 5.8 17.4 15.2c-2.6-2-5.6-2-8 0-2.6-2-5.8-2-8.6 0-2.8-2-6-2-8.6 0-2.6-2-5.6-2-8 0z"/><path d="M24.2 24v11.6c0 3.4-4.8 3.6-5 .4"/></g></symbol>
 <symbol id="i-arrow" viewBox="0 0 60 34"><g filter="url(#sketch)"><path d="M4 6c9 16 26 22 46 18"/><path d="M42 16.6l8.6 7.4-9.2 4.6"/></g></symbol>
+<symbol id="i-search" viewBox="0 0 48 48"><g filter="url(#sketch)"><path d="M20.6 8.8c6.6-.3 11.6 4.6 11.4 11.1-.2 6.2-5.2 11-11.4 10.9-6.3-.1-11.1-5.1-10.9-11.3.2-5.9 5-10.4 10.9-10.7z"/><path d="M29.2 29.4l9.8 9.4" stroke-width="2.6"/></g></symbol>
 <symbol id="u-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+<symbol id="u-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="u-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
 <symbol id="s-stamp" viewBox="0 0 120 120"><g filter="url(#rubber)"> <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="2.4"/> <circle cx="60" cy="60" r="37" fill="none" stroke="currentColor" stroke-width="1.4"/> <text fill="currentColor" stroke="none" font-family="Nunito Variable, sans-serif" font-size="10" font-weight="900" letter-spacing="1"><textPath href="#stamp-arc" textLength="272" lengthAdjust="spacing">NIHO · KAMAKURA · NEIGHBORS ·</textPath></text> <text x="60" y="68" text-anchor="middle" fill="currentColor" stroke="none" font-family="'Hiragino Mincho ProN','Yu Mincho',serif" font-size="23" font-weight="600">鎌倉</text> </g></symbol>
 `;
 
@@ -47,11 +50,16 @@ export function HandIconSprite() {
   );
 }
 
-export function HandIcon({ name, className = "size-6" }: { name: HandIconName | "back"; className?: string }) {
-  const viewBox = name === "arrow" ? "0 0 60 34" : name === "back" ? "0 0 24 24" : "0 0 48 48";
+/** Plain (not hand-drawn) control glyphs: back chevron, plus and minus. */
+type UiIconName = "back" | "plus" | "minus";
+const UI_ICONS: Record<UiIconName, string> = { back: "#u-left", plus: "#u-plus", minus: "#u-minus" };
+
+export function HandIcon({ name, className = "size-6" }: { name: HandIconName | UiIconName; className?: string }) {
+  const ui = (UI_ICONS as Partial<Record<string, string>>)[name];
+  const viewBox = name === "arrow" ? "0 0 60 34" : ui ? "0 0 24 24" : "0 0 48 48";
   return (
     <svg className={`ico ${className}`} viewBox={viewBox} aria-hidden="true" focusable="false">
-      <use href={name === "back" ? "#u-left" : `#i-${name}`} />
+      <use href={ui ?? `#i-${name}`} />
     </svg>
   );
 }

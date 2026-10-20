@@ -60,12 +60,11 @@ export function Notice({
   );
 }
 
-export function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "warn" | "muted" | "sample" }) {
+export function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "warn" | "muted" }) {
   const styles = {
     neutral: "bg-surface/95 text-ink border-line",
     warn: "bg-warn-pale text-warn border-warn/20",
     muted: "bg-sand text-ink-soft border-line",
-    sample: "bg-persimmon-pale text-persimmon border-persimmon/20",
   }[tone];
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-sm font-bold ${styles}`}>{children}</span>;
 }

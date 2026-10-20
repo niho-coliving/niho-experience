@@ -1,7 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/** The search sits behind the round magnifier at the end of the date chips. */
+async function openSearch(page: Page) {
+  await page.locator("summary").filter({ hasText: "Search" }).click();
+}
 
 test("search filters the server-rendered list and browser history restores the URL state", async ({ page }) => {
   await page.goto("/experiences");
+  await openSearch(page);
   await page.getByRole("searchbox", { name: "Search experiences and hosts" }).fill("POTTERY");
   await page.getByRole("button", { name: "Apply filters", exact: true }).click();
 
@@ -29,6 +35,7 @@ test("an unmatched search explains how to clear it", async ({ page }) => {
 
 test("theme and scheduled-date filters stay in the URL and restore with browser history", async ({ page }) => {
   await page.goto("/experiences");
+  await openSearch(page);
   await page.getByLabel("Theme").selectOption("FOOD");
   await page.getByRole("button", { name: "Apply filters" }).click();
 
@@ -58,6 +65,7 @@ test("first-touch booking attribution survives client navigation through filters
   await page.goto("/experiences?utm_source=niho_site&utm_campaign=pilot_2026q4");
   const documentMarker = await page.evaluate(() => (window as Window & { __nihoDocumentMarker?: string }).__nihoDocumentMarker);
 
+  await openSearch(page);
   await page.getByLabel("Theme").selectOption("FOOD");
   await page.getByRole("button", { name: "Apply filters", exact: true }).click();
   await expect(page).toHaveURL(/\/experiences\?q=&theme=FOOD$/);

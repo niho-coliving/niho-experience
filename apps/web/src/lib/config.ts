@@ -6,5 +6,5 @@ export const config = resolveConfig(process.env);
 
 export const isPreview = config.apiMode === "mock";
 
-/** Label on preview listings: synthetic data is invented, pilot data is real but provisional. */
-export const previewListingLabel = config.mockCatalog === "pilot" ? "Details to be confirmed" : "Sample listing";
+/** Pilot fixtures and their static editorial/sample assets are only for the mock preview. */
+export const isPilotPreview = isPreview && config.mockCatalog === "pilot";

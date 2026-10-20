@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { buildMockOccurrences, MOCK_AVAILABILITY_WINDOW_DAYS } from "../src/fixtures/availability.ts";
 import { toExperienceSummary } from "../src/fixtures/catalog.ts";
 import { buildFixtureExperiences, FIXTURE_EXPERIENCE_SITE_ORIGIN } from "../src/fixtures/experiences.ts";
-import { buildPilotExperiences, PILOT_CONTENT_STATUS, PILOT_IMAGE_SPECS, PILOT_SAMPLE_PHOTO_PATH } from "../src/fixtures/pilot-experiences.ts";
+import { buildPilotExperiences, PILOT_CONTENT_STATUS, PILOT_HOST_PHOTOS, PILOT_IMAGE_SPECS, PILOT_SAMPLE_PHOTO_PATH } from "../src/fixtures/pilot-experiences.ts";
 import { createExperienceApiClient } from "../src/client.ts";
 import { createMockExperienceFetch, isMockCheckoutUrl, type MockCatalog } from "../src/mock/mock-fetch.ts";
 import { createContractValidator, findSensitiveValues } from "../src/testing/index.ts";
@@ -83,9 +83,12 @@ describe("pilot fixture（テストサイト用・推奨値）", () => {
   it("写真は仮素材だけ（SVG の仮素材か、出典を残したサイト内の仮写真。外部・実在の写真の URL を入れていない）", () => {
     const samplePhoto = new RegExp(`^${PILOT_SAMPLE_PHOTO_PATH}/[a-z0-9-]+\\.jpg$`);
     const declared = new Set(
-      Object.values(PILOT_IMAGE_SPECS)
-        .flat()
-        .flatMap((spec) => ("samplePhoto" in spec && spec.samplePhoto ? [`${PILOT_SAMPLE_PHOTO_PATH}/${spec.samplePhoto}`] : [])),
+      [
+        ...Object.values(PILOT_IMAGE_SPECS)
+          .flat()
+          .flatMap((spec) => ("samplePhoto" in spec && spec.samplePhoto ? [spec.samplePhoto] : [])),
+        ...Object.values(PILOT_HOST_PHOTOS),
+      ].map((file) => `${PILOT_SAMPLE_PHOTO_PATH}/${file}`),
     );
     for (const experience of experiences) {
       const urls = [experience.cover, ...experience.photos, ...experience.hosts.map((host) => host.avatar), experience.provider.logo]
@@ -99,18 +102,38 @@ describe("pilot fixture（テストサイト用・推奨値）", () => {
     }
   });
 
-  it("ストック写真の顔を実在のホストに付けない（顔写真は null、画面は頭文字）", () => {
-    for (const experience of experiences) {
-      for (const host of experience.hosts) expect(host.avatar).toBeNull();
-    }
+  it("ホストの顔はオーナーが決めた写真だけ（2026-10-20。写真の無いホストは null で、画面は頭文字）", () => {
+    const faces = Object.fromEntries(
+      experiences.flatMap((experience) => experience.hosts).map((host) => [host.displayName, host.avatar?.url ?? null]),
+    );
+    expect(faces).toEqual({
+      Takuya: `${PILOT_SAMPLE_PHOTO_PATH}/host-takuya.jpg`,
+      Hasami: null,
+      わか: null,
+      Yukino: `${PILOT_SAMPLE_PHOTO_PATH}/host-yukino.jpg`,
+      Shiryu: `${PILOT_SAMPLE_PHOTO_PATH}/host-shiryu.jpg`,
+    });
   });
 
-  it("集合場所の外観は仮写真にしない（実物と違う建物を見せない）", () => {
+  it("集合場所の外観：NIHO は実物の建物の写真、円覚寺は参道の写真（オーナー判断 2026-10-20）", () => {
     for (const experience of experiences) {
       const index = experience.meetingPoint?.exteriorPhotoIndex;
       if (index === undefined || index === null) continue;
-      expect(experience.photos[index]?.url.startsWith("data:image/svg+xml")).toBe(true);
+      const expected = experience.meetingPoint?.name === "NIHO kamakura" ? "niho-exterior.jpg" : "temple-path.jpg";
+      expect(experience.photos[index]?.url).toBe(`${PILOT_SAMPLE_PHOTO_PATH}/${expected}`);
     }
+  });
+
+  it("コミュニティディナーは NIHO の自前の写真だけを使う", () => {
+    const dinner = experiences.find((experience) => experience.slug === "kamakura-community-dinner");
+    expect(dinner?.photos.map((photo) => photo.url.replace(`${PILOT_SAMPLE_PHOTO_PATH}/`, ""))).toEqual([
+      "niho-cd-table-02.jpg",
+      "niho-cd-kitchen-together.jpg",
+      "niho-cd-food-trays.jpg",
+      "niho-dinner-5.jpg",
+      "niho-dinner-1.jpg",
+      "niho-exterior.jpg",
+    ]);
   });
 
   it("原稿の約束：伝統的な金継ぎと書かず、特定の人に会えると約束しない", () => {

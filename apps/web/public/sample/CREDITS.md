@@ -2,8 +2,11 @@
 
 オーナー判断（2026-10-20）で、写真の撮影前にテストサイトの見た目を確かめるため、ネットの無料素材を仮に置いている。すべて撮り直した写真に差し替える。本番公開の前に、このフォルダを使う表示を残さない（`docs/release-acceptance.md`）。
 
-- 写真に写る人物は、掲載している体験のホスト・参加者ではない。実在の提供者の顔写真として使わない。
-- 画面では「Sample photo」と表示し、実物と誤認させない。
+- オーナー判断（2026-10-20、スマホの試作モックに見た目を合わせる）で、次も仮に使う。
+  - `niho-*.jpg`：NIHO kamakura が持つ自前の写真（コミュニティディナー、リビング、建物の外観）。オーナーが掲載を判断した。
+  - `host-*.jpg`：ホストの顔。`host-takuya.jpg` はオーナー本人の写真（提供）。ほかは顔の代わりのストック写真（Unsplash）で本人ではないので、撮り直しで必ず差し替える。
+  - `video/strip-calligraphy.mp4`：書道の動画（Pexels）。写っている人物はホスト本人ではない。
+- 撮り直し前の表示であることは、ページ下部のプレビュー表記（プレビュー時だけ）で伝える。
 - 利用条件: Unsplash License（https://unsplash.com/license）、Pexels License（https://www.pexels.com/license/）。いずれも出典表示は任意だが、差し替え管理のため出典を残す。
 
 ## 写真（photos/、Unsplash）
@@ -34,6 +37,25 @@
 | zazen-hall.jpg | https://images.unsplash.com/photo-1568633156115-a5f9cd8ef6d2 |
 | zen-garden-view.jpg | https://images.unsplash.com/photo-1777037448660-c3fb56cb75d7 |
 
+## NIHO の自前の写真（photos/）
+
+| ファイル | 内容 |
+| --- | --- |
+| niho-cd-table-02.jpg / niho-cd-table-01.jpg | コミュニティディナーの長いテーブル |
+| niho-cd-kitchen-together.jpg / niho-cd-hands-salad.jpg | 一緒に料理する様子 |
+| niho-cd-food-trays.jpg / niho-cd-strawberry-daifuku.jpg | 料理・デザート |
+| niho-dinner-1.jpg / niho-dinner-5.jpg | リビングでの交流 |
+| niho-exterior.jpg | NIHO kamakura の建物の外観（青い建物） |
+
+## ホストの顔（photos/。takuya 以外は Unsplash の代わりの写真で本人ではない）
+
+| ファイル | 出典 |
+| --- | --- |
+| host-takuya.jpg | NIHO のオーナー提供（本人） |
+| host-shiryu.jpg | https://images.unsplash.com/photo-1752993148606-8f29644e8de6 |
+| host-yukino.jpg | https://images.unsplash.com/photo-1600481176431-47ad2ab2745d |
+| host-guide.jpg | https://images.unsplash.com/photo-1786114482543-ab1f49a26534 |
+
 ## 動画（video/、Pexels。8 秒・無音・480〜1280px に縮めた。同名の .jpg はポスター画像）
 
 | ファイル | 出典 |
@@ -42,6 +64,7 @@
 | coast-tram.mp4 | https://www.pexels.com/video/scenic-oceanfront-tram-ride-through-pine-trees-35003235/ |
 | strip-cook.mp4 | https://www.pexels.com/video/a-person-mixing-rice-using-chopsticks-8908333/ |
 | strip-mend.mp4 | https://www.pexels.com/video/detailed-hand-painting-on-ceramic-pottery-art-34268300/ |
+| strip-calligraphy.mp4 | https://www.pexels.com/video/a-man-painting-on-paper-8814114/ |
 | strip-roast.mp4 | https://www.pexels.com/video/coffee-roasting-18173447/ |
 | strip-sit.mp4 | https://www.pexels.com/video/zen-monk-meditating-in-temple-setting-38348293/ |
 | strip-write.mp4 | https://www.pexels.com/video/a-person-doing-japanese-calligraphy-8738383/ |

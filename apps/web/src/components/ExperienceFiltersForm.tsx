@@ -5,20 +5,29 @@ import Link from "next/link";
 import type { FormEvent } from "react";
 import type { ExperienceSiteTheme } from "@niho-experience/api-client";
 import { EXPERIENCE_SITE_THEMES, EXPERIENCE_THEME_LABELS } from "@/lib/filters";
+import { HandIcon } from "./HandIcon";
 import { buttonClass } from "./ui";
 
+/**
+ * Search (and, from API 1.2, the theme filter) behind a small round magnifier button.
+ * A native <details> with a GET form, so it opens and submits without JavaScript. It starts
+ * open whenever a search word or theme is in the URL, so the guest sees what is applied.
+ * `placement="bar"`: the button sits at the end of the date-chip row and the form opens below it.
+ */
 export function ExperienceFiltersForm({
   searchQuery,
   theme,
   date,
   filtersEnabled,
   filtersActive,
+  placement = "bar",
 }: {
   searchQuery: string;
   theme: ExperienceSiteTheme | undefined;
   date: string | undefined;
   filtersEnabled: boolean;
   filtersActive: boolean;
+  placement?: "bar" | "inline";
 }) {
   const router = useRouter();
 
@@ -32,20 +41,56 @@ export function ExperienceFiltersForm({
     router.push(query ? `/experiences?${query}` : "/experiences");
   }
 
-  return <form role="search" action="/experiences" method="get" onSubmit={submitWithClientNavigation} className="mt-7 max-w-4xl space-y-4 rounded-[var(--radius-card)] border border-line bg-surface p-4 sm:p-5">
-    <label htmlFor="experience-search" className="block font-bold">Search experiences and hosts
-      <input id="experience-search" name="q" type="search" maxLength={80} defaultValue={searchQuery} placeholder="Try pottery, cycling or dinner" className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base font-normal" />
-    </label>
-    {filtersEnabled ? <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-      <label htmlFor="experience-theme" className="block font-bold">Theme
-        <select id="experience-theme" name="theme" defaultValue={theme ?? ""} className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base font-normal">
-          <option value="">Any theme</option>
-          {EXPERIENCE_SITE_THEMES.map((value) => <option key={value} value={value}>{EXPERIENCE_THEME_LABELS[value]}</option>)}
-        </select>
-      </label>
-      <button type="submit" className={buttonClass("primary", "min-h-12")}>Apply filters</button>
-    </div> : <div><button type="submit" className={buttonClass("primary", "min-h-12")}>Search</button></div>}
-    {date ? <input type="hidden" name="date" value={date} /> : null}
-    {filtersEnabled && filtersActive ? <div><Link href="/experiences" className="font-bold text-moss underline">Clear filters</Link></div> : null}
-  </form>;
+  const field = "min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base font-normal";
+  return (
+    <details open={Boolean(searchQuery || theme)} className="group" data-search>
+      <summary
+        className={`grid size-12 cursor-pointer list-none place-items-center rounded-full border border-line-strong bg-white hover:bg-sand group-open:border-ink group-open:bg-leaf-pale [&::-webkit-details-marker]:hidden ${
+          placement === "bar" ? "absolute top-2.5 right-0 shadow-[-10px_0_10px_rgb(255_255_255)]" : ""
+        }`}
+      >
+        <HandIcon name="search" className="size-6" />
+        <span className="sr-only">Search</span>
+      </summary>
+      <form role="search" action="/experiences" method="get" onSubmit={submitWithClientNavigation} className="mt-3 space-y-3 rounded-[18px] border border-line bg-white p-3">
+        <label htmlFor="experience-search" className="sr-only">
+          Search experiences and hosts
+        </label>
+        <div className="flex gap-2">
+          <input id="experience-search" name="q" type="search" maxLength={80} defaultValue={searchQuery} placeholder="Try pottery, cycling or dinner" className={`${field} min-w-0 flex-1`} />
+          {filtersEnabled ? null : (
+            <button type="submit" className={buttonClass("primary", "min-h-12 shrink-0 px-5")}>
+              Search
+            </button>
+          )}
+        </div>
+        {filtersEnabled ? (
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <label htmlFor="experience-theme" className="block text-sm font-extrabold">
+              Theme
+              <select id="experience-theme" name="theme" defaultValue={theme ?? ""} className={`${field} mt-1`}>
+                <option value="">Any theme</option>
+                {EXPERIENCE_SITE_THEMES.map((value) => (
+                  <option key={value} value={value}>
+                    {EXPERIENCE_THEME_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" className={buttonClass("primary", "min-h-12")}>
+              Apply filters
+            </button>
+          </div>
+        ) : null}
+        {date ? <input type="hidden" name="date" value={date} /> : null}
+        {filtersEnabled && filtersActive ? (
+          <div>
+            <Link href="/experiences" className="text-sm font-bold text-moss underline">
+              Clear filters
+            </Link>
+          </div>
+        ) : null}
+      </form>
+    </details>
+  );
 }

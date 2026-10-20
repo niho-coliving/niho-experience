@@ -4,10 +4,13 @@
  * 合成 fixture（experiences.ts）と違い、実在の提供者の体験を載せる。オーナーが各事業者から掲載の許可を得ており、
  * テストサイトへ組み込むことを決めた（2026-10-19、docs/content/README.md）。
  * - 価格・曜日・時刻・人数・取消・受付方式は担当3の推奨値で、販売条件として確定していない（docs/content/product-ledger.md）。
- * - 写真は撮影前の仮素材。オーナー判断（2026-10-20）で、出典を残した無料素材の仮写真（apps/web/public/sample/、
- *   出典は同フォルダの CREDITS.md）を画面に「Sample photo」と出して使ってよい。実在の会員・提供者の写真としては使わない。
- *   - ホストの顔（hosts[].avatar）は null（ストック写真の顔を実名に付けない。画面は頭文字で代替する）。
- *   - 集合場所の外観（entrance・gate）は実物と違う建物で客を迷わせないよう、SVG の仮素材のまま。
+ * - 写真は撮影前の仮素材（apps/web/public/sample/、出典・内容は同フォルダの CREDITS.md）。オーナー判断（2026-10-20、
+ *   スマホの試作モックに見た目を合わせる）で、次のとおり使う。撮り直した写真が届いたら差し替える（docs/release-acceptance.md）。
+ *   - コミュニティディナーと集合場所の外観は NIHO kamakura の自前の写真（niho-*.jpg）。NIHO の集合場所の外観は実物の建物。
+ *   - ほかの体験は出典を残した無料素材。円覚寺の集合場所は参道の写真（temple-path.jpg）を使う。
+ *   - ホストの顔（hosts[].avatar）は host-*.jpg。Takuya は本人の写真、Yukino・Shiryu は顔の代わりの写真で本人ではない。
+ *     写真の無いホスト（Hasami・わか）は null のまま（画面は頭文字）。
+ *   - 画面に「Sample photo」は出さない。仮の表示であることはフッターのプレビュー表記で伝える。
  * - レビュー・販売実績・実際の残席は入れない。
  * - 本番の表示には使わない。本番は NIHO 共通基盤に登録した原稿が正本。
  */
@@ -54,38 +57,37 @@ export type PilotImageSpec = PlaceholderImageSpec & { samplePhoto?: string };
 
 export const PILOT_IMAGE_SPECS = {
   dinner: [
-    { name: "pilot-dinner-table", label: "Dinner at the long table", hue: 28, samplePhoto: "dinner-long-table.jpg" },
-    { name: "pilot-dinner-kitchen", label: "Cooking together", hue: 18, samplePhoto: "dinner-cooking-together.jpg" },
-    { name: "pilot-dinner-dishes", label: "Seasonal dishes", hue: 45, samplePhoto: "dinner-oden.jpg" },
-    // ストック写真の人物を「Your hosts」と呼ばない。
-    { name: "pilot-dinner-hosts", label: "Around the table", hue: 330, samplePhoto: "dinner-around-table.jpg" },
-    { name: "pilot-niho-living-room", label: "At the table", hue: 40, samplePhoto: "dinner-table-overhead.jpg" },
-    { name: "pilot-niho-entrance", label: "Side entrance and NIHO sign", hue: 205 },
+    { name: "pilot-dinner-table", label: "Neighbors around the long table at NIHO", hue: 28, samplePhoto: "niho-cd-table-02.jpg" },
+    { name: "pilot-dinner-kitchen", label: "Cooking together in the shared kitchen", hue: 18, samplePhoto: "niho-cd-kitchen-together.jpg" },
+    { name: "pilot-dinner-dishes", label: "Trays of dishes made together", hue: 45, samplePhoto: "niho-cd-food-trays.jpg" },
+    { name: "pilot-dinner-living-room", label: "Talking in the NIHO living room", hue: 330, samplePhoto: "niho-dinner-5.jpg" },
+    { name: "pilot-niho-living-room", label: "Welcome drinks in the living room", hue: 40, samplePhoto: "niho-dinner-1.jpg" },
+    { name: "pilot-niho-exterior", label: "The blue NIHO building from the street", hue: 205, samplePhoto: "niho-exterior.jpg" },
   ],
   coffee: [
-    { name: "pilot-coffee-roaster", label: "Roasting", hue: 25, samplePhoto: "coffee-scoop.jpg" },
-    { name: "pilot-coffee-green-beans", label: "Green and roasted beans", hue: 90, samplePhoto: "coffee-beans-board.jpg" },
-    { name: "pilot-coffee-cooling", label: "Cooling the beans", hue: 30, samplePhoto: "coffee-drum.jpg" },
-    { name: "pilot-coffee-cup", label: "Coffee time", hue: 35, samplePhoto: "coffee-pour.jpg" },
-    { name: "pilot-niho-entrance", label: "Side entrance and NIHO sign", hue: 205 },
+    { name: "pilot-coffee-roaster", label: "Scooping roasted beans", hue: 25, samplePhoto: "coffee-scoop.jpg" },
+    { name: "pilot-coffee-green-beans", label: "Coffee beans on a board", hue: 90, samplePhoto: "coffee-beans-board.jpg" },
+    { name: "pilot-coffee-cooling", label: "Beans turning in the roaster drum", hue: 30, samplePhoto: "coffee-drum.jpg" },
+    { name: "pilot-coffee-cup", label: "Pouring a cup of coffee", hue: 35, samplePhoto: "coffee-pour.jpg" },
+    { name: "pilot-niho-exterior", label: "The blue NIHO building from the street", hue: 205, samplePhoto: "niho-exterior.jpg" },
   ],
   zen: [
-    { name: "pilot-zen-meditation", label: "Zazen", hue: 140, samplePhoto: "zazen-hall.jpg" },
-    { name: "pilot-zen-grounds", label: "Temple grounds", hue: 120, samplePhoto: "temple-path.jpg" },
-    { name: "pilot-zen-talk", label: "Talk with a Zen priest", hue: 160, samplePhoto: "zen-garden-view.jpg" },
-    { name: "pilot-zen-gate", label: "Temple gate", hue: 100 },
+    { name: "pilot-zen-meditation", label: "Sitting zazen in a temple hall", hue: 140, samplePhoto: "zazen-hall.jpg" },
+    { name: "pilot-zen-grounds", label: "A bamboo grove", hue: 120, samplePhoto: "bamboo.jpg" },
+    { name: "pilot-zen-talk", label: "A temple garden seen from inside", hue: 160, samplePhoto: "zen-garden-view.jpg" },
+    { name: "pilot-zen-path", label: "Stone steps up to a temple gate", hue: 100, samplePhoto: "temple-path.jpg" },
   ],
   mending: [
-    { name: "pilot-mending-hands", label: "Mending a bowl", hue: 15, samplePhoto: "mending-hands.jpg" },
-    { name: "pilot-mending-before-after", label: "Before and after", hue: 50, samplePhoto: "kintsugi-plates.jpg" },
-    { name: "pilot-mending-tools", label: "Materials and tools", hue: 10, samplePhoto: "kintsugi-plate.jpg" },
-    { name: "pilot-niho-entrance", label: "Side entrance and NIHO sign", hue: 205 },
+    { name: "pilot-mending-hands", label: "Hands mending a broken bowl", hue: 15, samplePhoto: "mending-hands.jpg" },
+    { name: "pilot-mending-before-after", label: "Mended plates with gold lines", hue: 50, samplePhoto: "kintsugi-plates.jpg" },
+    { name: "pilot-mending-tools", label: "A mended plate", hue: 10, samplePhoto: "kintsugi-plate.jpg" },
+    { name: "pilot-niho-exterior", label: "The blue NIHO building from the street", hue: 205, samplePhoto: "niho-exterior.jpg" },
   ],
   calligraphy: [
-    { name: "pilot-calligraphy-brush", label: "Brush on paper", hue: 0, samplePhoto: "calligraphy-brush.jpg" },
-    { name: "pilot-calligraphy-tools", label: "Brush, ink and paper", hue: 220, samplePhoto: "calligraphy-grid.jpg" },
-    { name: "pilot-calligraphy-work", label: "Your finished piece", hue: 260, samplePhoto: "calligraphy-large.jpg" },
-    { name: "pilot-niho-entrance", label: "Side entrance and NIHO sign", hue: 205 },
+    { name: "pilot-calligraphy-brush", label: "A brush writing on paper", hue: 0, samplePhoto: "calligraphy-brush.jpg" },
+    { name: "pilot-calligraphy-tools", label: "Practice strokes on grid paper", hue: 220, samplePhoto: "calligraphy-grid.jpg" },
+    { name: "pilot-calligraphy-work", label: "A large finished piece", hue: 260, samplePhoto: "calligraphy-large.jpg" },
+    { name: "pilot-niho-exterior", label: "The blue NIHO building from the street", hue: 205, samplePhoto: "niho-exterior.jpg" },
   ],
   people: [{ name: "pilot-logo-niho", label: "NIHO kamakura", hue: 210 }],
 } satisfies Record<string, PilotImageSpec[]>;
@@ -94,6 +96,18 @@ function images(specs: PilotImageSpec[]) {
   return specs.map((spec) =>
     spec.samplePhoto ? { url: `${PILOT_SAMPLE_PHOTO_PATH}/${encodeURIComponent(spec.samplePhoto)}` } : placeholderImage(spec),
   );
+}
+
+/** ホストの顔（仮）。Takuya は本人、ほかは顔の代わりの写真（CREDITS.md）。写真の無いホストは null。 */
+export const PILOT_HOST_PHOTOS = {
+  Takuya: "host-takuya.jpg",
+  Yukino: "host-yukino.jpg",
+  Shiryu: "host-shiryu.jpg",
+} as const;
+
+function host(displayName: string) {
+  const file = (PILOT_HOST_PHOTOS as Record<string, string | undefined>)[displayName];
+  return { displayName, avatar: file ? { url: `${PILOT_SAMPLE_PHOTO_PATH}/${encodeURIComponent(file)}` } : null };
 }
 
 function person(name: string) {
@@ -236,9 +250,9 @@ export function buildPilotExperiences(): ExperienceDetail[] {
       meetingPointDisclosure: "PUBLIC",
       meetingPoint: nihoMeetingPoint(5),
       hosts: [
-        { displayName: "Takuya", avatar: null },
-        { displayName: "Hasami", avatar: null },
-        { displayName: "わか", avatar: null },
+        host("Takuya"),
+        host("Hasami"),
+        host("わか"),
       ],
       provider: { ...NIHO_PROVIDER, logo: nihoLogo },
       seller: { displayName: "Panasonic Holdings Corporation", legalNoticeUrl: `${FIXTURE_NIHO_WEB_ORIGIN}/legal/tokushoho` },
@@ -320,7 +334,7 @@ export function buildPilotExperiences(): ExperienceDetail[] {
       photos: coffeePhotos,
       meetingPointDisclosure: "PUBLIC",
       meetingPoint: nihoMeetingPoint(4),
-      hosts: [{ displayName: "Takuya", avatar: null }],
+      hosts: [host("Takuya")],
       provider: { ...NIHO_PROVIDER, logo: nihoLogo },
       seller: { displayName: "Panasonic Holdings Corporation", legalNoticeUrl: `${FIXTURE_NIHO_WEB_ORIGIN}/legal/tokushoho` },
       offers: [
@@ -468,7 +482,7 @@ export function buildPilotExperiences(): ExperienceDetail[] {
       photos: mendingPhotos,
       meetingPointDisclosure: "PUBLIC",
       meetingPoint: nihoMeetingPoint(3),
-      hosts: [{ displayName: "Yukino", avatar: null }],
+      hosts: [host("Yukino")],
       provider: {
         name: "YUKINO Restorer",
         kind: "INDIVIDUAL",
@@ -535,7 +549,7 @@ export function buildPilotExperiences(): ExperienceDetail[] {
       photos: calligraphyPhotos,
       meetingPointDisclosure: "PUBLIC",
       meetingPoint: nihoMeetingPoint(3),
-      hosts: [{ displayName: "Shiryu", avatar: null }],
+      hosts: [host("Shiryu")],
       provider: {
         name: "Shiryu",
         kind: "INDIVIDUAL",

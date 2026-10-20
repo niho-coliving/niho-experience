@@ -1,24 +1,30 @@
 import Link from "next/link";
 import { EXPERIENCE_API_CONTRACT } from "@niho-experience/api-client";
 import { RubberStamp } from "./HandIcon";
+import { NavLink } from "./NavLink";
 
-/** One thin line: synthetic data is invented, pilot data is real but provisional. Nothing here is bookable for real. */
-export function PreviewBanner({ catalog = "synthetic" }: { catalog?: "synthetic" | "pilot" }) {
+export type PreviewCatalog = "synthetic" | "pilot";
+
+/**
+ * Previews only: one small line at the very bottom of the footer (owner decision 2026-10-20).
+ * Synthetic data is invented, pilot data is real but provisional. Nothing here is bookable for real.
+ */
+export function PreviewNote({ catalog }: { catalog: PreviewCatalog }) {
   return (
-    <div role="note" className="bg-ink px-4 py-1.5 text-center text-[0.8125rem] leading-snug text-white/85">
+    <p role="note" className="border-t border-line py-3 text-xs leading-snug text-muted">
       {catalog === "pilot" ? (
         <>
-          <strong className="text-white">Preview</strong> · real hosts; dates, prices and photos are provisional · nothing can be booked
+          <strong className="font-extrabold text-ink-soft">Preview</strong> · real hosts; dates, prices and photos are provisional · nothing can be booked
         </>
       ) : (
         <>
-          <strong className="text-white">Preview with sample data</strong> · hosts, dates and prices are invented · nothing can be booked
+          <strong className="font-extrabold text-ink-soft">Preview with sample data</strong> · hosts, dates and prices are invented · nothing can be booked
         </>
       )}{" "}
-      <span className="whitespace-nowrap text-white/70">
+      <span className="whitespace-nowrap">
         · API contract {EXPERIENCE_API_CONTRACT.version} ({EXPERIENCE_API_CONTRACT.status})
       </span>
-    </div>
+    </p>
   );
 }
 
@@ -32,9 +38,9 @@ export function SiteHeader({ brandLabel, exploreLabel = "Experiences", hostLabel
         <nav aria-label="Main" className="ml-auto">
           <ul className="flex items-center gap-0.5 text-[0.9375rem] font-bold sm:gap-1">
             <li>
-              <Link href="/experiences" className="rounded-full px-2.5 py-2 hover:bg-sand sm:px-3">
+              <NavLink href="/experiences" className="rounded-full px-2.5 py-2 hover:bg-sand sm:px-3">
                 {exploreLabel}
-              </Link>
+              </NavLink>
             </li>
             <li className="hidden sm:block">
               <Link href="/host" className="rounded-full px-3 py-2 hover:bg-sand">
@@ -53,12 +59,16 @@ export function SiteHeader({ brandLabel, exploreLabel = "Experiences", hostLabel
   );
 }
 
-export function SiteFooter({ description = "Small experiences hosted by people who live in Kamakura. Made by NIHO, a shared living room in the neighborhood.", copyright }: { description?: string; copyright?: string } = {}) {
+export function SiteFooter({
+  description = "Small experiences hosted by people who live in Kamakura. Made by NIHO, a shared living room two minutes from Kamakura Station.",
+  copyright,
+  preview = null,
+}: { description?: string; copyright?: string; preview?: PreviewCatalog | null } = {}) {
   return (
     <footer className="mt-24 border-t border-line bg-white">
-      <div className="container-page grid gap-8 pt-11 pb-14 sm:grid-cols-[2fr_1fr_auto] sm:items-start">
+      <div className={`container-page grid gap-7 pt-11 sm:grid-cols-[2fr_1fr_auto] sm:items-start ${preview ? "pb-10" : "pb-14"}`}>
         <div className="max-w-md">
-          <p className="font-display text-xl font-semibold">NIHO Experience</p>
+          <p className="font-display text-xl font-semibold text-muted">NIHO Experience</p>
           <p className="mt-2 text-sm text-muted">
             {description}
           </p>
@@ -80,6 +90,11 @@ export function SiteFooter({ description = "Small experiences hosted by people w
         </nav>
         <RubberStamp className="size-[104px] rotate-[10deg] text-moss" />
       </div>
+      {preview ? (
+        <div className="container-page">
+          <PreviewNote catalog={preview} />
+        </div>
+      ) : null}
     </footer>
   );
 }

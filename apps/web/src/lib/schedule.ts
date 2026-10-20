@@ -48,10 +48,10 @@ export function scheduleSummary(offers: ScheduleOffer[]): string | null {
   return times.length ? `${dayPart} · ${times.join(" / ")}` : dayPart;
 }
 
-/** "Tue, Thu & Sat · 6:00 PM" for the short hand-written line above a heading. */
-export function scheduleLine(offers: ScheduleOffer[]): string | null {
+/** "Tue, Thu & Sat · 6:00 PM" for the short hand-written line above a heading ("6 PM" with `compact`). */
+export function scheduleLine(offers: ScheduleOffer[], { compact = false }: { compact?: boolean } = {}): string | null {
   const days = sortedWeekdays(offers);
-  const times = sortedTimes(offers);
+  const times = sortedTimes(offers).map((time) => (compact ? time.replace(":00 ", " ") : time));
   if (!days.length) return null;
   const names = days.map((day) => WEEKDAY_SHORT[day] ?? "");
   const dayPart = days.length === 7 ? "Every day" : joinAnd(names);

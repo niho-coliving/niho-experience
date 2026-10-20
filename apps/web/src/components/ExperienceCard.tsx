@@ -1,23 +1,23 @@
 import Link from "next/link";
 import type { CardModel } from "@/lib/card-model";
 import { imageAlt } from "@/lib/experience-copy";
+import { CardDates, type CardDatesSource } from "./CardDates";
 import { FaceBadge } from "./Face";
 import { HandIcon } from "./HandIcon";
 import { Photo } from "./Photo";
-import { Pill } from "./ui";
 
 export type CardOptions = {
   /** List page: 2-line lead and a 4:3 cover on phones. */
   variant?: "home" | "list";
   priority?: boolean;
-  preview?: boolean;
-  previewLabel?: string;
+  /** Where the next dates come from (the list's own read, or a read by the card). Without it the weekday summary shows. */
+  dates?: CardDatesSource;
   /** "Sat 24 Oct · 6:00 PM" when a date is chosen on the list. */
   highlight?: string | null;
 };
 
 /** One whole-card link (the title's link covers the card). No popularity, scarcity or review claims. */
-export function ExperienceCard({ card, variant = "home", priority = false, preview = false, previewLabel = "Sample listing", highlight = null }: { card: CardModel } & CardOptions) {
+export function ExperienceCard({ card, variant = "home", priority = false, dates = { kind: "given", occurrences: null }, highlight = null }: { card: CardModel } & CardOptions) {
   const list = variant === "list";
   return (
     <article className="group relative flex h-full min-w-0 flex-col">
@@ -26,7 +26,6 @@ export function ExperienceCard({ card, variant = "home", priority = false, previ
           image={card.cover}
           alt={imageAlt(card.cover, card.title)}
           priority={priority}
-          sampleTag={preview}
           rounded="rounded-[var(--radius-card)]"
           aspect={list ? "aspect-[4/3] sm:aspect-[4/5]" : "aspect-[4/5]"}
           sizes="(min-width: 64rem) 380px, (min-width: 40rem) 50vw, 85vw"
@@ -61,27 +60,17 @@ export function ExperienceCard({ card, variant = "home", priority = false, previ
           ) : null}
         </ul>
         {highlight ? (
-          <p className="mt-3 inline-flex items-center gap-1.5 self-start rounded-full bg-leaf-pale py-1 pr-3 pl-2 text-sm font-extrabold text-moss">
+          <p className="mt-3 inline-flex h-7 items-center gap-1.5 self-start rounded-full bg-leaf-pale pr-3 pl-2 text-sm font-extrabold text-moss">
             <HandIcon name="cal" className="size-5" />
             {highlight}
           </p>
-        ) : card.scheduleLabel ? (
-          <p className="mt-2 flex items-center gap-1.5 text-sm font-bold text-ink-soft">
-            <HandIcon name="cal" className="size-[22px]" />
-            <span>
-              {card.scheduleLabel} <span className="font-normal text-muted">JST</span>
-            </span>
-          </p>
-        ) : null}
+        ) : (
+          <CardDates slug={card.slug} scheduleLabel={card.scheduleLabel} source={dates} />
+        )}
         <p className="mt-auto pt-3 text-[0.9375rem] text-ink-soft">
           {card.priceIsFrom ? "From " : ""}
           <b className="text-[1.1875rem] font-extrabold text-ink">{card.priceLabel}</b> / adult
         </p>
-        {preview ? (
-          <p className="mt-2">
-            <Pill tone="sample">{previewLabel}</Pill>
-          </p>
-        ) : null}
       </div>
     </article>
   );

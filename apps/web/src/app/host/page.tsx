@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { TrackView, TrackedLink } from "@/components/Analytics";
+import { AmbientVideo } from "@/components/AmbientVideo";
 import { HandIcon } from "@/components/HandIcon";
-import { buttonClass, Notice, SectionHeading } from "@/components/ui";
+import { ButtonLink, buttonClass, SectionHeading } from "@/components/ui";
 import { config } from "@/lib/config";
 import { safeHttpsUrl } from "@/lib/safe-url";
 import { getPublishedPageDocument } from "@/lib/page-documents";
+import { HOST_BAND_VIDEO } from "@/lib/site-media";
 
 function hostStartUrl(value: string, nihoOrigin: string): string | null {
   try {
@@ -62,7 +64,7 @@ export default async function HostPage() {
   const steps = startUrl ? OPEN_STEPS : PILOT_STEPS;
   const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
   const signup = (props: BlockProps = {}) => (
-    <section className="mt-8 max-w-2xl" aria-label="How to start">
+    <section className="mt-7 max-w-2xl" aria-label="How to start">
       {startUrl ? (
         <div className="space-y-3">
           <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
@@ -74,58 +76,82 @@ export default async function HostPage() {
           </p>
         </div>
       ) : (
-        <Notice tone="info" title="We're starting with a small group of hosts">
-          <p>During the first season we work directly with a few hosts we know. Online sign-up opens after that.
-            {contactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}</p>
-          {contactUrl ? <p className="mt-3"><TrackedLink href={contactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
-            {blockText(props, "label", "Tell us you're interested")}
-          </TrackedLink></p> : null}
-        </Notice>
+        <div className="flex items-start gap-3.5 rounded-[22px] bg-leaf-pale p-5">
+          <HandIcon name="house" className="size-10 text-moss [stroke-width:1.5]" />
+          <div>
+            <p className="text-[1.0625rem] font-extrabold">We&apos;re starting with a small group of hosts</p>
+            <p className="mt-1 text-[0.9375rem] text-ink-soft">During the first season we work directly with a few hosts we know. Online sign-up opens after that.
+              {contactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}</p>
+            {contactUrl ? <p className="mt-3"><TrackedLink href={contactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
+              {blockText(props, "label", "Tell us you're interested")}
+            </TrackedLink></p> : null}
+          </div>
+        </div>
       )}
     </section>
   );
   const fallback = (
-    <div className="container-page pt-8 sm:pt-12">
-      <header className="max-w-2xl space-y-4">
-        <p className="eyebrow">For people in Kamakura</p>
-        <h1 className="text-[2.5rem] sm:text-[3.5rem]">Share what you love with travelers</h1>
-        <p className="text-lg text-ink-soft">
-          You don&apos;t need to be a tour guide. If you cook for friends, make things with your hands, or know a walk worth taking, travelers would love to
-          spend time with you.
-        </p>
-      </header>
+    <div className="container-page pt-7 sm:pt-12">
+      <section className="grid items-center gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:gap-16">
+        <header className="max-w-2xl">
+          <p className="eyebrow">For people in Kamakura</p>
+          <h1 className="mt-1.5 text-[2.25rem] sm:text-[3.5rem]">Share what you love with travelers</h1>
+          <p className="mt-3 text-ink-soft sm:text-lg">
+            You don&apos;t need to be a tour guide. If you cook for friends, make things with your hands, or know a walk worth taking, travelers would love to
+            spend time with you.
+          </p>
+        </header>
+        <div className="arch aspect-[3/4] w-[min(100%,280px)] justify-self-center bg-line">
+          <AmbientVideo video={HOST_BAND_VIDEO} />
+        </div>
+      </section>
 
       {signup()}
 
-      <section className="mt-16" aria-labelledby="steps">
+      <section className="pt-14 lg:pt-[104px]" aria-labelledby="steps">
         <SectionHeading id="steps" eyebrow="How it works" title="From idea to first guests" />
-        <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="grid lg:grid-cols-2 lg:gap-x-12">
           {steps.map((s, i) => (
-            <li key={s.title} className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
-              <span className="hand text-4xl" aria-hidden>
+            <li key={s.title} className="flex items-start gap-4 border-b border-dashed border-line-strong py-4 last:border-b-0 lg:[&:nth-last-child(2)]:border-b-0">
+              <span className="w-7 shrink-0 text-center font-hand text-[2.5rem] leading-[0.9] font-bold text-moss" aria-hidden>
                 {i + 1}
               </span>
-              <h3 className="mt-2 text-lg">{s.title}</h3>
-              <p className="mt-1 text-ink-soft">{s.body}</p>
+              <div>
+                <h3 className="font-sans text-[1.0625rem] leading-snug font-extrabold tracking-normal">{s.title}</h3>
+                <p className="mt-0.5 text-[0.9375rem] text-ink-soft">{s.body}</p>
+              </div>
             </li>
           ))}
         </ol>
       </section>
 
-      <section className="mt-16 grid gap-6 md:grid-cols-2" aria-label="Who does what">
-        <Column title="What you do" items={YOU} />
-        <Column title="What NIHO does" items={NIHO} highlight />
+      <section className="pt-14 lg:pt-[104px]" aria-labelledby="who-does-what">
+        <SectionHeading id="who-does-what" eyebrow="who does what" title="You host. We help." />
+        <div className="grid gap-3.5 md:grid-cols-2">
+          <Column title="You" items={YOU} />
+          <Column title="NIHO" items={NIHO} highlight />
+        </div>
       </section>
 
-      <section className="mt-16 max-w-2xl space-y-3" aria-labelledby="money">
-        <h2 id="money" className="text-2xl sm:text-3xl">
+      <section className="max-w-2xl pt-14" aria-labelledby="money">
+        <h2 id="money" className="mb-4 text-[1.75rem] sm:text-[2rem]">
           Fees and payments
         </h2>
-        <p className="text-ink-soft">
-          Guests pay online when they book. Payments are processed by Stripe and paid out to the account you choose in NIHO. We&apos;ll explain the fees and
-          terms clearly before you list anything.{startUrl ? null : <>{" "}Nothing is charged to you for talking with us.</>}
-        </p>
+        <div className="flex items-start gap-3.5 rounded-[22px] bg-sand p-5">
+          <HandIcon name="card" className="size-10 text-moss [stroke-width:1.5]" />
+          <p className="text-[0.9375rem] text-ink-soft">
+            Guests pay online when they book. Payments are processed by Stripe and paid out to the account you choose in NIHO. We&apos;ll explain the fees and
+            terms clearly before you list anything.{startUrl ? null : <>{" "}Nothing is charged to you for talking with us.</>}
+          </p>
+        </div>
       </section>
+
+      <p className="mt-7 max-w-2xl">
+        {/* The sign-up link above stays the one main action when hosting is open. */}
+        <ButtonLink href="/experiences" variant={startUrl ? "secondary" : "primary"} className="w-full">
+          See the experiences
+        </ButtonLink>
+      </p>
     </div>
   );
   return <>
@@ -136,12 +162,12 @@ export default async function HostPage() {
 
 function Column({ title, items, highlight = false }: { title: string; items: string[]; highlight?: boolean }) {
   return (
-    <div className={`rounded-[var(--radius-card)] p-6 ${highlight ? "bg-leaf-pale" : "bg-sand"}`}>
-      <h2 className="mb-4 text-2xl">{title}</h2>
-      <ul className="space-y-3">
+    <div className={`rounded-[22px] p-5 ${highlight ? "bg-leaf-pale" : "bg-sand"}`}>
+      <h3 className="mb-2.5 font-sans text-sm font-extrabold tracking-[0.03em] text-muted uppercase">{title}</h3>
+      <ul className="space-y-2.5 text-[0.9375rem]">
         {items.map((item) => (
-          <li key={item} className="flex gap-3">
-            <HandIcon name="check" className="mt-0.5 size-6 text-moss" />
+          <li key={item} className="flex items-start gap-2.5">
+            <HandIcon name="check" className="-mt-px size-6 text-moss" />
             <span>{item}</span>
           </li>
         ))}

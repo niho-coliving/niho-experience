@@ -10,7 +10,7 @@ npm ci
 npm run dev
 ```
 
-http://localhost:3000 を開く。画面上部の黒い帯「Preview with sample data」は、mockで動いていることの表示。
+http://localhost:3000 を開く。フッター最下部の1行「Preview with sample data」は、mockで動いていることの表示（オーナー判断 2026-10-20 で上部の帯から移した）。
 
 ## よく使うコマンド
 

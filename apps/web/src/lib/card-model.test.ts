@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFixtureExperiences, buildPilotExperiences, toExperienceSummary } from "@niho-experience/api-client/mock";
-import { buildCardModel, buildCardModels, groupSizeLabel, initialOf, shortLanguageNote } from "./card-model";
+import { buildCardModel, buildCardModels, cardFaceOf, faceOf, groupSizeLabel, initialOf, shortLanguageNote } from "./card-model";
 import { formatClock, scheduleLine, scheduleSummary } from "./schedule";
 
 const pilot = buildPilotExperiences();
@@ -10,8 +10,9 @@ const bySlug = (slug: string) => [...pilot, ...synthetic].find((experience) => e
 describe("card display model", () => {
   it("merges the summary with the detail: hosts, group size, schedule (JST) and price", () => {
     const dinner = bySlug("kamakura-community-dinner");
-    const card = buildCardModel(toExperienceSummary(dinner), dinner);
-    expect(card.withLabel).toBe("with Takuya, Hasami & わか");
+    const card = buildCardModel(toExperienceSummary(dinner), dinner, true);
+    // The editor's words replace the host names on the card (lib/themes.ts); the detail page still names every host.
+    expect(card.withLabel).toBe("with Takuya & neighbors");
     expect(card.groupLabel).toBe("Up to 8 guests");
     expect(card.scheduleLabel).toBe("Tue · Thu · Sat · 6:00 PM");
     expect(card.priceLabel).toBe("¥30,000");
@@ -20,14 +21,27 @@ describe("card display model", () => {
     expect(card.offers).toEqual([{ id: dinner.offers[0]!.id, minimumParticipants: dinner.offers[0]!.minimumParticipants, maxPartySize: 8 }]);
   });
 
-  it("uses the host's initial when there is no face photo, and the provider when no hosts are listed", () => {
+  it("keeps pilot-only faces out of live cards, and uses the preview face only without hosts", () => {
     const dinner = bySlug("kamakura-community-dinner");
-    expect(buildCardModel(toExperienceSummary(dinner), dinner).face).toEqual({ name: "Takuya", initial: "T", image: null });
+    expect(buildCardModel(toExperienceSummary(dinner), dinner, true).face).toEqual({ name: "Takuya", initial: "T", image: { url: "/sample/photos/host-takuya.jpg" } });
     const zen = bySlug("engakuji-zen-meditation");
-    const zenCard = buildCardModel(toExperienceSummary(zen), zen);
-    expect(zenCard.withLabel).toBe(`with ${zen.provider.name}`);
-    expect(zenCard.face.name).toBe(zen.provider.name);
+    const liveZenCard = buildCardModel(toExperienceSummary(zen), zen);
+    expect(liveZenCard.withLabel).toBe(`with ${zen.provider.name}`);
+    expect(liveZenCard.face).toEqual(faceOf(zen));
+    const zenCard = buildCardModel(toExperienceSummary(zen), zen, true);
+    expect(zenCard.withLabel).toBe("with a Zen priest & guide");
+    expect(zenCard.face).toEqual({ name: zen.provider.name, initial: "S", image: { url: "/sample/photos/host-guide.jpg" } });
+    expect(faceOf(zen).image).toBeNull();
     expect(zenCard.groupLabel).toBe("Private · 2–4 guests");
+    // Hosts in the data win over the editor's face.
+    expect(cardFaceOf({ ...zen, hosts: [{ displayName: "Ken", avatar: null }] }, true)).toEqual({ name: "Ken", initial: "K", image: null });
+  });
+
+  it("keeps pilot card copy out of live summary fallbacks", () => {
+    const dinner = bySlug("kamakura-community-dinner");
+    const summary = toExperienceSummary(dinner);
+    expect(buildCardModel(summary, null).withLabel).toBe(`with ${summary.provider.name}`);
+    expect(buildCardModel(summary, null, true).withLabel).toBe("with Takuya & neighbors");
   });
 
   it("falls back to the summary when the detail could not be read", () => {
@@ -74,6 +88,8 @@ describe("display helpers", () => {
     expect(formatClock("00:15")).toBe("12:15 AM");
     expect(scheduleSummary([{ weekdays: [0, 6], startTime: "13:00" }])).toBe("Sat · Sun · 1:00 PM");
     expect(scheduleLine([{ weekdays: [2, 4, 6], startTime: "18:00" }])).toBe("Tue, Thu & Sat · 6:00 PM");
+    expect(scheduleLine([{ weekdays: [2, 4, 6], startTime: "18:00" }], { compact: true })).toBe("Tue, Thu & Sat · 6 PM");
+    expect(scheduleLine([{ weekdays: [0], startTime: "15:30" }], { compact: true })).toBe("Sun · 3:30 PM");
     expect(scheduleSummary([{ weekdays: [0, 1, 2, 3, 4, 5, 6], startTime: "09:00" }])).toBe("Every day · 9:00 AM");
     expect(scheduleSummary([{ weekdays: [], startTime: "09:00" }])).toBeNull();
   });
