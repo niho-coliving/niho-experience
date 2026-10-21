@@ -9,8 +9,9 @@ export default defineConfig([
   ...nextTs,
   {
     // The host API client sends the host's ID token: only the server-only module may load it at runtime.
+    // src/host/connect.ts (server-only) loads it for isStripeConnectUrl, to check a Stripe link before it is followed.
     files: ["**/*.ts", "**/*.tsx"],
-    ignores: ["src/lib/host/server.ts", "src/lib/host/mock-niho.ts"],
+    ignores: ["src/lib/host/server.ts", "src/lib/host/mock-niho.ts", "src/host/connect.ts"],
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", {
         paths: [

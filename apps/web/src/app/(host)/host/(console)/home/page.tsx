@@ -114,6 +114,7 @@ export default async function HostHomePage({ searchParams }: { searchParams: Pro
               {[
                 ["売上", home.month.sales],
                 ["返金", home.month.refunds],
+                ["入金予定", home.month.expected],
                 ["確定した予約", home.month.confirmed],
               ].map(([label, value]) => (
                 <div key={label}>

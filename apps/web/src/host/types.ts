@@ -103,44 +103,152 @@ export interface HostExperience extends HostExperienceContent, HostListing {
   missing: readonly string[];
 }
 
-export type HostBookingStatus = "pending" | "confirmed" | "cancelled";
+/**
+ * A booking's one state (#90), in the words of NIHO's provider bookings: a request waiting
+ * for the host (承認待ち), a booking (確定), one the traveler asked to cancel (要返金), and
+ * the ends: 取消済み, お断り (declined by the host) and 期限切れ (not answered in time).
+ */
+export type HostBookingStatus = "pending" | "confirmed" | "refund_needed" | "cancelled" | "declined" | "expired";
+
+/** The language the guest booked in; the cancellation message starts in it. */
+export type HostGuestLanguage = "en" | "ja";
+
+/** 取消理由: 運営者の都合 / 旅行者からの依頼 / その他. */
+export type HostCancelReason = "host" | "guest" | "other";
+
+/** 返金: the whole payment, half of it, or nothing. */
+export type HostRefundChoice = "full" | "half" | "none";
+
+/** An answer to one of the offer's questions (申込時の質問), as the guest wrote it. */
+export interface HostBookingAnswer {
+  question: string;
+  answer: string;
+}
+
+/** One line of 時系列. */
+export interface HostBookingEvent {
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  at: string;
+  text: string;
+}
+
+export type HostMessageStatus = "sent" | "failed";
+
+/** A message the host sent the guest through NIHO (連絡の履歴). */
+export interface HostBookingMessage {
+  id: string;
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  at: string;
+  subject: string;
+  body: string;
+  status: HostMessageStatus;
+}
+
+/** The version of the meeting guide (集合案内) the guest has: NIHO sends it with the confirmation. */
+export interface HostMeetingGuideCopy {
+  version: number;
+  /** YYYY-MM-DDTHH:MM in Japan; null until the booking is confirmed. */
+  sentAt: string | null;
+}
 
 export interface HostBooking {
   id: string;
   experienceId: string;
+  offerId: string;
+  /** The offer's name when it was booked. */
+  offer: string;
   guest: string;
+  email: string;
+  language: HostGuestLanguage;
   /** Local date and times in Japan (YYYY-MM-DD, HH:MM). */
   date: string;
   start: string;
   end: string;
-  offer: string;
+  adults: number;
+  children: number;
+  /** adults + children. */
   guests: number;
+  /** The prices when it was booked (yen, tax included). */
+  adultPriceYen: number;
+  childPriceYen: number | null;
+  /** adults × the adult price + children × the child price. */
   amountYen: number;
   status: HostBookingStatus;
   channel: string;
-  /** Pending requests only: when the host must answer (YYYY-MM-DDTHH:MM, JST). */
-  respondBy?: string;
+  /** 申込メモ; empty when the guest wrote none. */
+  note: string;
+  answers: readonly HostBookingAnswer[];
+  /** null when no guide goes with it (a request that was declined or expired). */
+  meetingGuide: HostMeetingGuideCopy | null;
+  // The times below are YYYY-MM-DDTHH:MM in Japan, null until they happen.
+  /** 与信: the card hold when the guest booked. */
+  authorizedAt: string | null;
+  paidAt: string | null;
+  /** Requests: by when the host must answer. */
+  respondBy: string | null;
+  cancelRequestedAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: HostCancelReason | null;
+  /** 取消連絡: what the guest was told when it was cancelled. */
+  cancelMessage: string | null;
+  /** 累計返金. */
+  refundedYen: number;
+  timeline: readonly HostBookingEvent[];
+  messages: readonly HostBookingMessage[];
 }
 
-export type HostSaleKind = "sale" | "refund" | "payout";
+/**
+ * A ledger line's state, in the words of NIHO's provider sales: 計上済み (in the ledger),
+ * 入金済み (a payout that reached the bank) and 保留 (not settled yet; a payout on its way
+ * reads 送金中).
+ */
+export type HostSaleStatus = "posted" | "paid" | "pending";
 
-export interface HostSale {
+interface HostSaleLine {
   id: string;
-  /** YYYY-MM-DD (JST). */
+  /** YYYY-MM-DD (JST): the day the money moved (the charge, the refund, the payout). */
   date: string;
-  kind: HostSaleKind;
-  title: string;
-  detail: string;
+  status: HostSaleStatus;
+  /** Yen, tax included, always positive: `kind` says which way it goes. */
   amountYen: number;
 }
 
-export type PaymentReadinessReason = ExperienceProviderPaymentReadinessReason;
-
-export interface HostPayoutAccount {
-  reason: PaymentReadinessReason;
-  /** How the account is named on screen ("サンプルの台所の口座"); null when there is none yet. */
-  label: string | null;
+/** A guest's payment for a booking (売上). */
+export interface HostSaleCharge extends HostSaleLine {
+  kind: "sale";
+  /** The experience as the ledger names it. */
+  experience: string;
+  guest: string;
+  /** 申込経路: NIHO, NIHO 埋め込み or 体験サイト. */
+  channel: string;
+  offer: string;
+  guests: number;
+  /** What NIHO and Stripe keep of the payment (手数料). */
+  feeYen: number;
+  /** The booking it pays for, when 予約 lists it. */
+  bookingId?: string;
 }
+
+/** Money given back to a guest (返金). */
+export interface HostSaleRefund extends HostSaleLine {
+  kind: "refund";
+  guest: string;
+  channel: string;
+  bookingId?: string;
+}
+
+/** Money sent from the sales to the host's bank account (口座入金). */
+export interface HostSalePayout extends HostSaleLine {
+  kind: "payout";
+  /** The days of sales it covers (YYYY-MM-DD, JST). */
+  from: string;
+  to: string;
+}
+
+export type HostSale = HostSaleCharge | HostSaleRefund | HostSalePayout;
+export type HostSaleKind = HostSale["kind"];
+
+export type PaymentReadinessReason = ExperienceProviderPaymentReadinessReason;
 
 /** Where guests meet, used by every experience unless it says otherwise. */
 export interface HostMeetingDefaults {
@@ -158,8 +266,8 @@ export interface HostSettings {
   bio: string;
   sellerDisclosureUrl: string;
   reviewStatus: HostProviderReviewStatus | null;
-  /** null until the console can read the payout account (#87). */
-  payout: HostPayoutAccount | null;
+  /** The provider agreed to the version of NIHO's provider terms in force (審査を申請 needs it). */
+  consentCurrent: boolean;
   meetingPoint: HostMeetingDefaults;
   notificationEmail: string;
 }

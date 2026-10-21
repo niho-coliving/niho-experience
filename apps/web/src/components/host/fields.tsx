@@ -11,6 +11,10 @@ import { SectionTitle, StatusPill } from "./ui";
 const FIELD = "block w-full rounded-[10px] border border-line-strong bg-canvas px-3 py-2 text-[1rem] text-ink md:text-[0.875rem]";
 export const INPUT = `${FIELD} min-h-10 leading-normal`;
 export const TEXTAREA = `${FIELD} min-h-24 resize-y leading-relaxed`;
+/** A native select (its own arrow), as wide as its choices: up to the panel on phones, 360px on PC. */
+export const SELECT = "block min-h-10 w-auto max-w-full rounded-[10px] border border-line-strong bg-canvas px-3 py-2 text-[1rem] leading-normal text-ink md:max-w-[360px] md:text-[0.875rem]";
+/** Inputs that cannot be changed here read as such. */
+export const FIELD_DISABLED = "disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-soft";
 /** Short single-line values stay 360px wide on PC. */
 export const NARROW = "md:max-w-[360px]";
 
@@ -52,10 +56,13 @@ const KIND_OPTIONS: { value: HostProviderKind; label: string }[] = [
   { value: "BUSINESS", label: "店舗・事業者" },
 ];
 
-/** 個人 / 店舗・事業者 as a segmented control. Native radios, so keyboard and screen readers work as usual. */
-export function KindSegment({ name, labelId, defaultValue }: { name: string; labelId: string; defaultValue: HostProviderKind | null }) {
+/**
+ * 個人 / 店舗・事業者 as a segmented control. Native radios, so keyboard and screen readers work as
+ * usual. `disabled` shows the kind without letting it change (NIHO keeps it from the registration).
+ */
+export function KindSegment({ name, labelId, defaultValue, disabled = false, describedBy }: { name: string; labelId: string; defaultValue: HostProviderKind | null; disabled?: boolean; describedBy?: string }) {
   return (
-    <div role="radiogroup" aria-labelledby={labelId} className="inline-flex min-h-10 items-center">
+    <div role="radiogroup" aria-labelledby={labelId} aria-describedby={describedBy} className="inline-flex min-h-10 items-center">
       <span className="inline-flex rounded-full bg-sand p-0.5">
         {KIND_OPTIONS.map((option) => (
           <label
@@ -63,7 +70,14 @@ export function KindSegment({ name, labelId, defaultValue }: { name: string; lab
             className="relative block h-8 rounded-full px-3 text-[0.8125rem] leading-8 font-extrabold text-ink-soft has-[:checked]:bg-canvas has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgb(0_0_0/0.08)] has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-moss"
           >
             {/* The invisible radio covers its whole option, like the booking date cards. */}
-            <input type="radio" name={name} value={option.value} defaultChecked={option.value === defaultValue} className="absolute inset-0 z-[1] size-full cursor-pointer appearance-none rounded-full opacity-0 focus-visible:outline-none" />
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              defaultChecked={option.value === defaultValue}
+              disabled={disabled}
+              className="absolute inset-0 z-[1] size-full cursor-pointer appearance-none rounded-full opacity-0 focus-visible:outline-none disabled:cursor-default"
+            />
             {option.label}
           </label>
         ))}
