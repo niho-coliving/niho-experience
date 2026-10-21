@@ -27,6 +27,12 @@ async function openEditor(page: Page, path: string) {
   await expect(page.getByRole("textbox", { name: "題名" })).toBeVisible();
 }
 
+async function dispatchSyntheticPopstate(page: Page) {
+  await page.evaluate(() => {
+    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+  });
+}
+
 async function logHistoryGuardState(page: Page) {
   const diagnostics = await page.evaluate(() => {
     const target = window as Window & {
@@ -395,6 +401,8 @@ test("browser back keeps unsaved edits behind the leave dialog", async ({ page }
   await highlight.fill("Unsaved browser history edit.");
   await expect(saveButton(page)).toBeVisible();
   await logHistoryGuardState(page);
+  await dispatchSyntheticPopstate(page);
+  await logHistoryGuardState(page);
 
   await page.goBack();
   await logHistoryGuardState(page);
@@ -421,6 +429,8 @@ test("browser forward keeps unsaved edits behind the leave dialog", async ({ pag
   const highlight = panel(page, "見どころ").getByRole("textbox", { name: "見どころ 1" });
   await highlight.fill("Unsaved browser history edit.");
   await expect(saveButton(page)).toBeVisible();
+  await logHistoryGuardState(page);
+  await dispatchSyntheticPopstate(page);
   await logHistoryGuardState(page);
   await page.goForward();
   await logHistoryGuardState(page);
