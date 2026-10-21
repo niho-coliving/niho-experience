@@ -11,11 +11,22 @@ export function nihoIdOrNull(value: unknown): string | null {
 }
 
 export type HostProviderRole = "OWNER" | "EDITOR";
+export type HostProviderKind = "INDIVIDUAL" | "BUSINESS";
+export type HostProviderReviewStatus = "DRAFT" | "REQUESTED" | "APPROVED" | "SUSPENDED";
 
 export interface HostProvider {
   id: string;
   displayName: string;
   role: HostProviderRole | null;
+  /*
+   * The settings screen's fields (#88). Only the detail (`GET /api/experience-providers/:id`,
+   * parseProviderDetail) fills them; the list leaves them out. Hand-written like the rest
+   * of this file: #87 replaces them with the types generated from the contract.
+   */
+  kind?: HostProviderKind;
+  bio?: string;
+  sellerDisclosureUrl?: string | null;
+  reviewStatus?: HostProviderReviewStatus;
 }
 
 const ROLE_LABELS: Record<HostProviderRole, string> = { OWNER: "オーナー", EDITOR: "編集者" };
@@ -43,6 +54,41 @@ export function parseProviderList(body: unknown): HostProvider[] | null {
   const list = Array.isArray(body) ? body : body && typeof body === "object" && Array.isArray((body as { providers?: unknown }).providers) ? (body as { providers: unknown[] }).providers : null;
   if (!list) return null;
   return list.map(parseProvider).filter((provider): provider is HostProvider => provider !== null);
+}
+
+const PROVIDER_KINDS: readonly HostProviderKind[] = ["INDIVIDUAL", "BUSINESS"];
+const REVIEW_STATUSES: readonly HostProviderReviewStatus[] = ["DRAFT", "REQUESTED", "APPROVED", "SUSPENDED"];
+const BIO_MAX = 4000;
+
+function httpsUrlOrNull(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 2048) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads `GET /api/experience-providers/:id` (`{ provider: {...} }`) for the settings
+ * screen: the list's fields plus kind, bio, seller page and review status. Unknown
+ * values are left out (the screen shows them as not set) rather than guessed.
+ */
+export function parseProviderDetail(body: unknown): HostProvider | null {
+  const record = body && typeof body === "object" ? (body as { provider?: unknown }).provider : null;
+  const provider = parseProvider(record);
+  if (!provider || !record || typeof record !== "object") return null;
+  const fields = record as Record<string, unknown>;
+  const kind = PROVIDER_KINDS.find((candidate) => candidate === fields.kind);
+  const reviewStatus = REVIEW_STATUSES.find((candidate) => candidate === fields.reviewStatus);
+  return {
+    ...provider,
+    ...(kind ? { kind } : {}),
+    ...(typeof fields.bio === "string" ? { bio: fields.bio.trim().slice(0, BIO_MAX) } : {}),
+    ...("sellerDisclosureUrl" in fields ? { sellerDisclosureUrl: httpsUrlOrNull(fields.sellerDisclosureUrl) } : {}),
+    ...(reviewStatus ? { reviewStatus } : {}),
+  };
 }
 
 /** The provider to open: the one asked for if this account has it, else the first. */

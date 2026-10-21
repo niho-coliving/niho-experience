@@ -43,9 +43,11 @@ sh scripts/container-smoke.sh niho-experience       # 表示と、設定によ�
 
 ```text
 apps/web/                 Next.js 16（App Router）。画面・SSR・SEO・予約入力
-  src/app/                ページ（/, /experiences, /experiences/[slug], /book, /booking/return, /host, /preview/*）とホストの画面（/host/*。#84）
-  src/components/         表示部品
-  src/lib/                SSR公開API・ブラウザ用API・表示用の整形
+  src/app/(site)/         旅行者向けページ（/, /experiences, /experiences/[slug], /book, /booking/return, /host（紹介）, /preview/*）。英語の root layout
+  src/app/(host)/host/    ホストの画面（/host/home など。#84）とログイン・中継（/host/auth/*・/host/api/*。#86）。別の root layout（日本語・計測なし・noindex）
+  src/components/         表示部品（ホストの画面の部品は src/components/host/）
+  src/host/               ホストの画面のデータの入口（data.ts）・表示用の整形・合成データ（mock/。mock mode だけ）
+  src/lib/                SSR公開API・ブラウザ用API・表示用の整形（ホストのセッション・中継は src/lib/host/）
   e2e/                    Playwright（360px・320px・デスクトップ、axe）
 packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアント・合成mock
 ```
@@ -67,7 +69,7 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 | `BOOKINGS_ENABLED` | `true` | `false` で新規予約を止める（障害時。#15の手順） |
 | `HOST_SIGNUP_MODE` | `pilot` | `open` はNIHO側のセルフ登録（連携B）が使えるようになってから |
 | `NIHO_HOST_START_URL` / `HOST_PILOT_CONTACT_URL` / `NIHO_BOOKING_HELP_URL` | なし | NIHO側の遷移先。固定URLのみ。利用者入力で戻り先を変えない |
-| `HOST_CONSOLE_ENABLED` | `false` | `true` でホストの画面（`/host/*`）とログインを開く（#84）。off の間は今の紹介ページのまま |
+| `HOST_CONSOLE_ENABLED` | `false` | `true` でホストの画面（`/host/*`）とログインを開く（#84）。off の間は今の紹介ページのまま。mock のプレビュー（`deploy-preview.yml`）は `true` で、合成のログインで見られる |
 | `HOST_SESSION_SECRET` | なし（mock は開発用の固定値） | ホストのセッション cookie の暗号化の鍵。http mode で `HOST_CONSOLE_ENABLED=true` なら必須 |
 | `NIHO_FIREBASE_WEB_API_KEY` | なし | NIHO の custom token を ID token に替えるための公開 Web API key。http mode で `HOST_CONSOLE_ENABLED=true` なら必須 |
 
@@ -77,6 +79,7 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 - `?mock=slow`・`?mock=empty`・`?mock=error`：読込中・掲載なし・API障害を再現（mock時のみ有効）。
 - 選別mockのcheckoutエラーは `createMockExperienceFetch` の scenario で再現できる。メールアドレスをトリガーにしない。
 - 決済は `/preview/checkout` の模擬ページへ進む。カード情報は扱わない。
+- ホストの画面：`HOST_CONSOLE_ENABLED=true` で `/host` の「NIHO でログイン」から合成のアカウントで入る（mock 時は NIHO へ行かない）。提供者は「サンプルの台所」と「サンプル工房」。`/host?mock=empty` は提供者 0 件のアカウントで、登録の流れを試せる。体験・予約・売上・口座は架空で、保存は画面に「保存しました」と出るだけ。
 
 ## データの扱い
 

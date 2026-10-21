@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
-import { HostHeader } from "@/components/host/HostHeader";
 import { HostRefreshGate, HostSessionKeeper } from "@/components/host/HostSessionKeeper";
+import { HostShell } from "@/components/host/HostShell";
 import { hostButtonClass, HOST_HEADING, HOST_PAGE } from "@/components/host/host-ui";
+import { HostPageBody } from "@/components/host/ui";
+import { config } from "@/lib/config";
 import { HOST_HOME_PATH, HOST_INTRO_PATH, HOST_LOGIN_PATH, HOST_LOGOUT_PATH } from "@/lib/host/routes";
-import { loadHostProviders, readHostSession, requireHostConsole, type ProvidersLoad } from "@/lib/host/server";
+import { isHostMock, loadHostProviders, readHostSession, requireHostConsole, type ProvidersLoad } from "@/lib/host/server";
 
 function ProvidersProblem({ status }: { status: Exclude<ProvidersLoad["status"], "ok" | "refresh" | "signed-out"> }) {
   if (status === "rejected") {
@@ -30,9 +32,10 @@ function ProvidersProblem({ status }: { status: Exclude<ProvidersLoad["status"],
 }
 
 /**
- * The signed-in frame. Rendering never refreshes the session: an expired ID
- * token hands over to the browser (HostRefreshGate), which refreshes through the
- * cross-tab lock and reloads.
+ * The signed-in frame: the sidebar (PC) or the header and bottom tabs (phones)
+ * around every console page (HostShell, #84). Rendering never refreshes the
+ * session: an expired ID token hands over to the browser (HostRefreshGate),
+ * which refreshes through the cross-tab lock and reloads.
  */
 export default async function HostConsoleLayout({ children }: { children: React.ReactNode }) {
   requireHostConsole();
@@ -52,10 +55,15 @@ export default async function HostConsoleLayout({ children }: { children: React.
   return (
     <>
       <HostSessionKeeper idTokenExpiresAt={session.idTokenExpiresAt} />
-      <HostHeader account={account} providers={load.status === "ok" ? load.providers : []} />
-      <main id="main" className={`${HOST_PAGE} flex-1`}>
-        {load.status === "ok" ? children : <ProvidersProblem status={load.status} />}
-      </main>
+      <HostShell account={account} providers={load.status === "ok" ? load.providers : []} nihoAppUrl={config.nihoWebOrigin} preview={isHostMock()}>
+        {load.status === "ok" ? (
+          children
+        ) : (
+          <HostPageBody>
+            <ProvidersProblem status={load.status} />
+          </HostPageBody>
+        )}
+      </HostShell>
     </>
   );
 }
