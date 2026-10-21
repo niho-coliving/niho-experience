@@ -17,7 +17,7 @@ const SAVED_NOTICE_MS = 2500;
 
 type LeaveDestination =
   | { kind: "link"; anchor: HTMLAnchorElement }
-  | { kind: "history" };
+  | { kind: "history"; delta: number };
 
 interface LeaveGuard {
   /** A link or browser history entry was requested with unsaved changes. */
@@ -29,14 +29,22 @@ interface LeaveGuard {
 interface HostHistoryGuardState {
   readonly dirty: boolean;
   readonly leaving: boolean;
-  readonly current: { href: string; state: unknown };
-  onHistoryLeave: () => void;
+  readonly current: { href: string; state: unknown; index: number | null };
+  onHistoryLeave: (delta: number) => void;
 }
 
 declare global {
   interface Window {
     __nihoHostHistoryGuard?: HostHistoryGuardState;
   }
+}
+
+function currentNavigationIndex(): number | null {
+  const navigation = (window as Window & {
+    navigation?: { currentEntry?: { index: number } | null };
+  }).navigation;
+  const index = navigation?.currentEntry?.index;
+  return typeof index === "number" && index >= 0 ? index : null;
 }
 
 /**
@@ -48,12 +56,12 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
   const [destination, setDestination] = useState<LeaveDestination | null>(null);
   const dirtyRef = useRef(dirty);
   const leaving = useRef(false);
-  const historyEntry = useRef<{ href: string; state: unknown }>({ href: "", state: null });
+  const historyEntry = useRef<{ href: string; state: unknown; index: number | null }>({ href: "", state: null, index: null });
   useLayoutEffect(() => {
     dirtyRef.current = dirty;
     // The App Router can finish updating the URL after the editor mounts. Refresh the
     // guarded history entry whenever the editor's dirty state changes.
-    historyEntry.current = { href: window.location.href, state: window.history.state };
+    historyEntry.current = { href: window.location.href, state: window.history.state, index: currentNavigationIndex() };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirtyRef.current || leaving.current) return;
       event.preventDefault();
@@ -74,7 +82,7 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       get dirty() { return dirtyRef.current; },
       get leaving() { return leaving.current; },
       get current() { return historyEntry.current; },
-      onHistoryLeave: () => setDestination({ kind: "history" }),
+      onHistoryLeave: (delta) => setDestination({ kind: "history", delta }),
     };
     window.__nihoHostHistoryGuard = historyGuard;
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -97,9 +105,8 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
         if (destination.anchor.isConnected) destination.anchor.click();
         else window.location.assign(destination.anchor.href);
       } else {
-        // The editor entry was restored above, with the requested entry immediately before
-        // it. Continue the original browser navigation so Back/Forward keeps its history shape.
-        window.history.back();
+        // Resume the original traversal after the early guard has restored the editor entry.
+        window.history.go(destination.delta);
       }
     },
   };
