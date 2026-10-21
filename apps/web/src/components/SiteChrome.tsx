@@ -2,6 +2,7 @@ import { EXPERIENCE_API_CONTRACT } from "@niho-experience/api-client";
 import { SiteFooterV1, SiteHeaderV1 } from "@niho/experience-presentation/v1";
 import { PRESENTATION_PRIMITIVES_V1 } from "./PresentationV1";
 import { NavLink } from "./NavLink";
+import { SITE_DESCRIPTION } from "@/lib/public-metadata";
 
 export type PreviewCatalog = "synthetic" | "pilot";
 
@@ -33,7 +34,7 @@ export function SiteHeader({ brandLabel, exploreLabel = "Experiences", hostLabel
 }
 
 export function SiteFooter({
-  description = "Small experiences hosted by people who live in Kamakura. Made by NIHO, a shared living room two minutes from Kamakura Station.",
+  description = SITE_DESCRIPTION,
   copyright,
   preview = null,
 }: { description?: string; copyright?: string; preview?: PreviewCatalog | null } = {}) {
