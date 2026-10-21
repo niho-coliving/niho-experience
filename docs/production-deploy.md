@@ -24,9 +24,9 @@
 
 `--set-env-vars` に渡す8項目は本サービスの初期 runtime 設定全量である。固定の管理入口は候補作成・昇格前とプレビューでrevision設定とHTMLから確認する。管理リンクの認証・登録・口座状態はNIHOが判定し、セルフ登録の公開設定とは区別する。運用で値を足す際は workflow を同時に更新し、Cloud Run画面での一時変更を正本としない。`UMAMI_WEBSITE_ID` はポリシーの追記後、別PRで本番だけに追加する。
 
-`EXPERIENCE_PUBLIC_API_VERSION` は初期値 `1.0` を固定する。`1.1` はNIHO側のAPI契約PR #31 と連携B、集合概要を返すniho-app PR #19267が取り込まれた後、stgとprodのv1.1エンドポイントを `verify:live -- --api-version 1.1` で確認し、提供者bio・写真alt・`meetingOverview` と、非公開集合情報が応答に無いことを合成データで確かめてから、専用の変更PRでだけ有効化する。`1.2` はNIHO側の公開カタログ・checkout契約（niho-app #19160/#19161）が取り込まれた後、stgとprodでテーマ・開催日フィルターを `verify:live -- --api-version 1.2 --region kamakura --theme FOOD --available-on <開催予定日> --expect-slug <当日開催の合成slug> --expect-theme-excluded-slug <別テーマで当日開催のslug> --expect-date-excluded-slug <同テーマで別日開催のslug>` で確認し、UTM・DNT・checkoutエラーを合成E2Eで検証してから、専用の変更PRでだけ有効化する。API未配備の環境では `1.0` のままにする。
+`EXPERIENCE_PUBLIC_API_VERSION` は初期値 `1.0` を固定する。`1.1` はNIHO側のAPI契約PR #31 と連携B、集合概要を返すniho-app PR #19267が取り込まれた後、stgとprodのv1.1エンドポイントを `verify:live -- --api-version 1.1 --expect-private-meeting-slug <公開概要を持つAFTER_BOOKING合成slug>` で確認し、提供者bio・写真alt・`meetingOverview` と、非公開集合情報が応答に無いことを合成データで確かめてから、専用の変更PRでだけ有効化する。`1.2` はNIHO側の公開カタログ・checkout契約（niho-app #19160/#19161）が取り込まれた後、stgとprodでテーマ・開催日フィルターを `verify:live -- --api-version 1.2 --region kamakura --theme FOOD --available-on <開催予定日> --expect-slug <当日開催の合成slug> --expect-theme-excluded-slug <別テーマで当日開催のslug> --expect-date-excluded-slug <同テーマで別日開催のslug> --expect-private-meeting-slug <公開概要を持つAFTER_BOOKING合成slug>` で確認し、UTM・DNT・checkoutエラーを合成E2Eで検証してから、専用の変更PRでだけ有効化する。API未配備の環境では `1.0` のままにする。
 
-`verify:live` は認証なしの公開GETだけを呼び、Checkoutを作成しない。v1.2を切り替える前に、さらにstg限定の安全な予約検証を行う。
+`verify:live` は認証なしの公開GETだけを呼び、Checkoutを作成しない。v1.1/v1.2は指定した合成商品が基本一覧にあり、空でない概要・`AFTER_BOOKING`・`meetingPoint: null` を確認できなければ失敗する。空一覧や概要が全件nullの結果では有効化できない。v1.2を切り替える前に、さらにstg限定の安全な予約検証を行う。
 
 1. NIHO stgに検証専用の合成体験・開催枠（本番・一般公開には出さない）と、Stripe test modeのテスト用PaymentEntityを準備する。本番口座・実旅行者の情報を使わない。
 2. DNTを無効にしたブラウザで、4つの許可済みUTM値がある体験URLから予約を送る。予約リクエストにUTM4項目だけが含まれ、NIHO stgの合成予約行で同じ値を確認する。URL・Checkout応答・Umami送信・ログにUTMや予約情報が混ざらないことも確認する。
