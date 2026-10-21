@@ -59,7 +59,7 @@
 
 ## 配備（Cloud Run）
 
-[ADR 0001](adr/0001-web-stack.md) の構成。固定SHA・権限・DNS/TLS/cache・個別公開ゲートの現行手順は [production-deploy.md](production-deploy.md) を正とする。初回のGCP・Cloudflareの有料リソースはオーナーの判断後に作る。
+[ADR 0001](adr/0001-web-stack.md) の構成。固定SHA・権限・DNS/TLS/cache・個別公開ゲートの現行手順は [production-deploy.md](production-deploy.md) を正とする。初期pilotは既存projectとALBを再利用し、増設コストを抑える。
 
 1. mainのレビュー済みcommitを決める。
 2. secretを持たないジョブがそのcommitからイメージを作る（`docker build .`）。同じジョブで `scripts/container-smoke.sh` を通す。
