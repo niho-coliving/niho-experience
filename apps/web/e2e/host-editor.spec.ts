@@ -64,7 +64,7 @@ async function collectHistoryGuardDiagnostics(page: Page) {
         };
         registrations.push(record);
         records.set(listener, record);
-        const wrapped: EventListener = function (event) {
+        const wrapped: EventListener = function (this: EventTarget, event) {
           console.info("[host-history-guard:dispatch]", { name: record.name, pathname: window.location.pathname });
           listener.call(this, event);
         };
