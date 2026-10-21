@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { DesktopGalleryViewV1, MobileGalleryViewV1, type DetailGalleryModelV1, type ImagePrimitiveProps, type PresentationPrimitivesV1 } from "@niho/experience-presentation/v1";
 
-function GalleryImage({ src, alt, className, sizes, priority, style, srcSet: _srcSet }: ImagePrimitiveProps) {
+function GalleryImage({ src, alt, className, sizes, priority, style, onError, srcSet: _srcSet }: ImagePrimitiveProps) {
   void _srcSet;
-  return <NextImage src={src} alt={alt} fill unoptimized sizes={sizes} priority={priority} className={className} style={style} />;
+  return <NextImage src={src} alt={alt} fill unoptimized sizes={sizes} priority={priority} className={className} style={style} onError={onError} />;
 }
 
 const GALLERY_PRIMITIVES_V1: PresentationPrimitivesV1 = { Link, Image: GalleryImage };

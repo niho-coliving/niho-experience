@@ -301,7 +301,7 @@ export function DetailViewV1({ model, primitives, copy = EN_STATIC_COPY_V1, head
   const { Link } = primitivesV1(primitives);
   const Gallery = primitives?.Gallery;
   const gallery = Gallery ? <Gallery model={model.gallery} /> : <DetailGalleryV1 model={model.gallery} primitives={primitives} copy={copy} />;
-  return <div className="overflow-x-clip"><div className="lg:hidden">{gallery}</div><div className="container-page">
+  return <div className="overflow-x-clip">{gallery}<div className="container-page">
 <nav aria-label={copy.text("detail.breadcrumbNavigation")} className="hidden pt-7 text-sm text-muted lg:block">
 <Link href={model.backHref} className="font-extrabold text-ink hover:underline">{copy.text("detail.breadcrumb")}</Link>
 <span aria-hidden> / </span>
@@ -314,7 +314,7 @@ export function DetailViewV1({ model, primitives, copy = EN_STATIC_COPY_V1, head
 <div>
 <span className="sr-only">{fact.label}: </span>{fact.main}{fact.sub ? <small className="block text-[0.78125rem] font-bold text-muted">{fact.sub}</small> : null}</div>
 </li>)}</ul>
-</header><div className="hidden lg:block">{gallery}</div><div className={model.booking ? "grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4" : "grid gap-10 pt-6 lg:pt-4"}>
+</header><div className={model.booking ? "grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4" : "grid gap-10 pt-6 lg:pt-4"}>
 <div className="min-w-0">
 <section className="pt-6" aria-label={copy.text("detail.overview")}>
 <p className="text-lg leading-relaxed">{model.lead}</p>{model.highlights.length ? <ul className="mt-6 grid gap-3.5">{model.highlights.map((item) => <li key={item.text} className="flex items-center gap-3.5">
