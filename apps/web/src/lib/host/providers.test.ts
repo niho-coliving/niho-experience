@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nihoIdOrNull, parseProviderList, providerRoleLabel, selectProvider } from "./providers";
+import { nihoIdOrNull, parseProviderDetail, parseProviderList, providerRoleLabel, selectProvider } from "./providers";
 
 describe("provider list", () => {
   it("reads NIHO's { providers } response and keeps id, name and role", () => {
@@ -33,5 +33,31 @@ describe("provider list", () => {
     expect(providerRoleLabel("OWNER")).toBe("オーナー");
     expect(providerRoleLabel("EDITOR")).toBe("編集者");
     expect(providerRoleLabel(null)).toBeNull();
+  });
+});
+
+describe("provider detail (settings)", () => {
+  it("reads NIHO's { provider } response with kind, bio, seller page and review status", () => {
+    expect(
+      parseProviderDetail({
+        provider: { id: "p_1", displayName: "合成の台所", memberRole: "OWNER", kind: "BUSINESS", bio: "  合成の紹介です。 ", sellerDisclosureUrl: "https://seller.example.com/tokushoho", reviewStatus: "REQUESTED" },
+        platformAdmin: false,
+      }),
+    ).toEqual({ id: "p_1", displayName: "合成の台所", role: "OWNER", kind: "BUSINESS", bio: "合成の紹介です。", sellerDisclosureUrl: "https://seller.example.com/tokushoho", reviewStatus: "REQUESTED" });
+  });
+
+  it("leaves out unknown values and keeps only https seller pages", () => {
+    expect(parseProviderDetail({ provider: { id: "p_1", displayName: "A", kind: "SPOT", reviewStatus: "LIVE", sellerDisclosureUrl: "http://seller.example.com", bio: 3 } })).toEqual({
+      id: "p_1",
+      displayName: "A",
+      role: null,
+      sellerDisclosureUrl: null,
+    });
+    expect(parseProviderDetail({ provider: { id: "p_1", displayName: "A", sellerDisclosureUrl: null } })).toEqual({ id: "p_1", displayName: "A", role: null, sellerDisclosureUrl: null });
+    expect(parseProviderDetail({ provider: { id: "p_1", displayName: "A" } })).toEqual({ id: "p_1", displayName: "A", role: null });
+  });
+
+  it("refuses bodies that are not one provider", () => {
+    for (const body of [null, {}, { provider: null }, { provider: { id: "../x", displayName: "A" } }, { providers: [{ id: "p_1", displayName: "A" }] }]) expect(parseProviderDetail(body)).toBeNull();
   });
 });

@@ -19,7 +19,7 @@ export const viewport: Viewport = {
 export default function HostRootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body className="flex min-h-dvh flex-col bg-sand">
+      <body className="flex min-h-dvh flex-col bg-canvas">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white">
           本文へ移動
         </a>

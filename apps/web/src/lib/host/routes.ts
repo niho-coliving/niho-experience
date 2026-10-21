@@ -8,6 +8,11 @@ export const HOST_REFRESH_PATH = "/host/auth/refresh";
 export const HOST_LOGOUT_PATH = "/host/auth/logout";
 export const HOST_AUTH_ERROR_PATH = "/host/auth/error";
 export const HOST_API_PREFIX = "/host/api/";
+/** Console sections (#84). HOST_NAV below lists the same paths for the menu. */
+export const HOST_EXPERIENCES_PATH = "/host/experiences";
+export const HOST_BOOKINGS_PATH = "/host/bookings";
+export const HOST_SALES_PATH = "/host/sales";
+export const HOST_SETTINGS_PATH = "/host/settings";
 
 export const HOST_NAV = [
   { href: HOST_HOME_PATH, label: "ホーム" },
