@@ -28,7 +28,7 @@ vi.mock("@/components/Analytics", () => ({ TrackView: () => null, TrackedLink: (
 vi.mock("@/components/ExperienceFiltersForm", () => ({ ExperienceFiltersForm: () => createElement("form", { action: "/experiences", role: "search" }) }));
 
 import Home, { generateMetadata as homeMetadata } from "@/app/page";
-import ExperiencesPage from "@/app/experiences/(list)/page";
+import ExperiencesPage, { generateMetadata as experiencesMetadata } from "@/app/experiences/(list)/page";
 import ExperiencePage, { generateMetadata as detailMetadata } from "@/app/experiences/[slug]/page";
 import HostPage from "@/app/host/page";
 import BookPage, { metadata as bookingMetadata } from "@/app/experiences/[slug]/book/page";
@@ -127,6 +127,23 @@ describe("published documents use the existing server-rendered business componen
     expect(html).toContain("Edited brand"); expect(html).toContain("Become a host"); expect(html.match(/<main /g)).toHaveLength(1);
     expect(html.indexOf("</header>")).toBeLessThan(html.indexOf("Protected booking page")); expect(html.indexOf("Protected booking page")).toBeLessThan(html.indexOf("<footer"));
     expect(html).toContain('href="/experiences"');
+  });
+  it("全体の既定コピーは独立した提供者向けで、フッターの明示設定を優先する", async () => {
+    const metadata = await experiencesMetadata({ searchParams: Promise.resolve({}) });
+    expect(metadata.title).toBe("Kamakura Experiences");
+    expect(metadata.description).toContain("independent hosts and local businesses");
+    expect(metadata.description).not.toMatch(/shared living room|people who live here/i);
+
+    const fallbackHtml = renderToStaticMarkup(createElement(DocumentChrome, { document: null }, createElement("p", null, "Page")));
+    expect(fallbackHtml).toContain("independent hosts and local businesses");
+    expect(fallbackHtml).not.toContain("shared living room");
+
+    const document = publishedDocument("chrome");
+    document.body = document.body.map((node) => node.type === "component" && node.block === "SiteFooter"
+      ? { ...node, props: { description: "Edited footer copy" } }
+      : node);
+    const editedHtml = renderToStaticMarkup(createElement(DocumentChrome, { document }, createElement("p", null, "Page")));
+    expect(editedHtml).toContain("Edited footer copy");
   });
   it("文脈に接続できないブロックは部分描画せず既存表示と定型ログへ戻す", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
