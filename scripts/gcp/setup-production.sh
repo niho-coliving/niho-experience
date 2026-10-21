@@ -138,7 +138,7 @@ mapping="google.subject=assertion.sub,attribute.repository_id=assertion.reposito
 if ! gcloud iam workload-identity-pools providers describe "$PROVIDER" --project "$PROJECT_ID" --location=global \
   --workload-identity-pool="$POOL" >/dev/null 2>&1; then
   gcloud iam workload-identity-pools providers create-oidc "$PROVIDER" --project "$PROJECT_ID" --location=global \
-    --workload-identity-pool="$POOL" --display-name="niho-coliving/niho-experience production" \
+    --workload-identity-pool="$POOL" --display-name="Experience production" \
     --issuer-uri="https://token.actions.githubusercontent.com" \
     --attribute-mapping="$mapping" --attribute-condition="$condition"
 fi
