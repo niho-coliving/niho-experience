@@ -117,7 +117,7 @@ function BookingQuestionFieldV1({ question, onChange, copy, optional }: { questi
   const descriptionId = `${id}-description`;
   const invalid = question.invalid || false;
   const describedBy = [question.description ? descriptionId : null, invalid ? "booking-problem" : null].filter(Boolean).join(" ") || undefined;
-  const label = <>{question.prompt}{question.required ? <> *<span className="sr-only"> (required)</span></> : <> {optional}</>}</>;
+  const label = <>{question.prompt}{question.required ? <> *<span className="sr-only"> ({copy.text("booking.required")})</span></> : <> {optional}</>}</>;
   const description = question.description ? <p id={descriptionId} className="mt-0.5 text-[0.8125rem] text-muted">{question.description}</p> : null;
   if (question.type === "MULTI_SELECT") {
     const selected = Array.isArray(question.value) ? question.value : [];

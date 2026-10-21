@@ -39,6 +39,7 @@
     "booking.latestLoadError": { "default": "We couldn't load the latest details. Please try again.", "placeholders": [] },
     "booking.availabilityAfterCheck": { "default": "to see the latest availability.", "placeholders": [] },
     "booking.optional": { "default": "(optional)", "placeholders": [] },
+    "booking.required": { "default": "required", "placeholders": [] },
     "booking.adultRow": { "default": "{count} × {price}", "placeholders": ["count", "price"] },
     "booking.childRow": { "default": "{count} × {price}", "placeholders": ["count", "price"] },
     "booking.totalUnavailable": { "default": "Unavailable", "placeholders": [] },

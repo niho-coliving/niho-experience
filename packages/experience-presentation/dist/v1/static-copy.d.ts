@@ -1106,6 +1106,10 @@ export declare const STATIC_COPY_REGISTRY_V1: {
         readonly default: "(optional)";
         readonly placeholders: readonly [];
     };
+    readonly "booking.required": {
+        readonly default: "required";
+        readonly placeholders: readonly [];
+    };
     readonly "booking.adultRow": {
         readonly default: "{count} × {price}";
         readonly placeholders: readonly ["count", "price"];

@@ -1,7 +1,7 @@
 export declare const GENERATED_STYLE_SHA256_V1 = "6a03a030a14c5eccf525f6c8fec34548f2f90e9becb70126810d5faace1a45c3";
 export declare const GENERATED_ASSET_REGISTRY_SHA256_V1 = "2ba41a362cbd003319506f1b53ae6b910205304adbd000aab49fca4dce55d7fa";
 export declare const GENERATED_COPY_REGISTRY_SHA256_V1 = "1d73b4c80ae1025321532ff3be81430a5e43abfa6ca72d6aef8f57dc2da2a307";
-export declare const GENERATED_STATIC_COPY_REGISTRY_SHA256_V1 = "eaf34f9c1614b38de31abbaf6a8468817f8b67afd0d0f3b23de28e338299e77d";
+export declare const GENERATED_STATIC_COPY_REGISTRY_SHA256_V1 = "242e2111e705a14755d10f13d8d16820792ea1aeac3f337b9b01babbfdb106a9";
 export declare const GENERATED_FONT_DIGESTS_V1: {
     readonly "nunito-latin-wght-normal.woff2": "ba344451eab25b217a165363b1982048a5e5830a0daf36577973955a04cac793";
     readonly "nunito-latin-ext-wght-normal.woff2": "2c8d792869818ecb253a46bc3c63c7013df7aac2f69291c3c85e5cdc94160960";
@@ -2146,6 +2146,10 @@ export declare const STATIC_COPY_REGISTRY_GENERATED_V1: {
         };
         readonly "booking.optional": {
             readonly default: "(optional)";
+            readonly placeholders: readonly [];
+        };
+        readonly "booking.required": {
+            readonly default: "required";
             readonly placeholders: readonly [];
         };
         readonly "booking.adultRow": {

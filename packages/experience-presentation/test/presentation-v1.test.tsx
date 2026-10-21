@@ -89,6 +89,15 @@ describe("v1 portable presentation", () => {
     expect(html).toMatch(/id="booking-consent"[^>]*aria-describedby="booking-problem"/);
   });
 
+  it("必須の読み上げ文言を言語別の共通コピーから表示する", () => {
+    const copy = createStaticCopyV1({ ...defaultStaticCopyValuesV1(), "booking.required": "必須" });
+    const ja = renderToStaticMarkup(<BookingCheckoutViewV1 model={bookingPreview.checkout} copy={copy} />);
+    expect(ja).toContain('<span class="sr-only"> (必須)</span>');
+    expect(ja).not.toContain('<span class="sr-only"> (required)</span>');
+    const en = renderToStaticMarkup(<BookingCheckoutViewV1 model={bookingPreview.checkout} />);
+    expect(en).toContain('<span class="sr-only"> (required)</span>');
+  });
+
   it("renders a public overview as text while keeping after-booking directions private", () => {
     const meeting = {
       kind: "after-booking" as const,
@@ -178,7 +187,7 @@ describe("v1 portable presentation", () => {
   });
 
   it("renders reordered rich messages and rejects missing, repeated, unknown or unbalanced protected markers", () => {
-    expect(Object.keys(STATIC_COPY_REGISTRY_V1)).toHaveLength(341);
+    expect(Object.keys(STATIC_COPY_REGISTRY_V1)).toHaveLength(342);
     expect(renderToStaticMarkup(<h1><RichMessageV1 segments={EN_STATIC_COPY_V1.rich("home.heroHeadingRich")} emphasisClassName="hand" /></h1>)).toBe('<h1>Meet the people who make Kamakura <span class="hand">home</span></h1>');
     const jaOrder = createStaticCopyV1({ ...defaultStaticCopyValuesV1(), "home.heroHeadingRich": "鎌倉を{em}家{/em}のように感じさせる人々に会う" });
     expect(renderToStaticMarkup(<h1><RichMessageV1 segments={jaOrder.rich("home.heroHeadingRich")} emphasisClassName="hand" /></h1>)).toBe('<h1>鎌倉を<span class="hand">家</span>のように感じさせる人々に会う</h1>');
@@ -206,9 +215,9 @@ describe("v1 portable presentation", () => {
     const metadata = JSON.parse(metadataBytes.toString());
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.legacySchemaVersion).toBe(1);
-    expect(Object.keys(metadata.definitions)).toHaveLength(341);
+    expect(Object.keys(metadata.definitions)).toHaveLength(342);
     expect(sha256(metadataBytes)).toBe(PRESENTATION_MANIFEST_V1.staticCopy.sha256);
-    expect(PRESENTATION_MANIFEST_V1.staticCopy).toEqual({ schemaVersion: 2, keyCount: 341, sha256: sha256(metadataBytes) });
+    expect(PRESENTATION_MANIFEST_V1.staticCopy).toEqual({ schemaVersion: 2, keyCount: 342, sha256: sha256(metadataBytes) });
     const pureModule = await readFile(resolve(packageDir, "dist/v1/metadata.js"), "utf8");
     expect(pureModule).not.toMatch(/from ["']react/);
   });

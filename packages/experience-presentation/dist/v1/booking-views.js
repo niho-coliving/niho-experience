@@ -24,7 +24,7 @@ function BookingQuestionFieldV1({ question, onChange, copy, optional }) {
     const descriptionId = `${id}-description`;
     const invalid = question.invalid || false;
     const describedBy = [question.description ? descriptionId : null, invalid ? "booking-problem" : null].filter(Boolean).join(" ") || undefined;
-    const label = _jsxs(_Fragment, { children: [question.prompt, question.required ? _jsxs(_Fragment, { children: [" *", _jsx("span", { className: "sr-only", children: " (required)" })] }) : _jsxs(_Fragment, { children: [" ", optional] })] });
+    const label = _jsxs(_Fragment, { children: [question.prompt, question.required ? _jsxs(_Fragment, { children: [" *", _jsxs("span", { className: "sr-only", children: [" (", copy.text("booking.required"), ")"] })] }) : _jsxs(_Fragment, { children: [" ", optional] })] });
     const description = question.description ? _jsx("p", { id: descriptionId, className: "mt-0.5 text-[0.8125rem] text-muted", children: question.description }) : null;
     if (question.type === "MULTI_SELECT") {
         const selected = Array.isArray(question.value) ? question.value : [];
