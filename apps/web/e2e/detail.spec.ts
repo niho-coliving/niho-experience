@@ -80,7 +80,7 @@ test("the booking card states the terms before the booking page", async ({ page 
 test("public meeting overview is visible without exposing the private meeting point", async ({ page }) => {
   await page.goto("/experiences/indigo-dyeing-with-an-artisan");
   const meeting = page.getByRole("heading", { name: "Where you'll meet", exact: true }).locator("..");
-  await expect(meeting.getByText("Your host will share the studio location after your booking is confirmed.", { exact: true })).toBeVisible();
+  await expect(meeting.getByText("A small indigo studio in Kamakura.", { exact: true })).toBeVisible();
   await expect(meeting.getByText("The meeting point is shared after your booking is confirmed.", { exact: true })).toBeVisible();
   await expect(meeting.getByRole("link", { name: "Open in Maps" })).toHaveCount(0);
 });

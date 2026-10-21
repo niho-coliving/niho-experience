@@ -70,7 +70,7 @@ describe("mock の読み取りが契約を満たす", () => {
     expect(validator.validateResponse("getPublicExperience", next.response.status, next.body).ok).toBe(false);
     expect((next.body as { experience: { cover: { alt: string | null }; hosts: Array<{ bio: string | null }> } }).experience.cover.alt).toBeTruthy();
     expect((privateMeeting.body as { experience: { meetingOverview: string | null; meetingPointDisclosure: string; meetingPoint: unknown } }).experience).toMatchObject({
-      meetingOverview: "Your host will share the studio location after your booking is confirmed.",
+      meetingOverview: "A small indigo studio in Kamakura.",
       meetingPointDisclosure: "AFTER_BOOKING",
       meetingPoint: null,
     });

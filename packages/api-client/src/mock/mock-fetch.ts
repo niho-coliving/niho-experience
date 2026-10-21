@@ -75,7 +75,7 @@ const MOCK_THEMES: Readonly<Record<string, readonly ExperienceSiteTheme[]>> = {
 };
 // Synthetic public copy only; private address and directions stay out of the v1.1 DTO.
 const MOCK_MEETING_OVERVIEWS: Readonly<Record<string, string>> = {
-  "indigo-dyeing-with-an-artisan": "Your host will share the studio location after your booking is confirmed.",
+  "indigo-dyeing-with-an-artisan": "A small indigo studio in Kamakura.",
 };
 
 function json(status: number, body: unknown, cacheControl: string, extraHeaders: Record<string, string> = {}): Response {
