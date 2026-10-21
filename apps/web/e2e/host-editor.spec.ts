@@ -31,7 +31,7 @@ async function logHistoryGuardState(page: Page) {
   const diagnostics = await page.evaluate(() => {
     const target = window as Window & {
       __hostHistoryGuardDebug?: unknown;
-      __hostHistoryGuardRegistrations?: Array<{ name: string; capture: boolean }>;
+      __hostHistoryGuardRegistrations?: Array<{ name: string; capture: boolean; active: boolean }>;
     };
     return {
       guard: target.__hostHistoryGuardDebug ?? null,
@@ -47,19 +47,40 @@ async function collectHistoryGuardDiagnostics(page: Page) {
   });
   await page.addInitScript(() => {
     const target = window as Window & {
-      __hostHistoryGuardRegistrations?: Array<{ name: string; capture: boolean }>;
+      __hostHistoryGuardRegistrations?: Array<{ name: string; capture: boolean; active: boolean }>;
     };
-    const registrations: Array<{ name: string; capture: boolean }> = [];
+    const registrations: Array<{ name: string; capture: boolean; active: boolean }> = [];
+    const wrappedListeners = new WeakMap<EventListener, EventListener>();
+    const records = new WeakMap<EventListener, { active: boolean }>();
     target.__hostHistoryGuardRegistrations = registrations;
-    const original = EventTarget.prototype.addEventListener;
+    const originalAdd = EventTarget.prototype.addEventListener;
+    const originalRemove = EventTarget.prototype.removeEventListener;
     EventTarget.prototype.addEventListener = function (type, listener, options) {
-      if (this === window && type === "popstate") {
-        registrations.push({
-          name: typeof listener === "function" ? listener.name || "anonymous" : listener ? "object" : "null",
+      if (this === window && type === "popstate" && typeof listener === "function") {
+        const record = {
+          name: listener.name || "anonymous",
           capture: typeof options === "boolean" ? options : Boolean(options?.capture),
-        });
+          active: true,
+        };
+        registrations.push(record);
+        records.set(listener, record);
+        const wrapped: EventListener = function (event) {
+          console.info("[host-history-guard:dispatch]", { name: record.name, pathname: window.location.pathname });
+          listener.call(this, event);
+        };
+        wrappedListeners.set(listener, wrapped);
+        return originalAdd.call(this, type, wrapped, options);
       }
-      return original.call(this, type, listener, options);
+      return originalAdd.call(this, type, listener, options);
+    };
+    EventTarget.prototype.removeEventListener = function (type, listener, options) {
+      if (this === window && type === "popstate" && typeof listener === "function") {
+        const wrapped = wrappedListeners.get(listener);
+        const record = records.get(listener);
+        if (record) record.active = false;
+        if (wrapped) return originalRemove.call(this, type, wrapped, options);
+      }
+      return originalRemove.call(this, type, listener, options);
     };
     window.addEventListener("popstate", (event) => {
       console.info("[host-history-guard:test-popstate]", {
