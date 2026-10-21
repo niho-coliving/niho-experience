@@ -1164,6 +1164,10 @@
       "default": "(optional)",
       "placeholders": []
     },
+    "booking.required": {
+      "default": "required",
+      "placeholders": []
+    },
     "booking.adultRow": {
       "default": "{count} × {price}",
       "placeholders": [

@@ -9,7 +9,7 @@ export declare const PRESENTATION_MANIFEST_V1: Readonly<{
     readonly staticCopy: {
         readonly schemaVersion: 2;
         readonly keyCount: number;
-        readonly sha256: "eaf34f9c1614b38de31abbaf6a8468817f8b67afd0d0f3b23de28e338299e77d";
+        readonly sha256: "242e2111e705a14755d10f13d8d16820792ea1aeac3f337b9b01babbfdb106a9";
     };
     readonly assets: {
         readonly schemaVersion: 1;
