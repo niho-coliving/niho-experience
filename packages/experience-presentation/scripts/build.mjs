@@ -15,6 +15,21 @@ const check = process.argv.includes("--check");
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const stable = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
+async function readFiles(root) {
+  const files = new Map();
+  async function visit(directory, prefix = "") {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = resolve(directory, entry.name);
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) await visit(path, relative);
+      else if (entry.isFile()) files.set(relative, await readFile(path));
+      else throw new Error(`Unexpected portable package entry: ${relative}`);
+    }
+  }
+  await visit(root);
+  return files;
+}
+
 const copyRegistry = JSON.parse(await readFile(resolve(sourceDir, "copy-registry.json"), "utf8"));
 const staticCopyAdditions = JSON.parse(await readFile(resolve(sourceDir, "static-copy-additions.json"), "utf8"));
 const assetSource = JSON.parse(await readFile(resolve(sourceDir, "assets.source.json"), "utf8"));
@@ -126,7 +141,7 @@ if (check) {
 }
 
 // Git dependencies with workspaces/build scripts trigger npm's repository preparation.
-// Ship a deterministic, scripts-free package pinned by its source commit URL instead.
+// Ship a scripts-free package pinned by its source commit URL instead.
 const packing = await mkdtemp(resolve(tmpdir(), "niho-presentation-pack-"));
 try {
   const staging = resolve(packing, "package");
@@ -144,7 +159,17 @@ try {
   const bytes = await readFile(resolve(packing, packed.filename));
   const target = resolve(packageDir, "dist/experience-presentation-v1.tgz");
   if (check) {
-    const actual = await readFile(target).catch(() => Buffer.alloc(0));
-    if (!bytes.equals(actual)) throw new Error("Generated portable package is stale");
+    const actualDir = resolve(packing, "unpacked");
+    await mkdir(actualDir);
+    try {
+      execFileSync("tar", ["-xzf", target, "-C", actualDir], { stdio: "ignore" });
+      const expectedFiles = await readFiles(staging);
+      const actualFiles = await readFiles(resolve(actualDir, "package"));
+      if (expectedFiles.size !== actualFiles.size || [...expectedFiles].some(([name, content]) => !content.equals(actualFiles.get(name)))) {
+        throw new Error("Generated portable package is stale");
+      }
+    } catch {
+      throw new Error("Generated portable package is stale");
+    }
   } else await writeFile(target, bytes);
 } finally { await rm(packing, { recursive: true, force: true }); }
