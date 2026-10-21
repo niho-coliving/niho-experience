@@ -43,7 +43,9 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       // SITE_URL is this server's origin: the console's same-origin check compares against it.
-      env: { ...serverEnv, PORT: String(HOST_PORT), HOST_CONSOLE_ENABLED: "true", SITE_URL: hostBaseURL },
+      // MOCK_CATALOG=pilot, as in the mock preview deployment: the console's experiences are the
+      // pilot listings, so their public pages (the editor's プレビュー) open here too.
+      env: { ...serverEnv, PORT: String(HOST_PORT), HOST_CONSOLE_ENABLED: "true", SITE_URL: hostBaseURL, MOCK_CATALOG: "pilot" },
     },
   ],
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { EDITOR_LIMITS, experienceContent, listingRequirements, pauseListing, sameContent, submitListing, withdrawListing } from "@/host/editor";
 import type { HostExperience, HostExperienceContent, HostListing } from "@/host/types";
 import { DISABLED } from "./editor-parts";
@@ -12,38 +12,42 @@ import { HostSubHeader } from "./HostSubHeader";
 import { consoleButtonClass } from "./host-ui";
 import { HostPageBody } from "./ui";
 
-const LEAVE_MESSAGE = "保存していない変更があります。保存せずに移動しますか？";
 const SAVE_DELAY_MS = 500;
 const SAVED_NOTICE_MS = 2500;
 
+interface LeaveGuard {
+  /** A link was clicked with unsaved changes: LeaveDialog asks before following it. */
+  asking: boolean;
+  stay: () => void;
+  leave: () => void;
+}
+
 /**
- * With unsaved changes, leaving asks first: the browser's own prompt for a reload, a
- * closed tab or another site (beforeunload), and a confirm for links inside the
- * console, which change the page without unloading it.
+ * With unsaved changes, leaving asks first. A reload, a closed tab or a typed address get
+ * the browser's own prompt (beforeunload). A link on the page is stopped before the
+ * console's own link handling (capture on window runs first) and asked about on the page,
+ * never with a browser dialog; 保存せずに移動 then follows that same link without asking again.
  */
-function useLeaveGuard(dirty: boolean) {
+function useLeaveGuard(dirty: boolean): LeaveGuard {
+  const [link, setLink] = useState<HTMLAnchorElement | null>(null);
+  const leaving = useRef(false);
   useEffect(() => {
     if (!dirty) return;
-    let leaving = false;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (leaving) return;
+      if (leaving.current) return;
       event.preventDefault();
       // Older browsers ask only when returnValue is set.
       event.returnValue = "";
     };
     const onClick = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-      if (!(link instanceof HTMLAnchorElement) || (link.target && link.target !== "_self") || link.hasAttribute("download")) return;
-      const to = new URL(link.href, window.location.href);
+      if (leaving.current || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!(anchor instanceof HTMLAnchorElement) || (anchor.target && anchor.target !== "_self") || anchor.hasAttribute("download")) return;
+      const to = new URL(anchor.href, window.location.href);
       if (to.pathname === window.location.pathname && to.search === window.location.search) return;
-      if (window.confirm(LEAVE_MESSAGE)) {
-        leaving = true;
-        return;
-      }
-      // Before the console's own link handling (capture on window runs first).
       event.preventDefault();
       event.stopPropagation();
+      setLink(anchor);
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("click", onClick, true);
@@ -52,6 +56,67 @@ function useLeaveGuard(dirty: boolean) {
       window.removeEventListener("click", onClick, true);
     };
   }, [dirty]);
+  return {
+    asking: link !== null,
+    stay: () => setLink(null),
+    leave: () => {
+      if (!link) return;
+      leaving.current = true;
+      setLink(null);
+      // The same link leads on as it would have: the console's links move inside it, the others load their page.
+      if (link.isConnected) link.click();
+      else window.location.assign(link.href);
+    },
+  };
+}
+
+const LEAVE_BUTTON = "inline-flex h-[38px] shrink-0 items-center justify-center rounded-full border border-line-strong bg-canvas px-4 text-[0.84375rem] leading-none font-extrabold whitespace-nowrap text-danger hover:bg-danger-pale";
+
+/** 保存していない変更があります, asked in a modal dialog on the page (the offer dialog's make). 編集を続ける is the default. */
+function LeaveDialog({ onStay, onLeave }: { onStay: () => void; onLeave: () => void }) {
+  const baseId = useId();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const stay = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    if (element && !element.open) element.showModal();
+    stay.current?.focus();
+  }, []);
+  return (
+    // Esc, like 編集を続ける, closes it and keeps the edits.
+    <dialog
+      ref={dialog}
+      aria-labelledby={`${baseId}-title`}
+      aria-describedby={`${baseId}-body`}
+      onClose={onStay}
+      className="m-auto w-[calc(100%-2rem)] max-w-[400px] rounded-2xl border-0 bg-canvas p-0 text-[0.875rem] leading-[1.6] text-ink shadow-[0_20px_60px_rgb(0_0_0/0.2)] backdrop:bg-ink/40"
+    >
+      <div className="px-4 pt-4 pb-3 md:px-5 md:pt-5">
+        <h2 id={`${baseId}-title`} className="font-sans text-[0.9375rem] leading-normal font-extrabold tracking-normal">
+          保存していない変更があります
+        </h2>
+        <p id={`${baseId}-body`} className="mt-1 text-ink-soft">
+          保存せずに移動すると、この画面での変更は失われます。
+        </p>
+      </div>
+      <div className="flex flex-wrap justify-end gap-2 border-t border-line px-4 py-3 md:px-5">
+        <button
+          type="button"
+          onClick={() => {
+            // Closed first: the page under a modal dialog cannot be clicked.
+            dialog.current?.close();
+            onLeave();
+          }}
+          className={LEAVE_BUTTON}
+        >
+          保存せずに移動
+        </button>
+        <button ref={stay} type="button" onClick={() => dialog.current?.close()} className={consoleButtonClass("primary")}>
+          編集を続ける
+        </button>
+      </div>
+    </dialog>
+  );
 }
 
 /** プレビュー: the public page in a new tab once it is on the site (掲載中・審査待ち). A draft has nothing to show yet. */
@@ -132,7 +197,7 @@ export function HostExperienceEditor({ experience, host, today, siteUrl, backHre
   const root = useRef<HTMLDivElement>(null);
   const dirty = useMemo(() => !sameContent(content, saved), [content, saved]);
   const requirements = useMemo(() => listingRequirements(content), [content]);
-  useLeaveGuard(dirty);
+  const leaveGuard = useLeaveGuard(dirty);
 
   useEffect(() => {
     if (!notice) return;
@@ -217,6 +282,7 @@ export function HostExperienceEditor({ experience, host, today, siteUrl, backHre
         </div>
         <SaveBar dirty={dirty} saving={saving} saved={notice !== null} onSave={save} />
       </HostPageBody>
+      {leaveGuard.asking ? <LeaveDialog onStay={leaveGuard.stay} onLeave={leaveGuard.leave} /> : null}
     </div>
   );
 }

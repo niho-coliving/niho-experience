@@ -8,7 +8,6 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 // change the state shown there.
 
 const SAMPLE_PHOTO = fileURLToPath(new URL("../public/sample/photos/niho-cd-table-01.jpg", import.meta.url));
-const LEAVE_MESSAGE = "保存していない変更があります。保存せずに移動しますか？";
 
 const isDesktop = (projectName: string) => projectName === "host-desktop";
 const menu = (page: Page) => page.getByRole("navigation", { name: "ホストのメニュー" });
@@ -302,41 +301,77 @@ test("申込の設定: an offer's dialog, 並び替え and この商品を削除
   await expect(offers.getByRole("button", { name: "並び替え" })).toHaveCount(0);
 });
 
-test("leaving with unsaved changes asks first", async ({ page }) => {
+test("leaving with unsaved changes asks on the page: 編集を続ける stays, 保存せずに移動 goes", async ({ page }) => {
+  // No browser dialog (confirm / alert / prompt) is ever opened for a link.
+  const browserDialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    browserDialogs.push(dialog.type());
+    void dialog.dismiss();
+  });
+  await signIn(page);
+  await openEditor(page, "/host/experiences/community-dinner");
+  const firstHighlight = panel(page, "見どころ").getByRole("textbox", { name: "見どころ 1" });
+  await firstHighlight.fill("Cook five seasonal Japanese dishes with Kamakura locals.");
+  const back = page.getByRole("link", { name: "体験へ戻る" });
+  const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
+
+  await back.click();
+  await expect(ask).toBeVisible();
+  await expect(ask).toContainText("保存せずに移動すると、この画面での変更は失われます。");
+  // 編集を続ける is the default: it has the focus.
+  await expect(ask.getByRole("button", { name: "編集を続ける" })).toBeFocused();
+  await ask.getByRole("button", { name: "編集を続ける" }).click();
+  await expect(ask).toHaveCount(0);
+  await expect(page).toHaveURL(/\/host\/experiences\/community-dinner$/);
+  await expect(firstHighlight).toHaveValue("Cook five seasonal Japanese dishes with Kamakura locals.");
+  await expect(saveButton(page)).toBeVisible();
+
+  await back.click();
+  await expect(ask).toBeVisible();
+  await ask.getByRole("button", { name: "保存せずに移動" }).click();
+  await page.waitForURL(/\/host\/experiences$/);
+  await expect(page.getByRole("heading", { level: 1, name: "体験" })).toBeVisible();
+  expect(browserDialogs).toEqual([]);
+});
+
+test("a reload asks through the browser, and 保存せずに移動 to another page does not ask again", async ({ page }, testInfo) => {
+  const browserDialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    browserDialogs.push(dialog.type());
+    void dialog.accept();
+  });
   await signIn(page);
   await openEditor(page, "/host/experiences/community-dinner");
   const lead = panel(page, "ひとこと紹介").getByRole("textbox");
   await lead.click();
   await lead.fill("A shorter introduction.");
-  const back = page.getByRole("link", { name: "体験へ戻る" });
 
-  // A link inside the console: a confirm. Staying keeps the edits.
-  const asked: string[] = [];
-  page.once("dialog", (dialog) => {
-    asked.push(dialog.message());
-    void dialog.dismiss();
-  });
-  await back.click();
-  await expect.poll(() => asked).toEqual([LEAVE_MESSAGE]);
-  await expect(page).toHaveURL(/\/host\/experiences\/community-dinner$/);
-  await expect(lead).toHaveValue("A shorter introduction.");
-
-  // A reload: the browser's own prompt.
-  const kinds: string[] = [];
-  page.once("dialog", (dialog) => {
-    kinds.push(dialog.type());
-    void dialog.accept();
-  });
+  // A reload: the browser's own prompt (beforeunload), then the page as it was.
   await page.reload();
-  expect(kinds).toEqual(["beforeunload"]);
+  expect(browserDialogs).toEqual(["beforeunload"]);
   await expect(lead).toHaveValue(/^Spend an evening/);
 
-  // Saved pages leave without asking; unsaved ones leave once the confirm is accepted.
-  await lead.click();
-  await lead.fill("A shorter introduction.");
-  page.once("dialog", (dialog) => void dialog.accept());
-  await back.click();
-  await page.waitForURL(/\/host\/experiences$/);
+  // PC: the sidebar's 体験サイトを見る loads another page. After 保存せずに移動 the browser does not ask a second time.
+  if (isDesktop(testInfo.project.name)) {
+    await lead.click();
+    await lead.fill("A shorter introduction.");
+    await page.getByRole("banner").getByRole("link", { name: "体験サイトを見る" }).click();
+    const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
+    await ask.getByRole("button", { name: "保存せずに移動" }).click();
+    await page.waitForURL(/\/experiences$/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    expect(browserDialogs).toEqual(["beforeunload"]);
+  }
+});
+
+test("プレビュー leads to the live experience's public page", async ({ page }) => {
+  await signIn(page);
+  await openEditor(page, "/host/experiences/community-dinner");
+  const href = await page.getByRole("link", { name: /^プレビュー/ }).getAttribute("href");
+  expect(href).toBe("/experiences/kamakura-community-dinner");
+  // The host server runs the pilot catalog (playwright.config.ts), as the mock preview does.
+  await page.goto(href!);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Kamakura Community Dinner with Locals");
 });
 
 test("another provider's experience keeps ?providerId= on its links", async ({ page }) => {
@@ -379,6 +414,12 @@ test("editor screens have no WCAG 2.2 AA violations", async ({ page }) => {
   await audit(page, "live");
   await panel(page, "見どころ").getByRole("button", { name: "見どころに行を足す" }).click();
   await audit(page, "unsaved");
+  await page.getByRole("link", { name: "体験へ戻る" }).click();
+  const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
+  await expect(ask).toBeVisible();
+  await audit(page, "leave dialog");
+  await ask.getByRole("button", { name: "編集を続ける" }).click();
+  await expect(ask).toHaveCount(0);
   await saveButton(page).click();
   await expect(savedNotice(page)).toBeVisible();
   await audit(page, "saved");
@@ -408,6 +449,16 @@ test.describe("320px narrow phone", () => {
     await expect(save).toBeInViewport();
     expect((await save.boundingBox())!.width).toBe(288);
     expect(await overflowX(page), "unsaved").toBeLessThanOrEqual(0);
+
+    await page.getByRole("link", { name: "体験へ戻る" }).click();
+    const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
+    await expect(ask).toBeVisible();
+    const askBox = (await ask.boundingBox())!;
+    expect(askBox.x).toBeGreaterThanOrEqual(0);
+    expect(askBox.x + askBox.width).toBeLessThanOrEqual(320);
+    for (const name of ["保存せずに移動", "編集を続ける"]) await expect(ask.getByRole("button", { name }), name).toBeInViewport();
+    await ask.getByRole("button", { name: "編集を続ける" }).click();
+    await expect(ask).toHaveCount(0);
 
     await panel(page, "申込の設定").getByRole("listitem").first().getByRole("button").click();
     const dialog = page.getByRole("dialog", { name: "商品の編集" });
