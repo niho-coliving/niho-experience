@@ -5,7 +5,7 @@ import type { ExperienceHostApiFailure, ExperienceHostErrorReason } from "@niho-
  * of the host contract, else by status. NIHO's own message is never shown (it is not written for hosts).
  */
 
-export const HOST_ERROR_REASON_TEXT: Record<ExperienceHostErrorReason, string> = {
+export const HOST_ERROR_REASON_TEXT = {
   PROVIDER_CONSENT_OUTDATED: "提供者規約が新しくなりました。ページを読み込み直して、新しい規約に同意してください。",
   PROVIDER_EMAIL_REQUIRED: "NIHO アカウントにメールアドレスがありません。NIHO アプリでメールアドレスを登録してから、もう一度お試しください。",
   PROVIDER_REVIEW_STATE_CONFLICT: "いまは審査を申請できません。特商法表示 URL（https）と提供者規約の同意を確かめてください。",
@@ -16,13 +16,14 @@ export const HOST_ERROR_REASON_TEXT: Record<ExperienceHostErrorReason, string> =
   PROVIDER_CONNECT_UNAVAILABLE: "いまは Stripe の口座の接続を使えません。時間をおいて、もう一度お試しください。",
   PROVIDER_PAYMENT_SHARED_ACCOUNT: "拠点の口座を共有しているため、ここでは接続できません。共有している拠点の口座の設定を確かめてください。",
   PROVIDER_PAYMENT_NOT_CONNECTED: "口座がまだ接続されていません。「Stripe で口座を接続」から進めてください。",
-};
+} satisfies Partial<Record<ExperienceHostErrorReason, string>>;
 
 export const HOST_NETWORK_ERROR_TEXT = "NIHO に接続できませんでした。時間をおいて、もう一度お試しください。";
 export const HOST_SESSION_ENDED_TEXT = "ログインの有効期限が切れました。ページを読み込み直してください。";
 export const HOST_INVALID_INPUT_TEXT = "入力を確かめてください。";
 
-const isKnownReason = (reason: string | null): reason is ExperienceHostErrorReason => reason !== null && Object.hasOwn(HOST_ERROR_REASON_TEXT, reason);
+type HostErrorReasonWithSpecificText = keyof typeof HOST_ERROR_REASON_TEXT;
+const isKnownReason = (reason: string | null): reason is HostErrorReasonWithSpecificText => reason !== null && Object.hasOwn(HOST_ERROR_REASON_TEXT, reason);
 
 /** One sentence for a refused or failed call to NIHO's host API. */
 export function hostFailureMessage(failure: ExperienceHostApiFailure): string {

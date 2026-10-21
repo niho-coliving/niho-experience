@@ -5,8 +5,8 @@ import { HOST_ERROR_REASON_TEXT, hostFailureMessage } from "./errors";
 const refusal = (status: number, reason: string | null, code = "CONFLICT"): ExperienceHostApiFailure => ({ ok: false, kind: "error", status, code, reason, message: "NIHO's own words, not for hosts" });
 
 describe("NIHO's refusals in the host's words", () => {
-  it("has one sentence for every reason the host contract names", () => {
-    // The contract's reasons (EXPERIENCE_HOST_ERROR_REASONS), written out: a new one fails here until it has words.
+  it("keeps specific host guidance for the provider and payout reasons it explains", () => {
+    // These provider and payout reasons have custom guidance; other contract reasons use the status fallback.
     expect(Object.keys(HOST_ERROR_REASON_TEXT).sort()).toEqual(
       [
         "PROVIDER_CONSENT_OUTDATED",
