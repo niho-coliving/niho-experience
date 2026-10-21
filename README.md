@@ -21,8 +21,8 @@ npm run dev   # http://localhost:3000
 
 ## 構成
 
-この公開リポは画面・SSR・SEO・公開APIクライアントを担当します。
-NIHOの共通基盤が、提供者ログイン、権限、商品管理、予約、Stripe Connect Direct、返金、売上台帳を担当します。
+この公開リポは画面・SSR・SEO・公開APIクライアントと、ホスト（提供者）の画面 `/host` を担当します。
+NIHOの共通基盤が、ログイン、権限、商品管理、予約、Stripe Connect Direct、返金、売上台帳を担当します。ホストの画面はNIHOでログインし、NIHOのAPIで操作します（[#84](https://github.com/niho-life/niho-experience/issues/84)）。
 既存のNIHOアカウントと販売者口座を活用します。
 
 - [構成・データ境界](docs/architecture.md)

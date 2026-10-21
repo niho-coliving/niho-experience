@@ -10,7 +10,8 @@
 | `/experiences` | 一覧 | する | `/experiences` |
 | `/experiences?q=…&theme=…&date=…&guests=…` | 検索・絞り込みURL | しない（`noindex, follow`。テーマ・開催日のAPI絞り込みはv1.2有効時だけ使用） | `/experiences` |
 | `/experiences/{slug}` | 体験詳細 | する | 自分自身 |
-| `/host` | 提供者向け | する | `/host` |
+| `/host` | 提供者向けの紹介（ログイン前） | する | `/host` |
+| `/host/*` | ホストの画面（ログイン後） | しない（`noindex` ＋ `no-store`、robots.txtでも除外） | — |
 | `/experiences/{slug}/book` | 予約入力 | しない（`noindex` ＋ `no-store`、robots.txtでも除外） | — |
 | `/booking/return` | 決済後 | しない（同上） | — |
 | `/preview/*` | mock専用 | 本番には存在しない（404） | — |

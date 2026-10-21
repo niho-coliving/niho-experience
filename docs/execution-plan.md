@@ -7,7 +7,7 @@
 | Epic | 成果 | 子Issue |
 | --- | --- | --- |
 | [基盤・デザイン・API契約](https://github.com/niho-life/niho-experience/issues/1) | 公開側だけで開発できる土台 | [開発基盤](https://github.com/niho-life/niho-experience/issues/5)、[デザイン](https://github.com/niho-life/niho-experience/issues/6)、[契約/mock](https://github.com/niho-life/niho-experience/issues/7) |
-| [探す・比較する・予約する](https://github.com/niho-life/niho-experience/issues/2) | 旅行者の予約と提供者の入口 | [一覧](https://github.com/niho-life/niho-experience/issues/8)、[詳細](https://github.com/niho-life/niho-experience/issues/9)、[予約入力](https://github.com/niho-life/niho-experience/issues/10)、[提供者入口](https://github.com/niho-life/niho-experience/issues/11) |
+| [探す・比較する・予約する](https://github.com/niho-life/niho-experience/issues/2) | 旅行者の予約と提供者の入口 | [一覧](https://github.com/niho-life/niho-experience/issues/8)、[詳細](https://github.com/niho-life/niho-experience/issues/9)、[予約入力](https://github.com/niho-life/niho-experience/issues/10)、[提供者入口](https://github.com/niho-life/niho-experience/issues/11)（ホストの画面 [#84](https://github.com/niho-life/niho-experience/issues/84) に置き換え） |
 | [商品・集客・公開受入](https://github.com/niho-life/niho-experience/issues/3) | 販売できる商品と測れる集客 | [SEO](https://github.com/niho-life/niho-experience/issues/12)、[最初の商品](https://github.com/niho-life/niho-experience/issues/13)、[計測/集客](https://github.com/niho-life/niho-experience/issues/14)、[公開受入](https://github.com/niho-life/niho-experience/issues/15) |
 | [地域案内・DMOへの拡張](https://github.com/niho-life/niho-experience/issues/4) | v3の地域情報と他地域展開 | [地域ガイド](https://github.com/niho-life/niho-experience/issues/16)、[DMO運用](https://github.com/niho-life/niho-experience/issues/17) |
 
