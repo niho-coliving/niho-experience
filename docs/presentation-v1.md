@@ -45,6 +45,15 @@ schema 2 は home の2見出しを whole rich message として持つ。`{em}...
 
 公開Server Componentからclient moduleの関数を直接実行しないよう、booking cardの純粋なmodel変換を中立moduleへ分離した。availabilityはclient componentとして渡し、価格・在庫の権限は従来のcontrollerに残す。日付読込後の価格はrich messageとして描画し、装飾markerを持つkeyをtext()へ渡す誤用を型でも拒否する。既存ENのhero見出しは原文どおり維持する。
 
+## PC の組み替え（2026-10-21）
+
+既存デザインの PC 対応として `/v1` のまま組み替えた（スマホの描画は変えない。redesign ではないので `/v2` は足さない）。consumer 向けに足したのは既定で従来どおりの任意 prop だけ。
+
+- `BookingPageViewV1` の `wide`（既定 false）：lg からページの幅を通常の容器幅にする。公開サイトは公開文書が無いときだけ渡す。
+- `BookingSummaryV1` / `BookingBarV1` の `aside`・`className`（既定 false / 空）：予約の2画面の中で使う。部品の幅が `@4xl`（56rem）以上なら、要約は右列の縦長のカード、バーは右列で追従するカードになる。
+- 予約の2画面の root は size container（`container-type: inline-size`）。幅が内容で決まる枠（flex の行や auto の grid の列）に直接置くと幅が 0 になるので、幅のある block の中に置く。
+- 詳細は文書の順を「パンくず・見出し → 写真 → 本文」に変え、スマホではギャラリーを `order-first` で見た目だけ先頭に出す。
+
 ## 依存配布の分離
 
 workspaceとbuild scriptを持つサイトrepository自体をGit依存にすると、npmの準備処理がサイト全体の依存導入を起動する（[npm公式仕様](https://docs.npmjs.com/cli/v10/configuring-npm/package-json/#git-urls-as-dependencies)）。サイトの通常workflowを維持し、固定SHAで参照する生成済みtgzを配布する。中身は版固定distとREADMEと最小manifestのみで、scripts・workspaces・devDependenciesを含めない。生成器は全ファイルとtgzを決定的に比較し、通常のReact18 consumer installで不要runtimeが入らないことを確認する。

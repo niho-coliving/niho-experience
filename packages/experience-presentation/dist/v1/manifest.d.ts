@@ -17,7 +17,7 @@ export declare const PRESENTATION_MANIFEST_V1: Readonly<{
     };
     readonly style: {
         readonly id: "niho-experience-presentation/v1/scoped-css";
-        readonly sha256: "6a03a030a14c5eccf525f6c8fec34548f2f90e9becb70126810d5faace1a45c3";
+        readonly sha256: "500fd3c948b3cdc5f7e3423e621ab01927e13ba7740f42e5c4ad22e612917003";
         readonly fonts: {
             readonly "nunito-latin-wght-normal.woff2": "ba344451eab25b217a165363b1982048a5e5830a0daf36577973955a04cac793";
             readonly "nunito-latin-ext-wght-normal.woff2": "2c8d792869818ecb253a46bc3c63c7013df7aac2f69291c3c85e5cdc94160960";

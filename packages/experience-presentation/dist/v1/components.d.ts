@@ -64,10 +64,13 @@ export type BookingSummaryModelV1 = Readonly<{
     image: DisplayImageV1 | null;
     summary?: string;
 }>;
-export declare function BookingSummaryV1({ model, titleAs, primitives }: {
+/** `aside`: inside a booking view's @container, from @4xl (56rem) the card turns into the right column's vertical summary (photo on top). */
+export declare function BookingSummaryV1({ model, titleAs, primitives, aside, className }: {
     model: BookingSummaryModelV1;
     titleAs?: "h1" | "p";
     primitives?: Partial<PresentationPrimitivesV1>;
+    aside?: boolean;
+    className?: string;
 }): import("react").JSX.Element;
 export declare function BookingStepHeadingV1({ id, step, label, children }: {
     id?: string;
@@ -75,11 +78,14 @@ export declare function BookingStepHeadingV1({ id, step, label, children }: {
     label: string;
     children: ReactNode;
 }): import("react").JSX.Element;
-export declare function BookingBarV1({ total, line, action, stack }: {
+/** `aside`: inside a booking view's @container, from @4xl the bottom bar becomes an in-flow card that sticks below the header (total and date on top, action below). */
+export declare function BookingBarV1({ total, line, action, stack, aside, className }: {
     total: ReactNode;
     line: ReactNode;
     action: ReactNode;
     stack?: boolean;
+    aside?: boolean;
+    className?: string;
 }): import("react").JSX.Element;
 export declare const BOOKING_FIELD_LABEL_CLASS_V1 = "mt-3.5 block text-[0.90625rem] font-extrabold";
 export declare const BOOKING_FIELD_INPUT_CLASS_V1 = "mt-1.5 block min-h-[50px] w-full rounded-[14px] border border-line-strong bg-white px-3.5 py-3 text-base leading-snug font-normal text-ink focus-visible:border-transparent focus-visible:outline-offset-1 aria-[invalid=true]:border-danger";

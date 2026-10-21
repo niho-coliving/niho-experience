@@ -154,8 +154,9 @@ export function ExperienceList({
         </div>
       ) : (
         <div className="sticky top-16 z-20 mt-[22px] border-y border-line bg-white/95 backdrop-blur">
-          <div className="container-page flex flex-col gap-2.5 py-3">
-            <label className="relative flex shrink-0 items-center gap-2 self-start rounded-full border border-line-strong bg-white py-1.5 pr-3 pl-2.5 text-sm font-extrabold">
+          {/* Phones: guests above the chips. Desktop: one row, guests pill centred on the 68px chips, then a divider. Phone-only values are max-lg: because package-scoped base classes would beat lg: ones. */}
+          <div className="container-page flex py-3 max-lg:flex-col max-lg:gap-2.5 lg:gap-4">
+            <label className="relative flex shrink-0 items-center gap-2 self-start rounded-full border border-line-strong bg-white text-sm font-extrabold max-lg:py-1.5 max-lg:pr-3 max-lg:pl-2.5 lg:mt-[11px] lg:h-[46px] lg:pr-4 lg:pl-3">
               <HandIcon name="people" className="size-[22px]" />
               <span className="sr-only">Guests</span>
               <select
@@ -171,7 +172,7 @@ export function ExperienceList({
                 ))}
               </select>
             </label>
-            <div className="relative">
+            <div className="relative lg:min-w-0 lg:flex-1 lg:border-l lg:border-line lg:pl-4">
               <div ref={chips} role="group" aria-label="Date (Japan time)" className="scrollbar-none relative flex min-w-0 gap-2 overflow-x-auto pr-[60px]">
                 <button
                   type="button"

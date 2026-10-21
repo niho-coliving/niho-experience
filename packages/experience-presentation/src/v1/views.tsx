@@ -245,8 +245,8 @@ export function HostViewV1({ model, primitives, copy = EN_STATIC_COPY_V1 }: { mo
 </div>
 </section>{model.signup}<section className="pt-14 lg:pt-[104px]" aria-labelledby="host-steps-v1">
 <SectionHeadingV1 id="host-steps-v1" eyebrow={copy.text("host.howEyebrow")} title={copy.text("host.howTitle")} />
-<ol className="grid lg:grid-cols-2 lg:gap-x-12">{model.steps.map((step, index) => <li key={step.title} className="flex items-start gap-4 border-b border-dashed border-line-strong py-4 last:border-b-0 lg:[&:nth-last-child(2)]:border-b-0">
-<span className="w-7 shrink-0 text-center font-hand text-[2.5rem] leading-[0.9] font-bold text-moss" aria-hidden>{index + 1}</span>
+<ol className="grid lg:grid-cols-4">{model.steps.map((step, index) => <li key={step.title} className="flex items-start gap-4 border-dashed border-line-strong py-4 max-lg:border-b max-lg:last:border-b-0 lg:flex-col lg:gap-2.5 lg:border-l lg:px-7 lg:pt-1 lg:pb-2 lg:first:border-l-0 lg:first:pl-0">
+<span className="w-7 shrink-0 text-center font-hand text-[2.5rem] leading-[0.9] font-bold text-moss lg:w-auto lg:text-left lg:text-[3.5rem]" aria-hidden>{index + 1}</span>
 <div>
 <h3 className="font-sans text-[1.0625rem] leading-snug font-extrabold tracking-normal">{step.title}</h3>
 <p className="mt-0.5 text-[0.9375rem] text-ink-soft">{step.body}</p>
@@ -255,7 +255,7 @@ export function HostViewV1({ model, primitives, copy = EN_STATIC_COPY_V1 }: { mo
 </section>
 <section className="pt-14 lg:pt-[104px]" aria-labelledby="host-roles-v1">
 <SectionHeadingV1 id="host-roles-v1" eyebrow={copy.text("host.rolesEyebrow")} title={copy.text("host.rolesTitle")} />
-<div className="grid gap-3.5 md:grid-cols-2">
+<div className="grid gap-3.5 md:grid-cols-2 lg:gap-5">
 <RoleColumnV1 title={copy.text("host.you")} items={model.you} />
 <RoleColumnV1 title={copy.text("host.niho")} items={model.niho} highlight />
 </div>
@@ -268,11 +268,11 @@ export function HostViewV1({ model, primitives, copy = EN_STATIC_COPY_V1 }: { mo
 </div>
 </section>
 <p className="mt-7 max-w-2xl">
-<ButtonLinkV1 href="/experiences" variant={model.signupOpen ? "secondary" : "primary"} className="w-full" primitives={primitives}>{copy.text("host.seeExperiences")}</ButtonLinkV1>
+<ButtonLinkV1 href="/experiences" variant={model.signupOpen ? "secondary" : "primary"} className="w-full lg:w-auto" primitives={primitives}>{copy.text("host.seeExperiences")}</ButtonLinkV1>
 </p>
 </div>;
 }
-function RoleColumnV1({ title, items, highlight = false }: { title: string; items: readonly string[]; highlight?: boolean }) { return <div className={`rounded-[22px] p-5 ${highlight ? "bg-leaf-pale" : "bg-sand"}`}>
+function RoleColumnV1({ title, items, highlight = false }: { title: string; items: readonly string[]; highlight?: boolean }) { return <div className={`rounded-[22px] p-5 lg:p-8 ${highlight ? "bg-leaf-pale" : "bg-sand"}`}>
 <h3 className="mb-2.5 font-sans text-sm font-extrabold tracking-[0.03em] text-muted uppercase">{title}</h3>
 <ul className="space-y-2.5 text-[0.9375rem]">{items.map((item) => <li key={item} className="flex items-start gap-2.5">
 <HandIcon name="check" className="-mt-px size-6 text-moss" />
@@ -280,10 +280,11 @@ function RoleColumnV1({ title, items, highlight = false }: { title: string; item
 </li>)}</ul>
 </div>; }
 
-export function BookingPageViewV1({ backHref, backLabel, backAccessibleLabel, panel, primitives, copy = EN_STATIC_COPY_V1 }: { backHref: string; backLabel: string; backAccessibleLabel?: string; panel: ReactNode; primitives?: Partial<PresentationPrimitivesV1>; copy?: StaticCopyAccessorV1 }) {
+/** `wide`: from lg the page uses the normal page width so the booking views can show their two-column desktop layout. */
+export function BookingPageViewV1({ backHref, backLabel, backAccessibleLabel, panel, primitives, copy = EN_STATIC_COPY_V1, wide = false }: { backHref: string; backLabel: string; backAccessibleLabel?: string; panel: ReactNode; primitives?: Partial<PresentationPrimitivesV1>; copy?: StaticCopyAccessorV1; wide?: boolean }) {
   const { Link } = primitivesV1(primitives);
-  return <div className="container-page max-w-2xl pb-6">
-<Link href={backHref} aria-label={backAccessibleLabel ?? copy.text("booking.back")} className="mt-[18px] inline-flex items-center gap-1.5 text-sm font-extrabold text-ink-soft hover:text-ink">
+  return <div className={wide ? "container-page pb-6 max-lg:max-w-2xl" : "container-page max-w-2xl pb-6"}>
+<Link href={backHref} aria-label={backAccessibleLabel ?? copy.text("booking.back")} className={`mt-[18px] inline-flex items-center gap-1.5 text-sm font-extrabold text-ink-soft hover:text-ink ${wide ? "lg:mt-8" : ""}`}>
 <HandIcon name="back" className="size-[18px] [stroke-width:2.2]" />
 <span aria-hidden>{backLabel}</span>
 </Link>{panel}</div>;
@@ -301,7 +302,8 @@ export function DetailViewV1({ model, primitives, copy = EN_STATIC_COPY_V1, head
   const { Link } = primitivesV1(primitives);
   const Gallery = primitives?.Gallery;
   const gallery = Gallery ? <Gallery model={model.gallery} /> : <DetailGalleryV1 model={model.gallery} primitives={primitives} copy={copy} />;
-  return <div className="overflow-x-clip">{gallery}<div className="container-page">
+  // DOM order is title → photos → body (the desktop order); phones pull the swipe gallery to the top, full bleed, with `order-first`.
+  return <div className="flex flex-col overflow-x-clip"><div className="container-page">
 <nav aria-label={copy.text("detail.breadcrumbNavigation")} className="hidden pt-7 text-sm text-muted lg:block">
 <Link href={model.backHref} className="font-extrabold text-ink hover:underline">{copy.text("detail.breadcrumb")}</Link>
 <span aria-hidden> / </span>
@@ -314,7 +316,7 @@ export function DetailViewV1({ model, primitives, copy = EN_STATIC_COPY_V1, head
 <div>
 <span className="sr-only">{fact.label}: </span>{fact.main}{fact.sub ? <small className="block text-[0.78125rem] font-bold text-muted">{fact.sub}</small> : null}</div>
 </li>)}</ul>
-</header><div className={model.booking ? "grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4" : "grid gap-10 pt-6 lg:pt-4"}>
+</header></div><div className="order-first lg:order-none lg:mx-auto lg:w-full lg:max-w-[75rem] lg:px-10">{gallery}</div><div className="container-page"><div className={model.booking ? "grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4" : "grid gap-10 pt-6 lg:pt-4"}>
 <div className="min-w-0">
 <section className="pt-6" aria-label={copy.text("detail.overview")}>
 <p className="text-lg leading-relaxed">{model.lead}</p>{model.highlights.length ? <ul className="mt-6 grid gap-3.5">{model.highlights.map((item) => <li key={item.text} className="flex items-center gap-3.5">

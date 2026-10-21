@@ -68,17 +68,24 @@ export function NoticeV1({ tone = "info", title, children, action, role, copy = 
 }
 
 export type BookingSummaryModelV1 = Readonly<{ title: string; image: DisplayImageV1 | null; summary?: string }>;
-export function BookingSummaryV1({ model, titleAs = "h1", primitives }: { model: BookingSummaryModelV1; titleAs?: "h1" | "p"; primitives?: Partial<PresentationPrimitivesV1> }) {
+/** `aside`: inside a booking view's @container, from @4xl (56rem) the card turns into the right column's vertical summary (photo on top). */
+export function BookingSummaryV1({ model, titleAs = "h1", primitives, aside = false, className = "" }: { model: BookingSummaryModelV1; titleAs?: "h1" | "p"; primitives?: Partial<PresentationPrimitivesV1>; aside?: boolean; className?: string }) {
   const Title = titleAs;
-  return <div className="mt-3.5 flex items-center gap-3.5 rounded-[20px] border border-line p-3"><PhotoV1 image={model.image} alt="" sizes="72px" primitives={primitives} aspect="" rounded="rounded-[14px]" className="size-[72px] shrink-0" /><div className="min-w-0"><Title className="font-display text-lg leading-[1.2] font-[450] tracking-[-0.01em] text-ink">{model.title}</Title>{model.summary ? <p className="mt-1 text-[0.84375rem] font-bold text-muted">{model.summary}</p> : null}</div></div>;
+  return <div className={`mt-3.5 flex items-center gap-3.5 rounded-[20px] border border-line p-3 ${aside ? "@4xl:mt-[30px] @4xl:block @4xl:self-start @4xl:rounded-[26px] @4xl:p-4" : ""} ${className}`}><PhotoV1 image={model.image} alt="" sizes={aside ? "(min-width: 64rem) 348px, 72px" : "72px"} primitives={primitives} aspect="" rounded={aside ? "rounded-[14px] @4xl:rounded-2xl" : "rounded-[14px]"} className={aside ? "size-[72px] shrink-0 @4xl:aspect-[16/10] @4xl:h-auto @4xl:w-full" : "size-[72px] shrink-0"} /><div className={aside ? "min-w-0 @4xl:mt-3.5" : "min-w-0"}><Title className={`font-display text-lg leading-[1.2] font-[450] tracking-[-0.01em] text-ink ${aside ? "@4xl:text-[1.3125rem]" : ""}`}>{model.title}</Title>{model.summary ? <p className="mt-1 text-[0.84375rem] font-bold text-muted">{model.summary}</p> : null}</div></div>;
 }
 
 export function BookingStepHeadingV1({ id, step, label, children }: { id?: string; step: number; label: string; children: ReactNode }) {
   return <h2 id={id} className="mt-[30px] mb-3 text-[1.625rem] tracking-[-0.01em]"><span className="hand mb-1 block text-[1.375rem]">{label} {step}</span>{children}</h2>;
 }
 
-export function BookingBarV1({ total, line, action, stack = false }: { total: ReactNode; line: ReactNode; action: ReactNode; stack?: boolean }) {
-  return <div data-sticky-bar className={`sticky bottom-0 z-20 -mx-5 mt-10 flex gap-x-3 gap-y-2.5 border-t border-line bg-white/95 px-5 pt-3 pb-3.5 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 ${stack ? "flex-col min-[30rem]:flex-row min-[30rem]:items-center min-[30rem]:justify-between" : "items-center justify-between"}`}><div className="min-w-0 leading-tight" aria-live="polite"><p className="text-sm text-ink-soft">{total}</p><p className="mt-1 truncate text-[0.8125rem] font-extrabold text-moss">{line}</p></div>{action}</div>;
+// As an aside card (@4xl) the bar is a column: total and date on top, the action below. The phone row layout never applies there.
+function barLayout(stack: boolean, aside: boolean) {
+  if (stack) return aside ? "flex-col min-[30rem]:@max-4xl:flex-row min-[30rem]:@max-4xl:items-center min-[30rem]:@max-4xl:justify-between" : "flex-col min-[30rem]:flex-row min-[30rem]:items-center min-[30rem]:justify-between";
+  return aside ? "items-center justify-between @4xl:flex-col @4xl:items-stretch @4xl:justify-start" : "items-center justify-between";
+}
+/** `aside`: inside a booking view's @container, from @4xl the bottom bar becomes an in-flow card that sticks below the header (total and date on top, action below). */
+export function BookingBarV1({ total, line, action, stack = false, aside = false, className = "" }: { total: ReactNode; line: ReactNode; action: ReactNode; stack?: boolean; aside?: boolean; className?: string }) {
+  return <div data-sticky-bar className={`sticky bottom-0 z-20 -mx-5 mt-10 flex gap-x-3 gap-y-2.5 border-t border-line bg-white/95 px-5 pt-3 pb-3.5 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 ${barLayout(stack, aside)} ${aside ? "@4xl:top-[88px] @4xl:bottom-auto @4xl:m-0 @4xl:mt-4 @4xl:gap-y-4 @4xl:self-start @4xl:rounded-[26px] @4xl:border @4xl:border-line @4xl:bg-white @4xl:p-[22px] @4xl:shadow-[0_12px_36px_rgb(0_0_0/0.08)] @4xl:backdrop-blur-none" : ""} ${className}`}><div className="min-w-0 leading-tight" aria-live="polite"><p className={`text-sm text-ink-soft ${aside ? "@4xl:text-[0.9375rem]" : ""}`}>{total}</p><p className={`mt-1 truncate text-[0.8125rem] font-extrabold text-moss ${aside ? "@4xl:text-sm @4xl:whitespace-normal" : ""}`}>{line}</p></div>{action}</div>;
 }
 
 export const BOOKING_FIELD_LABEL_CLASS_V1 = "mt-3.5 block text-[0.90625rem] font-extrabold";
