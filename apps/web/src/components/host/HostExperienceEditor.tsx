@@ -36,6 +36,9 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
   const dirtyRef = useRef(dirty);
   useLayoutEffect(() => {
     dirtyRef.current = dirty;
+    // The App Router can finish updating the URL after the editor mounts. Refresh the
+    // guarded history entry when edits start so back/forward compares against this page.
+    historyEntry.current = { href: window.location.href, state: window.history.state };
   }, [dirty]);
   const leaving = useRef(false);
   const historyEntry = useRef<{ href: string; state: unknown }>({ href: "", state: null });
