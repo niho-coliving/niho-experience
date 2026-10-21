@@ -2,10 +2,21 @@
  * ホスト API の合成データの fetch（プレビュー・テスト専用）。NIHO の提供者 API と同じ path・status・本文の形を返し、
  * 同じ契約の検証を通す。実在の提供者・口座・連絡先は入れず、決済・DB・ログインは持たない。
  *
- * 登録・紹介の変更・審査の申請・口座の再利用・Stripe の接続は、同じ fetch のインスタンスの中でだけ状態を変える
- * （インスタンスを作り直すと scenario の最初の状態に戻る）。Stripe の接続の `url` は実在しない host を指す。
+ * 登録・紹介の変更・審査の申請・口座の再利用・Stripe の接続・集合場所・体験ページ（作成・保存・公開・公開停止・削除）・
+ * 体験サイトへの掲載（申請・取り下げ）・写真の上げ口は、同じ fetch のインスタンスの中でだけ状態を変える
+ * （インスタンスを作り直すと scenario の最初の状態に戻る）。Stripe の接続の `url` と写真の URL は実在しない host を指す。
+ * 失敗の本文は契約の `ExperienceHostErrorResponse`（400 以外は合成の `supportId` / `requestId` を持つ）。
  */
 import type { FetchLike } from "../client.ts";
+import {
+  createMockErrors,
+  createMockPageRoutes,
+  EMPTY_MEETING_POINT,
+  jsonResponse,
+  MOCK_KITCHEN_MEETING_POINT,
+  seedKitchenPages,
+  type MockPageOwner,
+} from "./mock-pages.ts";
 import type {
   ExperienceProvider,
   ExperienceProviderConsent,
@@ -16,12 +27,16 @@ import type {
   ExperienceHostErrorReason,
 } from "./types.ts";
 
+export { isMockPhotoUrl, MOCK_LISTING_CONSENT } from "./mock-pages.ts";
+
 export const MOCK_HOST_SCENARIOS = ["empty", "two-providers", "payments-pending"] as const;
 /**
  * - `empty`: 提供者が 0 件（登録の入口）。
  * - `two-providers`: OWNER で審査が承認済み・口座が準備済みの「サンプルの台所」（申込があるので口座は切り替えられない）と、
- *   EDITOR で下書きの「サンプル工房」。
+ *   EDITOR で下書きの「サンプル工房」。台所には集合場所の既定と体験ページが 2 件ある（英語で公開中・体験サイトに掲載中の
+ *   「Cook a seasonal home meal together (sample)」と、日本語の下書きで表紙・料金・曜日が足りない「（サンプル）朝市で買って、台所で作る」）。
  * - `payments-pending`: OWNER で下書き・口座が未接続の「サンプルの庭」。再利用の候補に、準備済みの拠点と本人確認待ちの拠点がある。
+ *   体験ページは 0 件で、集合場所は未設定。
  */
 export type MockHostScenario = (typeof MOCK_HOST_SCENARIOS)[number];
 
@@ -30,6 +45,8 @@ export type MockExperienceHostFetchOptions = {
   scenario?: MockHostScenario;
   /** 時刻の基準（既定は呼び出し時の現在時刻）。test で固定する。 */
   now?: () => Date;
+  /** 写真の保存が止まっている状態にする（写真の上げ口が 503 `uploads_disabled`）。既定は false。 */
+  uploadsDisabled?: boolean;
 };
 
 /** mock のログイン中の本人（合成）。 */
@@ -55,15 +72,18 @@ export function isMockConnectUrl(url: string): boolean {
   return url.startsWith(`${MOCK_CONNECT_ORIGIN}/`) && url.endsWith(MOCK_CONNECT_FRAGMENT);
 }
 
-type MockProvider = {
-  provider: ExperienceProvider;
+type MockProvider = MockPageOwner & {
   memberRole: ExperienceProviderMemberRole;
-  readiness: ExperienceProviderPaymentReadinessReason;
   /** Stripe の口座がある（start で作る）。 */
   connected: boolean;
   /** 申込がある（口座を切り替えられない）。 */
   hasBookings: boolean;
 };
+
+/** 体験ページ・集合場所・写真の無い提供者の、mock の状態。 */
+function pageOwner(provider: ExperienceProvider): Omit<MockPageOwner, "provider" | "readiness"> {
+  return { vesselSlug: provider.id.replace(/^sample-provider-/, "sample-"), meetingPoint: { ...EMPTY_MEETING_POINT }, pages: [], photos: new Set() };
+}
 
 type MockSpot = { id: string; name: string; reason: ExperienceProviderPaymentReadinessReason };
 
@@ -100,18 +120,20 @@ function seedProvider(
 function seed(scenario: MockHostScenario, base: Date): { providers: MockProvider[]; spots: MockSpot[] } {
   if (scenario === "empty") return { providers: [], spots: [] };
   if (scenario === "payments-pending") {
+    const garden = seedProvider(base, {
+      id: "sample-provider-garden",
+      kind: "INDIVIDUAL",
+      displayName: "サンプルの庭",
+      bio: "庭の手入れを一緒にする体験の、合成データの提供者です（sample）。",
+      sellerDisclosureUrl: "https://example.com/sample-garden/legal",
+      ownerUserId: MOCK_HOST_USER.id,
+      createdDaysAgo: 3,
+    });
     return {
       providers: [
         {
-          provider: seedProvider(base, {
-            id: "sample-provider-garden",
-            kind: "INDIVIDUAL",
-            displayName: "サンプルの庭",
-            bio: "庭の手入れを一緒にする体験の、合成データの提供者です（sample）。",
-            sellerDisclosureUrl: "https://example.com/sample-garden/legal",
-            ownerUserId: MOCK_HOST_USER.id,
-            createdDaysAgo: 3,
-          }),
+          provider: garden,
+          ...pageOwner(garden),
           memberRole: "OWNER",
           readiness: "NOT_CONNECTED",
           connected: false,
@@ -142,34 +164,28 @@ function seed(scenario: MockHostScenario, base: Date): { providers: MockProvider
     ownerUserId: "sample-user-studio-owner",
     createdDaysAgo: 10,
   });
+  const kitchenOwner = pageOwner(kitchen);
+  const kitchenPages = seedKitchenPages(base, { vesselSpotId: kitchen.vesselSpotId, vesselSlug: kitchenOwner.vesselSlug }, MOCK_HOST_USER.id);
   return {
     providers: [
       {
         provider: { ...kitchen, reviewStatus: "APPROVED", submittedAt: iso(base, -35 * DAY_MS), approvedAt: iso(base, -33 * DAY_MS), updatedAt: iso(base, -33 * DAY_MS) },
+        ...kitchenOwner,
+        meetingPoint: { ...MOCK_KITCHEN_MEETING_POINT },
+        pages: kitchenPages.pages,
+        photos: new Set(kitchenPages.photos),
         memberRole: "OWNER",
         readiness: "READY",
         connected: true,
         hasBookings: true,
       },
-      { provider: studio, memberRole: "EDITOR", readiness: "NOT_CONNECTED", connected: false, hasBookings: false },
+      { provider: studio, ...pageOwner(studio), memberRole: "EDITOR", readiness: "NOT_CONNECTED", connected: false, hasBookings: false },
     ],
     spots: [],
   };
 }
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "private, no-store" } });
-}
-
-function errorResponse(status: number, code: string, reason?: ExperienceHostErrorReason): Response {
-  return json(status, { error: { code, message: `mock: ${reason ?? code}`, details: reason ? { reason } : {} } });
-}
-
-const unauthorized = () => errorResponse(401, "UNAUTHORIZED");
-const notFound = (reason?: ExperienceHostErrorReason) => errorResponse(404, "NOT_FOUND", reason);
-const invalid = () => errorResponse(400, "VALIDATION_ERROR");
-const conflict = (reason: ExperienceHostErrorReason) => errorResponse(409, "CONFLICT", reason);
-const unprocessable = (reason: ExperienceHostErrorReason) => errorResponse(422, "UNPROCESSABLE_ENTITY", reason);
+const json = jsonResponse;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -223,6 +239,13 @@ export function createMockExperienceHostFetch(options: MockExperienceHostFetchOp
   const state = seed(scenario, now());
   let registered = 0;
   let connectLinks = 0;
+  const errors = createMockErrors();
+  const pageRoutes = createMockPageRoutes({ now, errors, hostUser: MOCK_HOST_USER, uploadsDisabled: options.uploadsDisabled ?? false });
+  const unauthorized = () => errors.fail(401, "UNAUTHORIZED");
+  const notFound = (reason?: ExperienceHostErrorReason) => errors.fail(404, "NOT_FOUND", reason ? { reason } : {});
+  const invalid = () => errors.badRequest();
+  const conflict = (reason: ExperienceHostErrorReason) => errors.fail(409, "CONFLICT", { reason });
+  const unprocessable = (reason: ExperienceHostErrorReason) => errors.fail(422, "UNPROCESSABLE_ENTITY", { reason });
 
   const withRole = (entry: MockProvider): ExperienceProviderWithMemberRole => ({ ...entry.provider, memberRole: entry.memberRole });
   const find = (providerId: string) => state.providers.find((entry) => entry.provider.id === providerId);
@@ -260,7 +283,7 @@ export function createMockExperienceHostFetch(options: MockExperienceHostFetchOp
       createdAt: at,
       updatedAt: at,
     };
-    state.providers.push({ provider, memberRole: "OWNER", readiness: "NOT_CONNECTED", connected: false, hasBookings: false });
+    state.providers.push({ provider, ...pageOwner(provider), memberRole: "OWNER", readiness: "NOT_CONNECTED", connected: false, hasBookings: false });
     return json(201, { provider, ...consents });
   }
 
@@ -268,7 +291,7 @@ export function createMockExperienceHostFetch(options: MockExperienceHostFetchOp
     if (!isObject(body) || Object.keys(body).length === 0 || !hasOnly(body, PROFILE_FIELDS)) return invalid();
     const profile = readProfile(body);
     if (!profile) return invalid();
-    if ("sellerDisclosureUrl" in profile && entry.memberRole !== "OWNER") return errorResponse(403, "FORBIDDEN");
+    if ("sellerDisclosureUrl" in profile && entry.memberRole !== "OWNER") return errors.fail(403, "FORBIDDEN");
     const reviewStatus = entry.provider.reviewStatus === "APPROVED" || entry.provider.reviewStatus === "SUSPENDED" ? "REQUESTED" : entry.provider.reviewStatus;
     update(entry, { ...profile, reviewStatus });
     return json(200, { provider: entry.provider });
@@ -357,6 +380,9 @@ export function createMockExperienceHostFetch(options: MockExperienceHostFetchOp
     if (!entry) return notFound();
     if (tail === "" && method === "GET") return json(200, { provider: withRole(entry), platformAdmin: false, ...consents });
     if (tail === "" && method === "PATCH") return patch(entry, await readBody());
+    // 集合場所・体験ページ・写真は OWNER / EDITOR（掲載だけ OWNER）
+    const pageResponse = await pageRoutes.route(entry, entry.memberRole === "OWNER", method, rest, request, readBody);
+    if (pageResponse) return pageResponse;
     if (entry.memberRole !== "OWNER") return notFound();
     if (tail === "submit" && method === "POST") return submit(entry);
     if (tail === "payments/readiness" && method === "GET") {

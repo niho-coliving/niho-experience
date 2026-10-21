@@ -5,9 +5,11 @@ export { EXPERIENCE_HOST_API_CONTRACT } from "../contract-meta.ts";
 export {
   createExperienceHostApiClient,
   isStripeConnectUrl,
+  toExperienceProviderPhotoUploadForm,
   type ExperienceHostApiClient,
   type ExperienceHostApiClientOptions,
   type ExperienceHostApiError,
+  type ExperienceHostApiErrorCode,
   type ExperienceHostApiErrorReason,
   type ExperienceHostApiFailure,
   type ExperienceHostApiResult,

@@ -18,4 +18,5 @@ export {
   EXPERIENCE_HOST_CONTRACT_DOCUMENT,
   EXPERIENCE_HOST_DTO_MARKER,
   EXPERIENCE_HOST_FIELD_POLICY,
+  type HostFieldPolicy,
 } from "./host-contract-audit.ts";
