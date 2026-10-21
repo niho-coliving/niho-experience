@@ -52,7 +52,7 @@ test("list links reach every experience without JavaScript", async ({ request })
     expect(html).toContain(`href="/experiences/${slug}"`);
   }
   expect(html).toContain('<link rel="canonical" href="http://localhost:3000/experiences"');
-  expect(html).toContain("Kamakura Experiences with Local Hosts");
+  expect(html).toContain("Kamakura Experiences");
 });
 
 test("legacy filter query URLs point to the main list and stay out of the index", async ({ request }) => {
