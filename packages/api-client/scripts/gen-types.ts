@@ -1,39 +1,54 @@
-// 契約（contract/experience-public-api.openapi.json）から src/generated/openapi.ts を作る。
-// `--check` は書き込まず、生成結果とコミット済みの型が違えば失敗する（CI の drift 検査）。
+// 契約から型を作る。公開 API（contract/experience-public-api.openapi.json → src/generated/openapi.ts）と
+// ホスト API（contract/experience-host-api.openapi.json → src/generated/host-openapi.ts）の 2 つ。
+// `--check` は書き込まず、生成結果とコミット済みの型が 1 つでも違えば失敗する（CI の drift 検査）。
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import openapiTS, { astToString } from "openapi-typescript";
 
-const contractUrl = new URL("../contract/experience-public-api.openapi.json", import.meta.url);
-const outputPath = fileURLToPath(new URL("../src/generated/openapi.ts", import.meta.url));
+export type ContractTarget = "public" | "host";
 
-const HEADER = [
-  "// このファイルは scripts/gen-types.ts が contract/experience-public-api.openapi.json から生成する。手で編集しない。",
-  "// 更新: npm -C packages/api-client run gen:types",
-  "",
-].join("\n");
+const TARGETS: Record<ContractTarget, { contract: string; output: string }> = {
+  public: { contract: "experience-public-api.openapi.json", output: "openapi.ts" },
+  host: { contract: "experience-host-api.openapi.json", output: "host-openapi.ts" },
+};
 
-export async function generateContractTypes(): Promise<string> {
-  const document = JSON.parse(await readFile(contractUrl, "utf8"));
+function outputPath(target: ContractTarget): string {
+  return fileURLToPath(new URL(`../src/generated/${TARGETS[target].output}`, import.meta.url));
+}
+
+function header(target: ContractTarget): string {
+  return [
+    `// このファイルは scripts/gen-types.ts が contract/${TARGETS[target].contract} から生成する。手で編集しない。`,
+    "// 更新: npm -C packages/api-client run gen:types",
+    "",
+  ].join("\n");
+}
+
+export async function generateContractTypes(target: ContractTarget = "public"): Promise<string> {
+  const document = JSON.parse(await readFile(new URL(`../contract/${TARGETS[target].contract}`, import.meta.url), "utf8"));
   const ast = await openapiTS(document, { alphabetize: true, exportType: true });
-  return `${HEADER}${astToString(ast)}`;
+  return `${header(target)}${astToString(ast)}`;
 }
 
 async function main(): Promise<void> {
-  const generated = await generateContractTypes();
-  if (process.argv.includes("--check")) {
-    const committed = await readFile(outputPath, "utf8").catch(() => "");
-    if (committed !== generated) {
-      console.error("src/generated/openapi.ts が契約と一致しません。npm -C packages/api-client run gen:types を実行してください。");
-      process.exitCode = 1;
-      return;
+  const check = process.argv.includes("--check");
+  for (const target of Object.keys(TARGETS) as ContractTarget[]) {
+    const generated = await generateContractTypes(target);
+    const file = `src/generated/${TARGETS[target].output}`;
+    if (check) {
+      const committed = await readFile(outputPath(target), "utf8").catch(() => "");
+      if (committed !== generated) {
+        console.error(`${file} が契約と一致しません。npm -C packages/api-client run gen:types を実行してください。`);
+        process.exitCode = 1;
+        continue;
+      }
+      console.log(`OK: ${file} は契約と一致しています。`);
+      continue;
     }
-    console.log("OK: src/generated/openapi.ts は契約と一致しています。");
-    return;
+    await writeFile(outputPath(target), generated, "utf8");
+    console.log(`wrote ${file}`);
   }
-  await writeFile(outputPath, generated, "utf8");
-  console.log("wrote src/generated/openapi.ts");
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
