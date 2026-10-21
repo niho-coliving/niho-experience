@@ -134,12 +134,12 @@ describe("v1 portable presentation", () => {
 
   it("keeps every English code-default route on v1 while retaining PageDocument fallback selection", async () => {
     const consumers = {
-      "apps/web/src/app/page.tsx": ["HomeViewV1", "PageDocumentContent", "fallback={fallback}"],
-      "apps/web/src/app/experiences/(list)/page.tsx": ["CatalogueViewV1", "PageDocumentContent"],
-      "apps/web/src/app/experiences/[slug]/page.tsx": ["DetailViewV1", "PageDocumentContent"],
-      "apps/web/src/app/experiences/[slug]/book/page.tsx": ["BookingPageViewV1", "PageDocumentContent"],
-      "apps/web/src/app/help/page.tsx": ["HelpViewV1"],
-      "apps/web/src/app/host/page.tsx": ["HostViewV1", "PageDocumentContent"],
+      "apps/web/src/app/(site)/page.tsx": ["HomeViewV1", "PageDocumentContent", "fallback={fallback}"],
+      "apps/web/src/app/(site)/experiences/(list)/page.tsx": ["CatalogueViewV1", "PageDocumentContent"],
+      "apps/web/src/app/(site)/experiences/[slug]/page.tsx": ["DetailViewV1", "PageDocumentContent"],
+      "apps/web/src/app/(site)/experiences/[slug]/book/page.tsx": ["BookingPageViewV1", "PageDocumentContent"],
+      "apps/web/src/app/(site)/help/page.tsx": ["HelpViewV1"],
+      "apps/web/src/app/(site)/host/page.tsx": ["HostViewV1", "PageDocumentContent"],
       "apps/web/src/components/DocumentChrome.tsx": ["PresentationRootV1", "PageDocumentContent"],
       "apps/web/src/components/BookingParts.tsx": ["BookingSummaryV1", "BookingStepHeadingV1", "BookingBarV1"],
       "apps/web/src/components/SlotPicker.tsx": ["BookingSelectionViewV1", "BookingSelectionViewModelV1"],
@@ -161,7 +161,7 @@ describe("v1 portable presentation", () => {
     expect(model.bookingHref).toBe("/experiences/synthetic-workshop/book?offer=synthetic-offer");
     expect(model.dates).toBe(dates);
     expect(model).not.toHaveProperty("childNote");
-    const server = await readFile(resolve(repoDir, "apps/web/src/app/experiences/[slug]/page.tsx"), "utf8");
+    const server = await readFile(resolve(repoDir, "apps/web/src/app/(site)/experiences/[slug]/page.tsx"), "utf8");
     const client = await readFile(resolve(repoDir, "apps/web/src/components/DetailBooking.tsx"), "utf8");
     const neutral = await readFile(resolve(repoDir, "apps/web/src/lib/presentation-booking-model.ts"), "utf8");
     expect(server).toContain('import { bookingCardModel } from "@/lib/presentation-booking-model"');

@@ -27,11 +27,11 @@ vi.mock("@/components/Analytics", () => ({ TrackView: () => null, TrackedLink: (
 // Router hooks are exercised by the existing browser search suite.
 vi.mock("@/components/ExperienceFiltersForm", () => ({ ExperienceFiltersForm: () => createElement("form", { action: "/experiences", role: "search" }) }));
 
-import Home, { generateMetadata as homeMetadata } from "@/app/page";
-import ExperiencesPage, { generateMetadata as experiencesMetadata } from "@/app/experiences/(list)/page";
-import ExperiencePage, { generateMetadata as detailMetadata } from "@/app/experiences/[slug]/page";
-import HostPage from "@/app/host/page";
-import BookPage, { metadata as bookingMetadata } from "@/app/experiences/[slug]/book/page";
+import Home, { generateMetadata as homeMetadata } from "@/app/(site)/page";
+import ExperiencesPage, { generateMetadata as experiencesMetadata } from "@/app/(site)/experiences/(list)/page";
+import ExperiencePage, { generateMetadata as detailMetadata } from "@/app/(site)/experiences/[slug]/page";
+import HostPage from "@/app/(site)/host/page";
+import BookPage, { metadata as bookingMetadata } from "@/app/(site)/experiences/[slug]/book/page";
 
 beforeEach(() => { state.documents = {}; state.config.bookingsEnabled = true; state.config.hostSignupMode = "open"; state.config.nihoHostStartUrl = "https://niho.example/experiences/provider"; });
 describe("published documents use the existing server-rendered business components", () => {
