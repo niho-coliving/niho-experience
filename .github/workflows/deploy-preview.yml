@@ -1,6 +1,7 @@
 # Normally deploys main with sample data only (mock API), never indexed.
 # Manual stg-document candidates use real public GETs at 0% serving traffic
-# with bookings disabled. See docs/deploy-setup.md.
+# with bookings disabled unless the dedicated synthetic booking gate passes.
+# See docs/deploy-setup.md.
 #
 # - Authenticates to Google Cloud with GitHub OIDC (Workload Identity Federation).
 #   No service-account keys are stored anywhere.
@@ -27,6 +28,11 @@ on:
         required: false
         type: string
         default: ""
+      stg_bookings:
+        description: Enable bookings on the dedicated synthetic stg acceptance candidate
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,6 +55,11 @@ jobs:
     outputs:
       image_sha256: ${{ steps.image.outputs.sha256 }}
     steps:
+      - name: Require stg documents mode for synthetic booking acceptance
+        if: inputs.stg_bookings
+        env:
+          STG_DOCUMENTS: ${{ inputs.stg_documents }}
+        run: test "$STG_DOCUMENTS" = true
       - name: Require the exact reviewed main SHA for a stg document candidate
         if: inputs.stg_documents
         env:
@@ -59,6 +70,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Require the synthetic fixture and exact-origin staging CORS
+        if: inputs.stg_bookings
+        run: python3 scripts/stg_booking_preflight.py
 
       - name: Build image
         run: docker build --build-arg "NIHO_WEB_CSP_ORIGIN=$CSP_API_ORIGIN" -t "$IMAGE" .
@@ -102,6 +117,7 @@ jobs:
       REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
       ARTIFACT_NAME: preview-image-${{ github.run_id }}-${{ github.run_attempt }}
       STG_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.stg_documents && 'true' || 'false' }}
+      STG_BOOKINGS: ${{ github.event_name == 'workflow_dispatch' && inputs.stg_bookings && 'true' || 'false' }}
       # pilot: the first experiences the owner has permission to list, with provisional details (docs/content/README.md).
       MOCK_CATALOG: ${{ vars.PREVIEW_MOCK_CATALOG || 'pilot' }}
     steps:
@@ -211,6 +227,14 @@ jobs:
         run: |
           image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web@${IMAGE_DIGEST}"
           tag="stg-docs-${GITHUB_SHA:0:12}"
+          bookings=false
+          candidate_site_url="$SITE_URL"
+          if [ "$STG_BOOKINGS" = true ]; then
+            tag=stg-booking
+            bookings=true
+            candidate_site_url="https://stg-booking---niho-experience-preview-aotuusf7xq-an.a.run.app"
+            test "${SITE_URL}" = "https://niho-experience-preview-aotuusf7xq-an.a.run.app"
+          fi
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT_ID" \
             --region "$REGION" \
@@ -223,7 +247,7 @@ jobs:
             --max-instances 2 \
             --no-traffic \
             --tag "$tag" \
-            --set-env-vars "EXPERIENCE_API_MODE=http,EXPERIENCE_PUBLIC_API_VERSION=1.0,NEXT_PUBLIC_NIHO_WEB_ORIGIN=https://app-stg.niho.life,SITE_INDEXING=block,BOOKINGS_ENABLED=false,HOST_SIGNUP_MODE=pilot,NIHO_HOST_START_URL=https://app-stg.niho.life/experiences/provider,SITE_URL=${SITE_URL}" \
+            --set-env-vars "EXPERIENCE_API_MODE=http,EXPERIENCE_PUBLIC_API_VERSION=1.0,NEXT_PUBLIC_NIHO_WEB_ORIGIN=https://app-stg.niho.life,SITE_INDEXING=block,BOOKINGS_ENABLED=${bookings},HOST_SIGNUP_MODE=pilot,NIHO_HOST_START_URL=https://app-stg.niho.life/experiences/provider,SITE_URL=${candidate_site_url}" \
             --labels "app=niho-experience,env=preview,commit=${GITHUB_SHA:0:12}" \
             --quiet
 
@@ -242,6 +266,7 @@ jobs:
           url="$(jq -r '.url' <<< "$candidate")"
           [[ "$revision" =~ ^${SERVICE}-[a-z0-9-]+$ ]]
           [[ "$url" =~ ^https://[A-Za-z0-9.-]+/?$ ]]
+          if [ "$STG_BOOKINGS" = true ]; then test "$url" = "$candidate_site_url"; fi
 
           traffic="$(jq -ce '
             [.status.traffic[]? | select((.percent // 0) > 0) | {revisionName, percent}] | sort_by(.revisionName, .percent)
@@ -254,8 +279,8 @@ jobs:
           test "$(jq -r '.metadata.labels.commit' <<< "$revision_json")" = "${GITHUB_SHA:0:12}"
           jq -e '.status.conditions[] | select(.type == "Ready" and .status == "True")' <<< "$revision_json" >/dev/null
           actual_env="$(jq -cS '[.spec.containers[0].env[]? | {name, value}] | sort_by(.name)' <<< "$revision_json")"
-          expected_env="$(jq -cnS --arg site_url "$SITE_URL" '[
-            {name:"BOOKINGS_ENABLED",value:"false"},
+          expected_env="$(jq -cnS --arg site_url "$candidate_site_url" --arg bookings "$bookings" '[
+            {name:"BOOKINGS_ENABLED",value:$bookings},
             {name:"EXPERIENCE_API_MODE",value:"http"},
             {name:"EXPERIENCE_PUBLIC_API_VERSION",value:"1.0"},
             {name:"HOST_SIGNUP_MODE",value:"pilot"},
@@ -323,6 +348,7 @@ jobs:
       CANDIDATE_URL: ${{ needs.deploy.outputs.candidate_url }}
       CANDIDATE_REVISION: ${{ needs.deploy.outputs.candidate_revision }}
       CANDIDATE_IMAGE_DIGEST: ${{ needs.deploy.outputs.candidate_image_digest }}
+      STG_BOOKINGS: ${{ inputs.stg_bookings }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -344,5 +370,6 @@ jobs:
             echo "Image digest: ${CANDIDATE_IMAGE_DIGEST}"
             echo "Candidate URL: ${CANDIDATE_URL}"
             echo "Serving traffic: unchanged (candidate remains at 0%)"
-            echo "Booking API acceptance: not verified (GET-only document acceptance; bookings remain disabled)"
+            echo "Synthetic staging bookings enabled: ${STG_BOOKINGS}"
+            echo "Booking API acceptance: not verified by deployment; complete the browser/test-payment checklist separately"
           } >> "$GITHUB_STEP_SUMMARY"

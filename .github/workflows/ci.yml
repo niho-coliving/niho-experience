@@ -36,6 +36,8 @@ jobs:
           persist-credentials: false
       - name: Test stg document readback with a local synthetic server
         run: python3 scripts/test_stg_document_readback.py
+      - name: Test synthetic staging booking gates without network access
+        run: python3 scripts/test_stg_booking_preflight.py
 
   web:
     runs-on: ubuntu-latest
