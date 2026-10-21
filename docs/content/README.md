@@ -1,13 +1,13 @@
 # 商品・集客（担当3）の作業文書
 
-作成日：2026-10-19。対象Issue：[#13 最初の商品](https://github.com/niho-coliving/niho-experience/issues/13)、[#14 計測・集客](https://github.com/niho-coliving/niho-experience/issues/14)、[#12 SEO](https://github.com/niho-coliving/niho-experience/issues/12)の検索・原稿・情報設計部分。
+作成日：2026-10-19。対象Issue：[#13 最初の商品](https://github.com/niho-life/niho-experience/issues/13)、[#14 計測・集客](https://github.com/niho-life/niho-experience/issues/14)、[#12 SEO](https://github.com/niho-life/niho-experience/issues/12)の検索・原稿・情報設計部分。
 
 ## 触る範囲と依存
 
 | 項目 | 内容 |
 | --- | --- |
 | 触るファイル | `docs/content/**`、`docs/growth/**` のみ。コード、package、lockfile、共通設定は触らない（担当1） |
-| 依存するAPI版 | なし。公開API契約（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）は未確定のため、項目名はNIHOappの既存企画ページで観測した公開項目を参考にした仮称 |
+| 依存するAPI版 | なし。公開API契約（[#7](https://github.com/niho-life/niho-experience/issues/7)）は未確定のため、項目名はNIHOappの既存企画ページで観測した公開項目を参考にした仮称 |
 | 他担当への依頼 | 計測イベントの実装は担当1、確定予約・売上・流入情報の保存は担当2。依頼事項は各文書の「他担当への依頼」に記載 |
 
 ## 文書

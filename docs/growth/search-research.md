@@ -1,6 +1,6 @@
 # 検索需要・競合の測定設定と観測記録
 
-最終更新：2026-10-19（担当3）。対象：[#14](https://github.com/niho-coliving/niho-experience/issues/14)、[#12](https://github.com/niho-coliving/niho-experience/issues/12)。
+最終更新：2026-10-19（担当3）。対象：[#14](https://github.com/niho-life/niho-experience/issues/14)、[#12](https://github.com/niho-life/niho-experience/issues/12)。
 検索量を推測で書かない。取得した数値の生データ（Keyword Planner・GSC・OTA管理画面のエクスポート）は非公開台帳に置き、この文書には測定設定・表示上の限界・判断に使った要約だけを書く。
 
 ## 検索量の測定設定

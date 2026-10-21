@@ -1,6 +1,6 @@
 # SEOの情報設計案（URL・title・canonical・構造化データ）
 
-最終更新：2026-10-19（担当3）。対象：[#12](https://github.com/niho-coliving/niho-experience/issues/12)の検索・原稿・情報設計の部分。
+最終更新：2026-10-19（担当3）。対象：[#12](https://github.com/niho-life/niho-experience/issues/12)の検索・原稿・情報設計の部分。
 実装（SSR、sitemap、robots、メタタグ、構造化データ）は担当1。正式ドメインと正規URLの統一はオーナーが決める。ここに書く値はすべて案。
 
 ## 現状（2026-10-19に各ページのHTMLで確認）
@@ -33,7 +33,7 @@
 | 体験一覧 | `/experiences` | する |
 | 体験詳細 | `/experiences/{slug}` 例：`/experiences/kamakura-community-dinner` | する |
 | 絞り込み・検索 | `/experiences?theme=...&date=...` | しない（`noindex, follow`、canonicalは `/experiences`、sitemapに載せない） |
-| 予約入力・Checkoutからの戻り・予約確認 | 担当1・2が決める | `noindex`をHTMLまたは`X-Robots-Tag`で返し、sitemapやページからリンクしない。noindexを検索エンジンが読めるようrobots.txtでは拒否しない。`no-store`にし、tokenをURLに入れない（[#10](https://github.com/niho-coliving/niho-experience/issues/10)）。予約情報へのアクセスはNIHO側で認証・認可する。robots.txtやnoindexはアクセス制御の代わりにしない |
+| 予約入力・Checkoutからの戻り・予約確認 | 担当1・2が決める | `noindex`をHTMLまたは`X-Robots-Tag`で返し、sitemapやページからリンクしない。noindexを検索エンジンが読めるようrobots.txtでは拒否しない。`no-store`にし、tokenをURLに入れない（[#10](https://github.com/niho-life/niho-experience/issues/10)）。予約情報へのアクセスはNIHO側で認証・認可する。robots.txtやnoindexはアクセス制御の代わりにしない |
 | プレビュー | 本番と別のホスト | しない。認証で閉じ、`X-Robots-Tag: noindex` も付ける |
 | 提供者 | v1では体験詳細の中に置き、単独ページを作らない | — |
 
@@ -98,7 +98,7 @@ v1は英語版だけなので、hreflangを出さない。日本語版を公開�
 
 - 写真の許諾は [photo-requirements.md](../content/photo-requirements.md) のとおり。実写真が届くまで、Open Graph画像は出さない（現状どおり）。
 - Open Graph画像は、権利を確認した体験のメイン写真を使う。横1200px以上で、1.91:1に切り抜いても主題が残るものを選ぶ。
-- 写真ごとの代替文は、現在の公開API（`PublicImage` は `url` だけ）では渡せない。`alt` の追加を担当2に依頼した（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）。それまでは現状どおり、メイン写真は体験の題名、2枚目以降は「題名＋別の場面」とする。
+- 写真ごとの代替文は、現在の公開API（`PublicImage` は `url` だけ）では渡せない。`alt` の追加を担当2に依頼した（[#7](https://github.com/niho-life/niho-experience/issues/7)）。それまでは現状どおり、メイン写真は体験の題名、2枚目以降は「題名＋別の場面」とする。
 - 提供者の紹介文（Host の bio）も現在の契約にないため、あわせて依頼した。
 
 ### 3. NIHO既存ページとの正規URL

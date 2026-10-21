@@ -53,7 +53,7 @@ stgの商品一覧はHTTP 200で0件だったため、実商品の予約ペー�
 
 ## クラウド候補での受入追記
 
-[PR #69](https://github.com/niho-coliving/niho-experience/pull/69)のレビュー指摘を修正し、CI 3件（Web、container、readback）が成功した後にマージ。[公式候補配備run](https://github.com/niho-coliving/niho-experience/actions/runs/39532068155)のbuild・deploy・readbackもすべて成功した。
+[PR #69](https://github.com/niho-life/niho-experience/pull/69)のレビュー指摘を修正し、CI 3件（Web、container、readback）が成功した後にマージ。[公式候補配備run](https://github.com/niho-life/niho-experience/actions/runs/39532068155)のbuild・deploy・readbackもすべて成功した。
 
 | 証跡 | 値 |
 | --- | --- |

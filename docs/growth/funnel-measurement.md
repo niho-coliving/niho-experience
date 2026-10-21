@@ -1,6 +1,6 @@
 # 予約ファネルの計測設計
 
-最終更新：2026-10-19（担当3）。対象：[#14](https://github.com/niho-coliving/niho-experience/issues/14)。
+最終更新：2026-10-19（担当3）。対象：[#14](https://github.com/niho-life/niho-experience/issues/14)。
 計測ツールの選定と実装は担当1、確定予約・売上・流入情報の保存は担当2。この文書はイベント契約と指標の定義を決める。
 
 ## 原則

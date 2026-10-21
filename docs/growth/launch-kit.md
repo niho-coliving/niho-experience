@@ -1,6 +1,6 @@
 # 30日検証のローンチキット（文案・リンク・QR）
 
-最終更新：2026-10-19（担当3）。対象：[#14](https://github.com/niho-coliving/niho-experience/issues/14)、[pilot-30day-plan.md](pilot-30day-plan.md)。
+最終更新：2026-10-19（担当3）。対象：[#14](https://github.com/niho-life/niho-experience/issues/14)、[pilot-30day-plan.md](pilot-30day-plan.md)。
 **すべて未承認の下書き。** 配布・掲示・投稿・連絡は、本番運用の開始後にオーナーが行う（2026-10-19のオーナー決定）。印刷物に価格と日程を載せない。現在は予約不可のテストサイトで5商品の雰囲気を確認する段階である。下のURLは本番ドメインの予定値で、2026-10-19時点ではDNSが引けないため配布できない。
 
 ## 使う前のチェック

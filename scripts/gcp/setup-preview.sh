@@ -17,7 +17,7 @@ set -euo pipefail
 PROJECT_ID="${PROJECT_ID:-niho-experience-web}"
 REGION="${REGION:-asia-northeast1}"
 REPOSITORY="${REPOSITORY:-web}"
-GITHUB_REPO="niho-coliving/niho-experience"
+GITHUB_REPO="niho-life/niho-experience"
 # Numeric id of the GitHub repository: it survives renames and cannot be claimed by someone else.
 GITHUB_REPO_ID="1425500695"
 POOL="github"
