@@ -33,19 +33,21 @@ import ExperiencePage, { generateMetadata as detailMetadata } from "@/app/(site)
 import HostPage from "@/app/(site)/host/page";
 import BookPage, { metadata as bookingMetadata } from "@/app/(site)/experiences/[slug]/book/page";
 
+const NO_QUERY = { searchParams: Promise.resolve({}) };
+
 beforeEach(() => { state.documents = {}; state.config.bookingsEnabled = true; state.config.hostSignupMode = "open"; state.config.nihoHostStartUrl = "https://niho.example/experiences/provider"; });
 describe("published documents use the existing server-rendered business components", () => {
   it("pilot中も既存提供者は固定の管理入口へ戻れ、セルフ登録のCTAは開かない", async () => {
     state.config.hostSignupMode = "pilot";
     for (const edited of [false, true]) {
       state.documents.host = edited ? publishedDocument("host") : undefined;
-      const html = renderToStaticMarkup(await HostPage());
+      const html = renderToStaticMarkup(await HostPage(NO_QUERY));
       expect(html).toContain("Manage your experiences on NIHO");
       expect(html).toContain('href="https://niho.example/experiences/provider"');
       expect(html).not.toContain("Start with your NIHO account");
     }
     state.config.nihoHostStartUrl = "https://niho.example/experiences/provider?returnTo=private";
-    expect(renderToStaticMarkup(await HostPage())).not.toContain("Manage your experiences on NIHO");
+    expect(renderToStaticMarkup(await HostPage(NO_QUERY))).not.toContain("Manage your experiences on NIHO");
   });
   it("home/listの編集本文・responsive CSS・実カタログの価格とリンクが初期HTMLに入る", async () => {
     for (const pageId of ["home", "experiences"] as const) {
@@ -74,7 +76,7 @@ describe("published documents use the existing server-rendered business componen
   });
   it("hostのラベルを編集しても登録先・開放条件はhost設定に固定する", async () => {
     const document = publishedDocument("host"); document.body = document.body.map((node) => node.type === "component" ? { ...node, props: { label: "Join NIHO" } } : node); state.documents.host = document;
-    const html = renderToStaticMarkup(await HostPage()); expect(html).toContain("Published host text"); expect(html).toContain("Join NIHO"); expect(html).toContain('href="https://niho.example/experiences/provider"');
+    const html = renderToStaticMarkup(await HostPage(NO_QUERY)); expect(html).toContain("Published host text"); expect(html).toContain("Join NIHO"); expect(html).toContain('href="https://niho.example/experiences/provider"');
     for (const unsafeUrl of [
       "https://evil.example/experiences/provider",
       "http://niho.example/experiences/provider",
@@ -88,7 +90,7 @@ describe("published documents use the existing server-rendered business componen
       "not a URL",
     ]) {
       state.config.nihoHostStartUrl = unsafeUrl;
-      const paused = renderToStaticMarkup(await HostPage());
+      const paused = renderToStaticMarkup(await HostPage(NO_QUERY));
       expect(paused).toContain("small group of hosts");
       expect(paused).not.toContain(unsafeUrl);
       expect(paused).not.toContain("Start with your NIHO account");
@@ -117,7 +119,7 @@ describe("published documents use the existing server-rendered business componen
     expect(renderToStaticMarkup(await Home({ searchParams: Promise.resolve({}) }))).toContain("Meet the people who make Kamakura");
     expect(renderToStaticMarkup(await ExperiencesPage({ searchParams: Promise.resolve({}) }))).toContain("Experiences in Kamakura");
     expect(renderToStaticMarkup(await ExperiencePage({ params: Promise.resolve({ slug: "example" }), searchParams: Promise.resolve({}) }))).toContain("Check dates and book");
-    expect(renderToStaticMarkup(await HostPage())).toContain("Share what you love with travelers");
+    expect(renderToStaticMarkup(await HostPage(NO_QUERY))).toContain("Share what you love with travelers");
   });
   it("chromeをネストしてもmainを一度だけ挟み、枠のラベルをSSRする", () => {
     const source = publishedDocument("chrome"); source.body = [{ type: "element", id: "chrome-wrap", tag: "div", style: { base: { padding: "4px" } }, children: source.body.map((node) => node.type === "component" && node.block === "SiteHeader" ? { ...node, props: { brandLabel: "Edited brand", hostLabel: "Become a host" } } : node) }];

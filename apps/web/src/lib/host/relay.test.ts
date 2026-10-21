@@ -1,0 +1,103 @@
+import { describe, expect, it } from "vitest";
+import { createMockHostFetch, MOCK_ID_TOKEN_PREFIX } from "./mock-niho";
+import { mutationFromSameOrigin, relayRequestHeaders, relayResponseHeaders, relayUpstreamPath } from "./relay";
+
+const SITE = "https://experience.example.test";
+
+describe("relay path allowlist", () => {
+  it("passes the provider API with any method and GET auth/me", () => {
+    expect(relayUpstreamPath("GET", ["experience-providers"])).toBe("/api/experience-providers");
+    expect(relayUpstreamPath("PATCH", ["experience-providers", "p_1", "pages", "page-2"])).toBe("/api/experience-providers/p_1/pages/page-2");
+    expect(relayUpstreamPath("DELETE", ["experience-providers", "p_1", "photos", "a.jpg"])).toBe("/api/experience-providers/p_1/photos/a.jpg");
+    expect(relayUpstreamPath("GET", ["auth", "me"])).toBe("/api/auth/me");
+  });
+
+  it("compares whole segments, never prefixes", () => {
+    expect(relayUpstreamPath("GET", ["experience-providers-admin"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["experience-provider"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["auth", "me", "sessions"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["auth", "mex"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["auth"])).toBeNull();
+  });
+
+  it("refuses other NIHO APIs and non-GET auth/me", () => {
+    expect(relayUpstreamPath("GET", ["users"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["auth", "app-connections", "c1"])).toBeNull();
+    expect(relayUpstreamPath("POST", ["auth", "me"])).toBeNull();
+    expect(relayUpstreamPath("DELETE", ["auth", "me"])).toBeNull();
+    expect(relayUpstreamPath("GET", [])).toBeNull();
+  });
+
+  it("refuses dot segments, encoded separators and odd characters", () => {
+    expect(relayUpstreamPath("GET", ["experience-providers", "..", "users"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["experience-providers", "."])).toBeNull();
+    expect(relayUpstreamPath("GET", ["experience-providers", "a/b"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["experience-providers", "a%2Fb"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["experience-providers", "a\\b"])).toBeNull();
+    expect(relayUpstreamPath("GET", ["experience-providers", ""])).toBeNull();
+    expect(relayUpstreamPath("GET", ["experience-providers", ...Array<string>(12).fill("x")])).toBeNull();
+  });
+});
+
+describe("same-origin check for changes", () => {
+  const headers = (values: Record<string, string>) => new Headers(values);
+
+  it("does not restrict reads", () => {
+    expect(mutationFromSameOrigin("GET", headers({}), SITE)).toBe(true);
+  });
+
+  it("accepts a change only with this origin and Sec-Fetch-Site: same-origin", () => {
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      expect(mutationFromSameOrigin(method, headers({ origin: SITE, "sec-fetch-site": "same-origin" }), SITE)).toBe(true);
+      expect(mutationFromSameOrigin(method, headers({ origin: SITE, "sec-fetch-site": "same-site" }), SITE)).toBe(false);
+      expect(mutationFromSameOrigin(method, headers({ origin: SITE }), SITE)).toBe(false);
+      expect(mutationFromSameOrigin(method, headers({ "sec-fetch-site": "same-origin" }), SITE)).toBe(false);
+      expect(mutationFromSameOrigin(method, headers({ origin: "https://evil.example.test", "sec-fetch-site": "same-origin" }), SITE)).toBe(false);
+      expect(mutationFromSameOrigin(method, headers({ origin: "null", "sec-fetch-site": "same-origin" }), SITE)).toBe(false);
+      expect(mutationFromSameOrigin(method, headers({ origin: `${SITE}.evil.test`, "sec-fetch-site": "same-origin" }), SITE)).toBe(false);
+    }
+  });
+});
+
+describe("relay headers", () => {
+  it("sends only API headers plus the Bearer token", () => {
+    const incoming = new Headers({
+      cookie: "__Secure-niho_host_session=secret",
+      authorization: "Bearer from-the-browser",
+      connection: "keep-alive",
+      host: "experience.example.test",
+      "x-forwarded-for": "203.0.113.1",
+      "content-type": "application/json",
+      accept: "application/json",
+      "x-niho-page-updated-at": "2026-10-21T03:00:00.000Z",
+    });
+    const sent = relayRequestHeaders(incoming, "synthetic-id-token");
+    expect(Object.fromEntries(sent)).toEqual({
+      accept: "application/json",
+      authorization: "Bearer synthetic-id-token",
+      "content-type": "application/json",
+      "x-niho-page-updated-at": "2026-10-21T03:00:00.000Z",
+    });
+  });
+
+  it("never passes NIHO cookies or encodings back, and is never cached", () => {
+    const upstream = new Headers({ "set-cookie": "session=1", "content-encoding": "gzip", "content-length": "10", "content-type": "application/json", "x-niho-page-updated-at": "t", "cache-control": "public, max-age=60" });
+    expect(Object.fromEntries(relayResponseHeaders(upstream))).toEqual({ "cache-control": "private, no-store", "content-type": "application/json", "x-niho-page-updated-at": "t" });
+  });
+});
+
+describe("synthetic provider API", () => {
+  const auth = { headers: { authorization: `Bearer ${MOCK_ID_TOKEN_PREFIX}abc` } };
+
+  it("requires the Bearer token the relay adds", async () => {
+    expect((await createMockHostFetch("default")("https://niho.example.test/api/experience-providers")).status).toBe(401);
+  });
+
+  it("returns two providers by default and none for the empty scenario", async () => {
+    const two = await (await createMockHostFetch("default")("https://niho.example.test/api/experience-providers", auth)).json();
+    const none = await (await createMockHostFetch("empty")("https://niho.example.test/api/experience-providers", auth)).json();
+    expect(two.providers).toHaveLength(2);
+    expect(none.providers).toEqual([]);
+    expect((await createMockHostFetch("default")("https://niho.example.test/api/auth/me", auth)).status).toBe(200);
+  });
+});
