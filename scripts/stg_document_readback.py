@@ -240,6 +240,10 @@ def run_readback(
     if home_response.status != 200:
         raise ReadbackError("candidate home did not return 200")
     scope = _page_scope("experience", "home", "en", document_revision)
+    csp = home_response.headers.get("content-security-policy", "")
+    connect_sources = next((part.split()[1:] for part in csp.split(";") if part.split()[:1] == ["connect-src"]), [])
+    if api not in connect_sources:
+        raise ReadbackError("candidate CSP does not permit the approved API origin")
     home = _parse_html(home_response.body, scope)
     if not home.target_scope_seen:
         raise ReadbackError("published home scope is not present in rendered body")

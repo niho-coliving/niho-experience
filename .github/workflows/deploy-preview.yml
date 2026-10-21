@@ -44,6 +44,7 @@ jobs:
       contents: read
     env:
       IMAGE: web:${{ github.sha }}
+      CSP_API_ORIGIN: ${{ github.event_name == 'workflow_dispatch' && inputs.stg_documents && 'https://app-stg.niho.life' || 'https://niho.life' }}
       ARTIFACT_NAME: preview-image-${{ github.run_id }}-${{ github.run_attempt }}
     outputs:
       image_sha256: ${{ steps.image.outputs.sha256 }}
@@ -60,9 +61,9 @@ jobs:
           persist-credentials: false
 
       - name: Build image
-        run: docker build -t "$IMAGE" .
+        run: docker build --build-arg "NIHO_WEB_CSP_ORIGIN=$CSP_API_ORIGIN" -t "$IMAGE" .
       - name: Smoke test image
-        run: sh scripts/container-smoke.sh "$IMAGE"
+        run: sh scripts/container-smoke.sh "$IMAGE" "$CSP_API_ORIGIN"
       - name: Save image artifact
         id: image
         run: |

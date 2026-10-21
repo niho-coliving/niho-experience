@@ -11,6 +11,7 @@ from stg_document_readback import EXPECTED_HOST_URL, ReadbackError, run_readback
 
 
 class Scenario:
+    csp_origin = None
     document_status = 200
     document_page = "home"
     cache_control = "private, no-store"
@@ -63,6 +64,8 @@ class Handler(BaseHTTPRequestHandler):
             ).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
+            origin = Scenario.csp_origin or f"http://127.0.0.1:{self.server.server_port}"
+            self.send_header("Content-Security-Policy", f"default-src 'self'; connect-src 'self' {origin}")
         elif self.path == "/experiences":
             payload = b"<html><body>Experiences</body></html>"
             self.send_response(200)
@@ -101,6 +104,7 @@ class StgDocumentReadbackTest(unittest.TestCase):
         cls.thread.join()
 
     def setUp(self) -> None:
+        Scenario.csp_origin = None
         Scenario.document_status = 200
         Scenario.document_page = "home"
         Scenario.cache_control = "private, no-store"
@@ -121,6 +125,11 @@ class StgDocumentReadbackTest(unittest.TestCase):
         self.assertEqual(result.text_nodes, 1)
         self.assertEqual(result.matched_text_nodes, 1)
         self.assertEqual(result.statuses["preview_checkout"], 404)
+
+    def test_csp_must_allow_api_origin(self) -> None:
+        Scenario.csp_origin = "https://niho.life"
+        with self.assertRaisesRegex(ReadbackError, "CSP does not permit"):
+            self.readback()
 
     def test_document_404_fails(self) -> None:
         Scenario.document_status = 404

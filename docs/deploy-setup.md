@@ -85,6 +85,8 @@ NIHO stgで公開済みの英語文書をクラウドSSRで確認するときだ
 
 候補は表示用公開文書のGET・SSRだけを受け入れる。`SITE_URL` は候補URLではなく既存previewサービスのstatus URLへ固定し、`SITE_INDEXING=block`、`BOOKINGS_ENABLED=false`、stgのNIHO管理入口を維持する。この候補をcanonical切替、販売開始、予約API、決済、個人情報、ログインcookieの受入には使わない。商品が0件でもHome文書SSRは判定できるが、Booking実APIは未検証として実行summaryへ残る。`EXPERIENCE_SITE_PUBLIC_ORIGIN` の設定や候補をtrafficへ昇格する操作は、この手順には含まれない。
 
+CSPの接続許可はビルド時に固定されるため、候補だけ `NIHO_WEB_CSP_ORIGIN=https://app-stg.niho.life` でイメージを作る。通常版は既定の `https://niho.life` のままとし、コンテナsmokeと候補readbackで接続許可先を確認する。
+
 通常のpushと、`stg_documents`を無効にした手動起動は、従来どおりmockプレビューを更新する。
 
 `--no-traffic` は以後のLATESTへの自動配分も止めるため、通常のmock配備では、同じcommitかつmock設定のrevisionを再検証し、そのrevision名へ100%を明示配分します。候補配備ではこの操作を実行しません（[Cloud Runの仕様](https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy)）。

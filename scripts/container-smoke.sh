@@ -1,9 +1,10 @@
 #!/bin/sh
 # Starts the image twice with different settings and checks that pages render
 # and that settings apply at run time (one image, many environments).
-# Usage: scripts/container-smoke.sh <image>
+# Usage: scripts/container-smoke.sh <image> [approved CSP API origin]
 set -eu
 image="$1"
+expected_api_origin="${2:-https://niho.life}"
 port=18080
 name="niho-experience-smoke"
 
@@ -34,6 +35,11 @@ check() {
 
 start -e SITE_INDEXING=block -e NIHO_HOST_START_URL=https://niho.life/experiences/provider
 check / "Meet the people who make Kamakura"
+# Runtime API settings cannot repair CSP compiled into the image.
+csp="$(curl -fsS -D - -o /dev/null "http://127.0.0.1:$port/" | tr -d '\r' | awk 'tolower($0) ~ /^content-security-policy:/ {sub(/^[^:]*: */, ""); print}')"
+connect_sources="$(printf '%s\n' "$csp" | tr ';' '\n' | awk '{$1=$1}; $1 == "connect-src" {for (i=2; i<=NF; i++) print $i; exit}')"
+printf '%s\n' "$connect_sources" | grep -Fx -- "$expected_api_origin" >/dev/null
+echo "ok   CSP permits the approved API origin"
 check /experiences/home-cooked-dinner-with-locals "Home-cooked dinner with locals in a shared living room"
 check /robots.txt "Disallow: /"
 check /host "starting with a small group of hosts"
