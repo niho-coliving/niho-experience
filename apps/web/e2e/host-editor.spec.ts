@@ -27,6 +27,11 @@ async function openEditor(page: Page, path: string) {
   await expect(page.getByRole("textbox", { name: "題名" })).toBeVisible();
 }
 
+async function logHistoryGuardState(page: Page) {
+  const state = await page.evaluate(() => (window as Window & { __hostHistoryGuardDebug?: unknown }).__hostHistoryGuardDebug ?? null);
+  console.log("[host-history-guard:e2e-state]", JSON.stringify(state));
+}
+
 async function collectHistoryGuardDiagnostics(page: Page) {
   page.on("console", (message) => {
     if (message.text().startsWith("[host-history-guard:")) console.log(message.text());
@@ -346,6 +351,7 @@ test("browser back keeps unsaved edits behind the leave dialog", async ({ page }
   await expect(saveButton(page)).toBeVisible();
 
   await page.goBack();
+  await logHistoryGuardState(page);
   const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
   await expect(ask).toBeVisible();
   await expect(page).toHaveURL((url) => url.pathname === "/host/experiences/community-dinner");
@@ -370,6 +376,7 @@ test("browser forward keeps unsaved edits behind the leave dialog", async ({ pag
   await highlight.fill("Unsaved browser history edit.");
   await expect(saveButton(page)).toBeVisible();
   await page.goForward();
+  await logHistoryGuardState(page);
   const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
   await expect(ask).toBeVisible();
   await expect(page).toHaveURL((url) => url.pathname === "/host/experiences/community-dinner");
