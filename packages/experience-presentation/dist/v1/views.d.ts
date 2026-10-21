@@ -128,13 +128,15 @@ export declare function HostViewV1({ model, primitives, copy }: {
     primitives?: Partial<PresentationPrimitivesV1>;
     copy?: StaticCopyAccessorV1;
 }): import("react").JSX.Element;
-export declare function BookingPageViewV1({ backHref, backLabel, backAccessibleLabel, panel, primitives, copy }: {
+/** `wide`: from lg the page uses the normal page width so the booking views can show their two-column desktop layout. */
+export declare function BookingPageViewV1({ backHref, backLabel, backAccessibleLabel, panel, primitives, copy, wide }: {
     backHref: string;
     backLabel: string;
     backAccessibleLabel?: string;
     panel: ReactNode;
     primitives?: Partial<PresentationPrimitivesV1>;
     copy?: StaticCopyAccessorV1;
+    wide?: boolean;
 }): import("react").JSX.Element;
 export type BookingPreviewModelV1 = Readonly<{
     selection: BookingSelectionViewModelV1;

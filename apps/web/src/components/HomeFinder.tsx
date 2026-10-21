@@ -22,8 +22,13 @@ export function HomeFinder({ days }: { days: DayOption[] }) {
     router.push(query ? `/experiences?${query}` : "/experiences");
   }
 
-  const cell = "flex min-w-0 items-center gap-2.5 rounded-2xl px-3 py-2.5 hover:bg-sand lg:rounded-full";
+  // The package's @scope(.nexp-v1) CSS beats this app's lg: utilities by scope proximity, so anything that changes at lg is a max-lg:/lg: pair, never a base class the package also defines.
+  const cell = "flex min-w-0 items-center gap-2.5 px-3 py-2.5 hover:bg-sand max-lg:rounded-2xl lg:rounded-full";
   const select = "w-full min-w-0 cursor-pointer appearance-none truncate bg-transparent text-[0.9375rem] leading-tight font-bold text-ink";
+  const button = [
+    ...buttonClass("primary").split(" ").filter((name) => name && name !== "min-h-12" && name !== "px-6"),
+    "max-lg:col-span-2 max-lg:min-h-12 max-lg:px-6 lg:min-h-14 lg:px-[30px]",
+  ].join(" ");
   return (
     <form
       action="/experiences"
@@ -31,7 +36,7 @@ export function HomeFinder({ days }: { days: DayOption[] }) {
       role="search"
       aria-label="Find experiences"
       onSubmit={submit}
-      className="relative z-[3] mx-4 -mt-9 grid grid-cols-2 gap-1 rounded-[22px] bg-white p-2 shadow-[0_10px_30px_rgb(0_0_0/0.12),0_1px_2px_rgb(0_0_0/0.06)] lg:absolute lg:bottom-[-38px] lg:left-1/2 lg:mx-0 lg:mt-0 lg:w-[min(780px,calc(100%_-_80px))] lg:-translate-x-1/2 lg:grid-cols-[1fr_1fr_auto] lg:rounded-full lg:py-2 lg:pr-2 lg:pl-3.5"
+      className="z-[3] grid gap-1 bg-white py-2 pr-2 shadow-[0_10px_30px_rgb(0_0_0/0.12),0_1px_2px_rgb(0_0_0/0.06)] max-lg:relative max-lg:mx-4 max-lg:-mt-9 max-lg:grid-cols-2 max-lg:rounded-[22px] max-lg:pl-2 lg:absolute lg:bottom-[-38px] lg:left-1/2 lg:w-[min(780px,calc(100%_-_80px))] lg:-translate-x-1/2 lg:grid-cols-[1fr_1fr_auto] lg:rounded-full lg:pl-3.5"
     >
       <label className={cell}>
         <HandIcon name="cal" className="size-[30px]" />
@@ -52,7 +57,7 @@ export function HomeFinder({ days }: { days: DayOption[] }) {
           </select>
         </span>
       </label>
-      <button type="submit" className={buttonClass("primary", "col-span-2 lg:col-span-1 lg:min-h-14 lg:px-[30px]")}>
+      <button type="submit" className={button}>
         Find experiences
       </button>
     </form>

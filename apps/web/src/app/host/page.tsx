@@ -45,7 +45,8 @@ export default async function HostPage() {
   const startUrl = config.hostSignupMode === "open" ? managementUrl : null;
   const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
   const signup = (props: BlockProps = {}) => (
-    <section className="mt-7 max-w-2xl" aria-label="How to start">
+    // Full width under the hero on desktop. Phone-only values are max-lg: so package-scoped base classes cannot override the lg: ones.
+    <section className="max-lg:mt-7 max-lg:max-w-2xl lg:mt-10" aria-label="How to start">
       {startUrl ? (
         <div className="space-y-3">
           <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
@@ -56,7 +57,7 @@ export default async function HostPage() {
           </p>
         </div>
       ) : (
-        <div className="flex items-start gap-3.5 rounded-[22px] bg-leaf-pale p-5">
+        <div className="flex items-start gap-3.5 rounded-[22px] bg-leaf-pale max-lg:p-5 lg:px-7 lg:py-6">
           <HandIcon name="house" className="size-10 text-moss [stroke-width:1.5]" />
           <div>
             <p className="text-[1.0625rem] font-extrabold">We&apos;re starting with a small group of hosts</p>
