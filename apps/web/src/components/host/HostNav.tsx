@@ -206,11 +206,12 @@ function AccountMenu({ account, providers, nihoAppUrl }: HostChromeProps) {
   );
 }
 
-/** Phones, on the five top pages: brand and account. Pages under a section bring their own "‹ 体験" header. */
+/** Phones, on the five top pages: brand and account. Pages under a section (and one booking, `?booking=`) bring their own "‹ 体験" header. */
 export function HostMobileHeader(props: HostChromeProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const providerId = useProviderId();
-  if (hostBackLink(pathname)) return null;
+  if (hostBackLink(pathname, searchParams)) return null;
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-canvas md:hidden">
       <div className="flex h-[52px] items-center gap-2.5 pr-2 pl-4">
@@ -225,11 +226,12 @@ export function HostMobileHeader(props: HostChromeProps) {
   );
 }
 
-/** Phones: the five sections as bottom tabs (icon and a 12px label). Hidden under a section, where the page has its back header. */
+/** Phones: the five sections as bottom tabs (icon and a 12px label). Hidden under a section and on one booking, where the page has its back header. */
 export function HostTabBar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const providerId = useProviderId();
-  if (hostBackLink(pathname)) return null;
+  if (hostBackLink(pathname, searchParams)) return null;
   return (
     <>
       {/* Keeps the end of the page clear of the fixed bar. */}

@@ -69,7 +69,7 @@ test("a host signs in from /host, switches provider, opens a section and signs o
   await page.waitForURL("**/host/bookings?providerId=sample-provider-studio");
   await expect(page.getByRole("heading", { level: 1, name: "予約" })).toBeVisible();
   await expect(page.getByRole("link", { name: "予約" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText("この画面は準備中です")).toBeVisible();
+  await expect(page.getByRole("region", { name: "予約の一覧" })).toContainText("まだ予約はありません");
 
   await openAccountMenu(page);
   await page.getByRole("button", { name: "ログアウト" }).click();
