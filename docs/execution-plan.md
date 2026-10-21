@@ -6,10 +6,10 @@
 
 | Epic | 成果 | 子Issue |
 | --- | --- | --- |
-| [基盤・デザイン・API契約](https://github.com/niho-coliving/niho-experience/issues/1) | 公開側だけで開発できる土台 | [開発基盤](https://github.com/niho-coliving/niho-experience/issues/5)、[デザイン](https://github.com/niho-coliving/niho-experience/issues/6)、[契約/mock](https://github.com/niho-coliving/niho-experience/issues/7) |
-| [探す・比較する・予約する](https://github.com/niho-coliving/niho-experience/issues/2) | 旅行者の予約と提供者の入口 | [一覧](https://github.com/niho-coliving/niho-experience/issues/8)、[詳細](https://github.com/niho-coliving/niho-experience/issues/9)、[予約入力](https://github.com/niho-coliving/niho-experience/issues/10)、[提供者入口](https://github.com/niho-coliving/niho-experience/issues/11) |
-| [商品・集客・公開受入](https://github.com/niho-coliving/niho-experience/issues/3) | 販売できる商品と測れる集客 | [SEO](https://github.com/niho-coliving/niho-experience/issues/12)、[最初の商品](https://github.com/niho-coliving/niho-experience/issues/13)、[計測/集客](https://github.com/niho-coliving/niho-experience/issues/14)、[公開受入](https://github.com/niho-coliving/niho-experience/issues/15) |
-| [地域案内・DMOへの拡張](https://github.com/niho-coliving/niho-experience/issues/4) | v3の地域情報と他地域展開 | [地域ガイド](https://github.com/niho-coliving/niho-experience/issues/16)、[DMO運用](https://github.com/niho-coliving/niho-experience/issues/17) |
+| [基盤・デザイン・API契約](https://github.com/niho-life/niho-experience/issues/1) | 公開側だけで開発できる土台 | [開発基盤](https://github.com/niho-life/niho-experience/issues/5)、[デザイン](https://github.com/niho-life/niho-experience/issues/6)、[契約/mock](https://github.com/niho-life/niho-experience/issues/7) |
+| [探す・比較する・予約する](https://github.com/niho-life/niho-experience/issues/2) | 旅行者の予約と提供者の入口 | [一覧](https://github.com/niho-life/niho-experience/issues/8)、[詳細](https://github.com/niho-life/niho-experience/issues/9)、[予約入力](https://github.com/niho-life/niho-experience/issues/10)、[提供者入口](https://github.com/niho-life/niho-experience/issues/11) |
+| [商品・集客・公開受入](https://github.com/niho-life/niho-experience/issues/3) | 販売できる商品と測れる集客 | [SEO](https://github.com/niho-life/niho-experience/issues/12)、[最初の商品](https://github.com/niho-life/niho-experience/issues/13)、[計測/集客](https://github.com/niho-life/niho-experience/issues/14)、[公開受入](https://github.com/niho-life/niho-experience/issues/15) |
+| [地域案内・DMOへの拡張](https://github.com/niho-life/niho-experience/issues/4) | v3の地域情報と他地域展開 | [地域ガイド](https://github.com/niho-life/niho-experience/issues/16)、[DMO運用](https://github.com/niho-life/niho-experience/issues/17) |
 
 共通基盤側にも、連携Epicと「A：既存拠点の予約接続」「B：外部提供者の登録・共通売上」を起票済み。アクセス権のある担当は各Issueの依存リンクから参照する。
 
@@ -36,9 +36,9 @@ flowchart TD
 
 | 担当 | いま始めること | 次の作業 | 主に触る範囲 |
 | --- | --- | --- | --- |
-| 1：サイト・デザイン | [#5](https://github.com/niho-coliving/niho-experience/issues/5) / [#6](https://github.com/niho-coliving/niho-experience/issues/6) | [#8](https://github.com/niho-coliving/niho-experience/issues/8)→[#9](https://github.com/niho-coliving/niho-experience/issues/9)→[#10](https://github.com/niho-coliving/niho-experience/issues/10)、[#11](https://github.com/niho-coliving/niho-experience/issues/11)。SEO/計測の画面側実装と最終受入 | apps/web、表示部品、共通設定。最初は技術選定と画面設計 |
-| 2：契約・NIHO連携 | [#7](https://github.com/niho-coliving/niho-experience/issues/7) | 共通基盤のA→Bを同じ担当が実装 | packages/api-client、fixture契約、NIHO共通基盤。DB/認証/決済はこの担当へ集約 |
-| 3：商品・集客 | [#13](https://github.com/niho-coliving/niho-experience/issues/13) | [#14](https://github.com/niho-coliving/niho-experience/issues/14)、[#12](https://github.com/niho-coliving/niho-experience/issues/12)の検索/原稿/情報設計部分 | docs、原稿案、許諾管理、公開用コンテンツ。機密資料は指定の非公開保管先 |
+| 1：サイト・デザイン | [#5](https://github.com/niho-life/niho-experience/issues/5) / [#6](https://github.com/niho-life/niho-experience/issues/6) | [#8](https://github.com/niho-life/niho-experience/issues/8)→[#9](https://github.com/niho-life/niho-experience/issues/9)→[#10](https://github.com/niho-life/niho-experience/issues/10)、[#11](https://github.com/niho-life/niho-experience/issues/11)。SEO/計測の画面側実装と最終受入 | apps/web、表示部品、共通設定。最初は技術選定と画面設計 |
+| 2：契約・NIHO連携 | [#7](https://github.com/niho-life/niho-experience/issues/7) | 共通基盤のA→Bを同じ担当が実装 | packages/api-client、fixture契約、NIHO共通基盤。DB/認証/決済はこの担当へ集約 |
+| 3：商品・集客 | [#13](https://github.com/niho-life/niho-experience/issues/13) | [#14](https://github.com/niho-life/niho-experience/issues/14)、[#12](https://github.com/niho-life/niho-experience/issues/12)の検索/原稿/情報設計部分 | docs、原稿案、許諾管理、公開用コンテンツ。機密資料は指定の非公開保管先 |
 
 統合・公開受入は担当1を窓口に、各担当が自分の証跡を揃える。NIHOappのmergeは同リポの既存merge担当・規約に従う。実際のGitHub assigneeは未指定。人またはチャットを割り当てる際に、この担当範囲を伝える。
 
@@ -56,10 +56,10 @@ flowchart TD
 ### 担当1：サイト・デザイン
 
 ```text
-niho-coliving/niho-experience のサイト・デザインを担当してください。
+niho-life/niho-experience のサイト・デザインを担当してください。
 最初に AGENTS.md、docs/architecture.md、docs/design-brief.md、docs/execution-plan.md を読み、次のIssueから進めてください。
-基盤：https://github.com/niho-coliving/niho-experience/issues/5
-デザイン：https://github.com/niho-coliving/niho-experience/issues/6
+基盤：https://github.com/niho-life/niho-experience/issues/5
+デザイン：https://github.com/niho-life/niho-experience/issues/6
 
 Slowhopの余白・写真・人の温かさを参考に、NIHO独自の英語体験予約サイトを作ります。
 まず3〜5件の合成商品で一覧・詳細・予約入力を確認できるようにし、後続の画面Issueへ進めてください。
@@ -72,7 +72,7 @@ Slowhopの余白・写真・人の温かさを参考に、NIHO独自の英語体
 
 ```text
 niho-experience の公開API契約とNIHO共通基盤の連携を一貫して担当してください。
-契約/mock：https://github.com/niho-coliving/niho-experience/issues/7
+契約/mock：https://github.com/niho-life/niho-experience/issues/7
 共通基盤側の連携Epic/連携A/連携Bは、このIssueと依存先のリンクから確認してください（private repoへのアクセスが必要）。
 
 先に公開契約・mock・非公開情報の境界を決め、画面担当が独立して進められる状態にしてください。
@@ -86,9 +86,9 @@ niho-appのAGENTS、data-ownership、canonical seat、safe PR/merge担当の規�
 
 ```text
 niho-experience の商品準備と販売導線を担当してください。
-最初の商品：https://github.com/niho-coliving/niho-experience/issues/13
-集客/計測：https://github.com/niho-coliving/niho-experience/issues/14
-SEO：https://github.com/niho-coliving/niho-experience/issues/12
+最初の商品：https://github.com/niho-life/niho-experience/issues/13
+集客/計測：https://github.com/niho-life/niho-experience/issues/14
+SEO：https://github.com/niho-life/niho-experience/issues/12
 
 既存のコミュニティディナー等を候補に、最初の3〜5件について、英語原稿、写真の必要条件、提供者紹介、料金・日時・言語・取消/天候条件、運営分担を具体化してください。
 確定している事実と、提供者/オーナーの確認待ちを分けてください。架空の体験や開催枠、レビューを実績として扱わないでください。

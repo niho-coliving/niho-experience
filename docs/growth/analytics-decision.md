@@ -1,6 +1,6 @@
 # 計測ツールと同意の方式（決定案）
 
-最終更新：2026-10-20（担当3）。対象：[#14](https://github.com/niho-coliving/niho-experience/issues/14)、[#37](https://github.com/niho-coliving/niho-experience/issues/37)。担当1から依頼された「計測ツール、同意の取り方、保存期間」への回答。
+最終更新：2026-10-20（担当3）。対象：[#14](https://github.com/niho-life/niho-experience/issues/14)、[#37](https://github.com/niho-life/niho-experience/issues/37)。担当1から依頼された「計測ツール、同意の取り方、保存期間」への回答。
 **アカウントの作成はオーナーが行う。** 有料プランの契約と広告タグの導入は、それぞれの授権の後にする。
 
 ## 結論

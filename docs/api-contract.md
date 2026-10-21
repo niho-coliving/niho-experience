@@ -1,6 +1,6 @@
 # 公開API契約（v1.2.0・合意済み／配備前）
 
-作成日：2026-10-19。担当：契約・NIHO連携（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）。
+作成日：2026-10-19。担当：契約・NIHO連携（[#7](https://github.com/niho-life/niho-experience/issues/7)）。
 
 **状態：仕様合意済み（agreed）・v1.2.0、NIHO側PR #19160/#19161/#19267 の配備待ち。** 正本は NIHO 共通基盤の `contracts/openapi.yaml` です。このサイトでは NIHO の公開契約から、利用する path と項目だけを選んで `packages/api-client/contract/experience-public-api.openapi.json` に管理します。サイトで扱わない帰属計測項目や NIHO Web 文書APIは含めません。sha256 は選別済み契約ファイルの破損検知に使います。v1.1詳細の `meetingOverview` はNIHOの #19267 が追加した項目で、API配備後に `verify:live` で確認します。
 

@@ -5,7 +5,7 @@
 
 ## 原稿の構成
 
-項目名はNIHOappの既存企画ページで公開されている構成に合わせた仮称。正式な項目名は公開API契約（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）で決まる。
+項目名はNIHOappの既存企画ページで公開されている構成に合わせた仮称。正式な項目名は公開API契約（[#7](https://github.com/niho-life/niho-experience/issues/7)）で決まる。
 
 | 項目 | 目安 | 書くこと |
 | --- | --- | --- |

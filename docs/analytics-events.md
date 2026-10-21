@@ -1,6 +1,6 @@
 # 予約ファネルのイベント（画面側）
 
-[#14](https://github.com/niho-coliving/niho-experience/issues/14) のうち、画面が出すイベントの約束。計測ツール（GA4等）、同意の取り方、30日の実験計画、指標の分母・重複排除の定義は担当3と決める。実装は `apps/web/src/lib/analytics.ts`。
+[#14](https://github.com/niho-life/niho-experience/issues/14) のうち、画面が出すイベントの約束。計測ツール（GA4等）、同意の取り方、30日の実験計画、指標の分母・重複排除の定義は担当3と決める。実装は `apps/web/src/lib/analytics.ts`。
 
 ## 現状
 

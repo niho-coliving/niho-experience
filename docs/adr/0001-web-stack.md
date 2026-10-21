@@ -2,7 +2,7 @@
 
 - 状態：採用（ホスティング・表示名は2026-10-19にオーナー承認）
 - 日付：2026-10-19
-- 関連：[#5 開発基盤](https://github.com/niho-coliving/niho-experience/issues/5)
+- 関連：[#5 開発基盤](https://github.com/niho-life/niho-experience/issues/5)
 
 ## 判断材料
 

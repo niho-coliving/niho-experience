@@ -11,7 +11,7 @@ React 非依存の copy 定義は `/v1/metadata`、同一内容の JSON は `/v1
 ```json
 {
   "dependencies": {
-    "@niho/experience-presentation": "https://raw.githubusercontent.com/niho-coliving/niho-experience/<reviewed-sha>/packages/experience-presentation/dist/experience-presentation-v1.tgz"
+    "@niho/experience-presentation": "https://raw.githubusercontent.com/niho-life/niho-experience/<reviewed-sha>/packages/experience-presentation/dist/experience-presentation-v1.tgz"
   }
 }
 ```

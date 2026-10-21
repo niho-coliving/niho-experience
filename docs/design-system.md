@@ -1,6 +1,6 @@
 # デザインシステムと画面仕様（v1）
 
-[#6](https://github.com/niho-coliving/niho-experience/issues/6) の成果物。方針は [design-brief.md](design-brief.md)。実装は `apps/web/src/app/globals.css`（token）と `apps/web/src/components/`。
+[#6](https://github.com/niho-life/niho-experience/issues/6) の成果物。方針は [design-brief.md](design-brief.md)。実装は `apps/web/src/app/globals.css`（token）と `apps/web/src/components/`。
 画面はプレビュー（mock）で確認できる：`npm run dev` → `/`、`/experiences`、各体験、`/host`、`/preview/states`。`MOCK_CATALOG=pilot` で掲載許可のある体験（仮写真つき）を表示する。
 
 2026-10-20 に UI を刷新した（オーナー承認のモック「改善版」）。白基調のニュートラル、手描きのアイコンと手書きのアクセント、切手の縁と丸スタンプで「近所の人に会いに行く」温度を出す。

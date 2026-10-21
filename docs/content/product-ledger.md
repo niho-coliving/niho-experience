@@ -49,7 +49,7 @@
 | ホスト | 表示名と写真付きで3名を掲載 | NIHOapp企画ページ |
 | 販売・提供主体 | NIHOの取引ごとに、申込画面等に表示されるパナソニックホールディングス株式会社または拠点運営者・個人ホストのいずれか | [NIHO特商法表記](https://niho.life/legal/tokushoho) |
 | 問い合わせ一次受付 | NIHO（運営会社）が一次受付を担い、返金の判断は表示された販売・提供主体に従う | NIHO特商法表記 |
-| 他チャネル | GetYourGuideに掲載あり（[Issue #13](https://github.com/niho-coliving/niho-experience/issues/13)記載のURL。自動取得はbot判定で不可）。Expedia系のサイトにも同名の商品と、NIHO kamakuraを会場とする類似名の商品が表示される | 2026-10-19のWeb検索 |
+| 他チャネル | GetYourGuideに掲載あり（[Issue #13](https://github.com/niho-life/niho-experience/issues/13)記載のURL。自動取得はbot判定で不可）。Expedia系のサイトにも同名の商品と、NIHO kamakuraを会場とする類似名の商品が表示される | 2026-10-19のWeb検索 |
 | 検索公開 | NIHOapp企画ページは `noindex, follow`。公式サイトのページはindex可能だが、本文はJavaScript描画で初期HTMLに含まれない | 両ページのHTML |
 
 ### 確認待ち（オーナー）
@@ -167,5 +167,5 @@ pilot fixture（`packages/api-client/src/fixtures/pilot-experiences.ts`）に入
 
 依頼の本文は各Issueのコメントに記録した。公開API契約で表せない項目は、NIHO共通基盤の非公開API側で持ってもよい（オーナー了承、2026-10-19）。
 
-- 担当2（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）：7日前・14日前など提供者ごとの取消期間、貸切制（1回1組）と最少料金、「1組の最少人数」と「最少催行人数」の区別、流入元の記録、pilot fixtureのmockへの接続。
-- 担当1（[#14](https://github.com/niho-coliving/niho-experience/issues/14)・[#12](https://github.com/niho-coliving/niho-experience/issues/12)）：計測イベントの実装。アレルギー等の自由記述は健康情報になり得るため、計測・ログ・session replayへ送らない。予約関連ページと絞り込みURLの検索非公開、canonicalの統一。
+- 担当2（[#7](https://github.com/niho-life/niho-experience/issues/7)）：7日前・14日前など提供者ごとの取消期間、貸切制（1回1組）と最少料金、「1組の最少人数」と「最少催行人数」の区別、流入元の記録、pilot fixtureのmockへの接続。
+- 担当1（[#14](https://github.com/niho-life/niho-experience/issues/14)・[#12](https://github.com/niho-life/niho-experience/issues/12)）：計測イベントの実装。アレルギー等の自由記述は健康情報になり得るため、計測・ログ・session replayへ送らない。予約関連ページと絞り込みURLの検索非公開、canonicalの統一。

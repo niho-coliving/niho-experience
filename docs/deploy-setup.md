@@ -22,7 +22,7 @@ main に merge → GitHub Actions（.github/workflows/deploy-preview.yml）
 `@niho.life` の管理者アカウントで [Cloud Shell](https://shell.cloud.google.com/) を開く（iPhoneのブラウザでも使える）。次の2行を実行する。
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/niho-coliving/niho-experience/main/scripts/gcp/setup-preview.sh
+curl -fsSLO https://raw.githubusercontent.com/niho-life/niho-experience/main/scripts/gcp/setup-preview.sh
 bash setup-preview.sh
 ```
 
@@ -52,14 +52,14 @@ iPhoneの場合はSafariで github.com を開き、画面下の「aA」→「デ
 
 **2-1. 配備できるブランチを `main` に限る**
 
-1. https://github.com/niho-coliving/niho-experience/settings/environments を開く
+1. https://github.com/niho-life/niho-experience/settings/environments を開く
 2. **New environment** → 名前 `preview` → **Configure environment**
 3. **Deployment branches and tags** で **Selected branches and tags** を選ぶ → **Add deployment branch or tag rule** → `main` → **Add rule**
 4. 他は空のまま **Save protection rules**
 
 **2-2. 手順1の6行を登録する**
 
-1. https://github.com/niho-coliving/niho-experience/settings/variables/actions を開く（**Variables** タブ。Secretsではない）
+1. https://github.com/niho-life/niho-experience/settings/variables/actions を開く（**Variables** タブ。Secretsではない）
 2. **New repository variable** で、`=` の左を Name、右を Value にして6つ登録する
 
 | Name | Value の例 |

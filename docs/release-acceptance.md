@@ -1,6 +1,6 @@
 # 公開受入と配備・停止の手順
 
-[#15](https://github.com/niho-coliving/niho-experience/issues/15) の受入計画。窓口は担当1（サイト・デザイン）。各担当が自分の証跡を揃え、プレビューでの確認と本番での結果を分けて記録する。証跡に個人情報・token・管理画面のURLを貼らない。
+[#15](https://github.com/niho-life/niho-experience/issues/15) の受入計画。窓口は担当1（サイト・デザイン）。各担当が自分の証跡を揃え、プレビューでの確認と本番での結果を分けて記録する。証跡に個人情報・token・管理画面のURLを貼らない。
 
 ## 公開の区切り
 
