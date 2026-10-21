@@ -11,7 +11,9 @@ COPY packages/api-client/package.json packages/api-client/
 COPY packages/experience-presentation/package.json packages/experience-presentation/
 RUN npm ci --no-audit --no-fund
 COPY . .
-RUN npm run build
+# CSP headers are immutable: candidates receive their approved API origin at build time.
+ARG NIHO_WEB_CSP_ORIGIN=https://niho.life
+RUN NEXT_PUBLIC_NIHO_WEB_ORIGIN="$NIHO_WEB_CSP_ORIGIN" npm run build
 
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
