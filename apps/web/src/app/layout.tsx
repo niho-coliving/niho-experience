@@ -7,6 +7,7 @@ import { analyticsModeForRuntime } from "@/lib/analytics";
 import { DocumentChrome } from "@/components/DocumentChrome";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { config, isPreview } from "@/lib/config";
+import { SITE_DESCRIPTION } from "@/lib/public-metadata";
 
 // Every page reads environment settings (indexing, API mode, host sign-up) at
 // request time, so the same build can run as preview or production.
@@ -16,10 +17,10 @@ export function generateMetadata(): Metadata {
   return {
     metadataBase: new URL(config.siteUrl),
     title: { default: "Meet the people of Kamakura | NIHO Experience", template: "%s | NIHO Experience" },
-    description: "Small experiences hosted by people who live in Kamakura: cook, craft, walk and share a table. Book as a guest, no account needed.",
+    description: SITE_DESCRIPTION,
     robots: config.indexingAllowed ? undefined : { index: false, follow: false },
     openGraph: { siteName: "NIHO Experience", type: "website", locale: "en_US" },
-    twitter: { card: "summary_large_image" },
+    twitter: { card: "summary" },
   };
 }
 

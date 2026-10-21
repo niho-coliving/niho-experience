@@ -1,19 +1,68 @@
-import type { Ref } from "react";
+"use client";
+
+import { useId, useRef, useState, type ComponentType, type Ref } from "react";
 import { HandIcon, PhotoV1 } from "./components.js";
 import { EN_STATIC_COPY_V1, type StaticCopyAccessorV1 } from "./static-copy.js";
-import { primitivesV1, type DetailGalleryModelV1, type PresentationPrimitivesV1 } from "./types.js";
+import { primitivesV1, type DetailGalleryModelV1, type ImagePrimitiveProps, type PresentationPrimitivesV1 } from "./types.js";
 
 export function MobileGalleryViewV1({ model, index = 0, onPositionChange, primitives, copy = EN_STATIC_COPY_V1 }: { model: DetailGalleryModelV1; index?: number; onPositionChange?: (index: number) => void; primitives?: Partial<PresentationPrimitivesV1>; copy?: StaticCopyAccessorV1 }) {
   const { Link, Image } = primitivesV1(primitives);
+  const count = model.photos.length;
+  const galleryId = useId();
+  const track = useRef<HTMLDivElement>(null);
+  const [localIndex, setLocalIndex] = useState(index);
+  const currentIndex = onPositionChange ? index : localIndex;
+  const setPosition = (next: number) => {
+    if (!count) return;
+    const position = Math.max(0, Math.min(count - 1, next));
+    setLocalIndex(position);
+    onPositionChange?.(position);
+  };
+  const showPhoto = (next: number) => {
+    if (!count) return;
+    const position = Math.max(0, Math.min(count - 1, next));
+    const element = track.current;
+    element?.scrollTo({ left: position * (element.clientWidth || 1), behavior: "instant" });
+    setPosition(position);
+  };
   return <div className="relative lg:hidden">
-    <div tabIndex={0} role="region" aria-label={copy.text("detail.photosOf", { title: model.title })} onScroll={onPositionChange ? (event) => { const element = event.currentTarget; onPositionChange(Math.min(model.photos.length - 1, Math.round(element.scrollLeft / Math.max(1, element.clientWidth)))); } : undefined} className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto">
-      {model.photos.length ? model.photos.map((photo, photoIndex) => <div key={`${photo.image.src}-${photoIndex}`} className="relative aspect-square w-full shrink-0 snap-start bg-sand sm:aspect-[16/10]"><Image src={photo.image.src} srcSet={photo.image.srcset} alt={photo.alt} priority={photoIndex === 0} sizes="100vw" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: photo.image.position }} /></div>) : <div className="aspect-[16/10] w-full bg-sand" />}
+    <div
+      ref={track}
+      id={galleryId}
+      tabIndex={0}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={copy.text("detail.photosOf", { title: model.title })}
+      aria-describedby={count > 1 ? `${galleryId}-help` : undefined}
+      onKeyDown={(event) => {
+        const next = event.key === "ArrowRight" ? currentIndex + 1 : event.key === "ArrowLeft" ? currentIndex - 1 : event.key === "Home" ? 0 : event.key === "End" ? count - 1 : null;
+        if (next !== null) { event.preventDefault(); showPhoto(next); }
+      }}
+      onScroll={(event) => {
+        const element = event.currentTarget;
+        setPosition(Math.round(element.scrollLeft / Math.max(1, element.clientWidth)));
+      }}
+      className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto"
+    >
+      {count ? model.photos.map((photo, photoIndex) => <div key={`${photo.image.src}-${photoIndex}`} className="relative aspect-square w-full shrink-0 snap-start bg-sand sm:aspect-[16/10]"><GalleryPhotoV1 Image={Image} photo={photo} priority={photoIndex === 0} copy={copy} /></div>)
+        : <div role="img" aria-label={copy.text("detail.photosUnavailable", { title: model.title })} className="aspect-[16/10] w-full bg-sand" />}
     </div>
+    {count > 1 ? <p id={`${galleryId}-help`} className="sr-only">{copy.text("detail.galleryKeyboardHelp")}</p> : null}
     <Link href={model.backHref} aria-label={copy.text("chrome.allExperiences")} className="absolute top-3.5 left-3.5 grid size-11 place-items-center rounded-full bg-white/95 shadow-[0_2px_8px_rgb(0_0_0/0.15)]"><HandIcon name="back" className="size-5 [stroke-width:2.2]" /></Link>
-    {model.photos.length > 1 ? <span aria-hidden className="absolute right-3.5 bottom-3.5 rounded-full bg-ink/75 px-2.5 py-0.5 text-[0.8125rem] font-extrabold text-white">{index + 1} / {model.photos.length}</span> : null}
+    {count > 1 ? <div className="absolute right-3.5 bottom-3.5 flex items-center gap-1 rounded-full bg-ink/85 p-1 text-[0.8125rem] font-extrabold text-white">
+      <button type="button" aria-label={copy.text("detail.previousPhoto")} aria-controls={galleryId} disabled={currentIndex === 0} onClick={() => showPhoto(currentIndex - 1)} className="grid size-11 place-items-center rounded-full hover:bg-white/20 disabled:opacity-40"><HandIcon name="back" className="size-5" /></button>
+      <span role="status" aria-atomic="true" className="min-w-12 text-center"><span className="sr-only">{copy.text("detail.photoPosition", { title: model.title, position: currentIndex + 1, count })}</span><span aria-hidden>{currentIndex + 1} / {count}</span></span>
+      <button type="button" aria-label={copy.text("detail.nextPhoto")} aria-controls={galleryId} disabled={currentIndex === count - 1} onClick={() => showPhoto(currentIndex + 1)} className="grid size-11 place-items-center rounded-full hover:bg-white/20 disabled:opacity-40"><HandIcon name="back" className="size-5 rotate-180" /></button>
+    </div> : null}
   </div>;
 }
 
+function GalleryPhotoV1({ Image, photo, priority, copy }: { Image: ComponentType<ImagePrimitiveProps>; photo: DetailGalleryModelV1["photos"][number]; priority: boolean; copy: StaticCopyAccessorV1 }) {
+  const [failed, setFailed] = useState(false);
+  return failed
+    ? <span role="img" aria-label={photo.alt} className="absolute inset-0 flex items-center justify-center text-sm text-muted">{copy.text("detail.photoUnavailable")}</span>
+    : <Image src={photo.image.src} srcSet={photo.image.srcset} alt={photo.alt} priority={priority} sizes="100vw" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: photo.image.position }} onError={() => setFailed(true)} />;
+}
 export function DesktopGalleryViewV1({ model, dialogRef, dialogOpen, onOpen, onClose, primitives, copy = EN_STATIC_COPY_V1 }: { model: DetailGalleryModelV1; dialogRef?: Ref<HTMLDialogElement>; dialogOpen?: boolean; onOpen?: () => void; onClose?: () => void; primitives?: Partial<PresentationPrimitivesV1>; copy?: StaticCopyAccessorV1 }) {
   if (!model.photos.length) return null;
   const [cover, ...rest] = model.photos;

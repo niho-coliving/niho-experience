@@ -17,6 +17,7 @@ export type ImagePrimitiveProps = {
     srcSet?: string;
     priority?: boolean;
     style?: CSSProperties;
+    onError?: () => void;
 };
 export type VideoPrimitiveProps = {
     src: string;
@@ -71,6 +72,7 @@ export declare const DefaultImageV1: ({ priority: _priority, sizes, ...props }: 
     className?: string;
     srcSet?: string;
     style?: CSSProperties;
+    onError?: () => void;
 }, HTMLElement>;
 export declare const DefaultVideoV1: ({ src, poster, className }: VideoPrimitiveProps) => import("react").DetailedReactHTMLElement<{
     src: string;

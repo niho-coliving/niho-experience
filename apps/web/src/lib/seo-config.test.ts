@@ -55,6 +55,7 @@ describe("structured data", () => {
   it("omits an offer when checkout is paused", () => {
     const paused = experiences.find((experience) => !experience.booking.checkoutAvailable)!;
     expect(experienceJsonLd(paused, SITE)?.offers).toBeUndefined();
+    expect(experienceJsonLd(dinner, SITE, false, false)?.offers).toBeUndefined();
   });
 
   it("builds breadcrumbs and escapes script breakouts", () => {

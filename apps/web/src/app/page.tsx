@@ -20,13 +20,14 @@ import { editorialOf, FEATURED_HOST, FEATURED_STORY, shortName, themeEntries, th
 import type { ExperienceDetailForSite, PublicImageForSite } from "@/lib/experience-types";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { imageAlt } from "@/lib/experience-copy";
+import { publicMetadata, SITE_DESCRIPTION } from "@/lib/public-metadata";
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
 
 export async function generateMetadata(): Promise<Metadata> {
   const document = await getPublishedPageDocument("home");
-  return document ? { title: document.title } : {};
+  return publicMetadata(document?.title ?? "Meet the people of Kamakura", SITE_DESCRIPTION, `${config.siteUrl}/`);
 }
 
 const displayPhoto = (photo: SitePhoto): DisplayImageV1 => ({ src: photo.src, alt: photo.alt, position: photo.position });

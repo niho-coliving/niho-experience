@@ -710,6 +710,9 @@
   .min-w-0 {
     min-width: 0px;
   }
+  .min-w-12 {
+    min-width: calc(var(--spacing) * 12);
+  }
   .flex-1 {
     flex: 1;
   }
@@ -727,6 +730,9 @@
   }
   .-rotate-\[14deg\] {
     rotate: calc(14deg * -1);
+  }
+  .rotate-180 {
+    rotate: 180deg;
   }
   .rotate-\[10deg\] {
     rotate: 10deg;
@@ -1091,10 +1097,10 @@
   .bg-info-pale {
     background-color: var(--color-info-pale);
   }
-  .bg-ink\/75 {
-    background-color: color-mix(in srgb, #1c1c1a 75%, transparent);
+  .bg-ink\/85 {
+    background-color: color-mix(in srgb, #1c1c1a 85%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-ink) 75%, transparent);
+      background-color: color-mix(in oklab, var(--color-ink) 85%, transparent);
     }
   }
   .bg-leaf {
@@ -1157,6 +1163,9 @@
   .p-0 {
     padding: 0px;
   }
+  .p-1 {
+    padding: var(--spacing);
+  }
   .p-3 {
     padding: calc(var(--spacing) * 3);
   }
@@ -1201,9 +1210,6 @@
   }
   .px-\[18px\] {
     padding-inline: 18px;
-  }
-  .py-0\.5 {
-    padding-block: calc(var(--spacing) * 0.5);
   }
   .py-1 {
     padding-block: var(--spacing);
@@ -1710,6 +1716,14 @@
     .hover\:bg-sand:hover {
       background-color: var(--color-sand);
     }
+    .hover\:bg-white\/20:hover {
+      background-color: color-mix(in srgb, #fff 20%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-white\/20:hover {
+        background-color: color-mix(in oklab, var(--color-white) 20%, transparent);
+      }
+    }
     .hover\:text-ink:hover {
       color: var(--color-ink);
     }
@@ -1772,6 +1786,9 @@
   }
   .disabled\:opacity-35:disabled {
     opacity: 35%;
+  }
+  .disabled\:opacity-40:disabled {
+    opacity: 40%;
   }
   .disabled\:opacity-60:disabled {
     opacity: 60%;

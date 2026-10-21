@@ -970,6 +970,26 @@ export declare const STATIC_COPY_REGISTRY_V1: {
         readonly default: "Show all {count} photos";
         readonly placeholders: readonly ["count"];
     };
+    readonly "detail.previousPhoto": {
+        readonly default: "Previous photo";
+        readonly placeholders: readonly [];
+    };
+    readonly "detail.nextPhoto": {
+        readonly default: "Next photo";
+        readonly placeholders: readonly [];
+    };
+    readonly "detail.galleryKeyboardHelp": {
+        readonly default: "Use the left and right arrow keys to browse photos.";
+        readonly placeholders: readonly [];
+    };
+    readonly "detail.photoUnavailable": {
+        readonly default: "Photo unavailable";
+        readonly placeholders: readonly [];
+    };
+    readonly "detail.photosUnavailable": {
+        readonly default: "Photos of {title} are not available";
+        readonly placeholders: readonly ["title"];
+    };
     readonly "booking.step": {
         readonly default: "step";
         readonly placeholders: readonly [];

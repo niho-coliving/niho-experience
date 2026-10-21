@@ -19,6 +19,7 @@ export type ImagePrimitiveProps = {
   srcSet?: string;
   priority?: boolean;
   style?: CSSProperties;
+  onError?: () => void;
 };
 
 export type VideoPrimitiveProps = {

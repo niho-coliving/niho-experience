@@ -2,6 +2,14 @@ import { expect, test } from "@playwright/test";
 
 const dinner = "/experiences/home-cooked-dinner-with-locals";
 
+test("child participation is bounded by age and stays specific to each option", async ({ page }) => {
+  await page.goto(dinner);
+  await expect(page.getByText("ages 6–12 with an adult", { exact: true })).toBeVisible();
+  await page.goto("/experiences/seaside-cycling-and-market-breakfast");
+  await expect(page.getByText("Children: see options", { exact: true })).toBeVisible();
+  await expect(page.getByText("ages 10+ with an adult", { exact: true })).toHaveCount(0);
+});
+
 test("phones get a swipeable gallery and a booking bar that stays within reach", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-360");
   await page.goto(dinner);

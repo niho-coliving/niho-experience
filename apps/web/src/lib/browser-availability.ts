@@ -23,5 +23,9 @@ export function readAvailability(slug: string, preview: boolean, nihoWebOrigin: 
     .then((result): AvailabilityRead => (result.ok ? { ok: true, occurrences: result.data.occurrences } : { ok: false }))
     .catch((): AvailabilityRead => ({ ok: false }));
   inflight.set(key, { at: now, promise });
+  // Share concurrent failures, but let an explicit retry reach the API immediately.
+  void promise.then((result) => {
+    if (!result.ok && inflight.get(key)?.promise === promise) inflight.delete(key);
+  });
   return promise;
 }

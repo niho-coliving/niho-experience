@@ -1,5 +1,15 @@
 import { expect, test } from "@playwright/test";
 
+test("date loading can be retried in place without losing the party size", async ({ page }) => {
+  await page.goto("/experiences?guests=2&mock=availability-retry");
+  await expect(page.getByText("Dates couldn't be checked. Showing experiences for your group.")).toBeVisible();
+  await expect(page.locator("main article")).toHaveCount(4);
+  await page.getByRole("button", { name: "Retry dates" }).click();
+  await expect(page.getByRole("group", { name: "Date (Japan time)" }).getByRole("button", { name: /, \d+ experiences?$/ }).first()).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Guests" })).toHaveValue("2");
+  await expect(page).toHaveURL(/guests=2/);
+});
+
 test("date chips show experiences with available sessions and keep the URL in sync", async ({ page }) => {
   await page.goto("/experiences");
   const status = page.getByRole("status");

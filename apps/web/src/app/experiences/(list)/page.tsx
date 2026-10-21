@@ -12,15 +12,14 @@ import { config, isPilotPreview, isPreview } from "@/lib/config";
 import { dayOption, parseDateParam, parseGuestsParam, upcomingDays } from "@/lib/date-filter";
 import { filterExperienceSummaries, normalizeExperienceDate, normalizeExperienceQuery, normalizeExperienceTheme, type SearchParams } from "@/lib/filters";
 import { getPublishedPageDocument } from "@/lib/page-documents";
+import { publicMetadata } from "@/lib/public-metadata";
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParams> }): Promise<Metadata> {
   const query = await searchParams;
   const filtered = query.theme !== undefined || query.date !== undefined || query.guests !== undefined || normalizeExperienceQuery(query.q) !== "";
   const document = await getPublishedPageDocument("experiences");
   return {
-    title: document?.title ?? "Kamakura Experiences with Local Hosts",
-    description: "Small-group experiences in Kamakura hosted by people who live here. Prices in Japanese yen, times in JST, and no account needed to book.",
-    alternates: { canonical: `${config.siteUrl}/experiences` },
+    ...publicMetadata(document?.title ?? "Kamakura Experiences with Local Hosts", "Small-group experiences in Kamakura hosted by people who live here. Prices in Japanese yen, times in JST, and no account needed to book.", `${config.siteUrl}/experiences`),
     ...(filtered ? { robots: { index: false, follow: true } } : {}),
   };
 }
@@ -59,7 +58,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
   const listContent = (props: BlockProps = {}) => (
     <CatalogueViewV1 heading={blockText(props, "heading", "Experiences in Kamakura")} content={
       <ExperienceList
-        key={`${initialDate ?? "any"}:${initialGuests ?? "any"}`}
+        key={JSON.stringify([searchQuery, theme, initialDate, initialGuests])}
         cards={cards}
         days={days}
         initialDate={initialDate}

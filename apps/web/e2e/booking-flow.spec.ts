@@ -45,7 +45,7 @@ test("cancelled checkout return offers a clear way back to date selection on mob
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
     await page.setViewportSize(viewport);
     await page.goto(`${dinner}?checkout=cancelled`);
-    const status = page.getByRole("status");
+    const status = page.getByRole("status").filter({ hasText: "Checkout cancelled" });
     await expect(status).toContainText("Checkout cancelled");
     await expect(status.getByRole("link", { name: "Choose a date" })).toHaveAttribute("href", `${dinner}/book`);
   }
@@ -78,14 +78,47 @@ test("required booking answer and consent are shown before checkout", async ({ p
   await page.getByRole("checkbox", { name: /agree to version/ }).check();
   await page.getByRole("button", { name: "Request to book" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("required question");
+  await expect(page.getByLabel(/Which shade would you like to dye/)).toBeFocused();
+  await expect(page.getByLabel(/Which shade would you like to dye/)).toHaveAttribute("aria-describedby", "booking-problem");
+  await expect(page.getByLabel(/Which shade would you like to dye/)).toHaveAttribute("aria-invalid", "true");
   await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
   expect(await page.evaluate(() => (window as Window & { __nihoEvents?: { event: string }[] }).__nihoEvents?.filter((event) => event.event === "checkout_start").length ?? 0)).toBe(0);
+});
+
+test("a whitespace-only name returns focus to the name without losing contact details", async ({ page }) => {
+  await page.goto(`${dinner}/book`);
+  await chooseFirstDate(page);
+  await page.getByRole("textbox", { name: "Full name" }).fill("   ");
+  await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
+  await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  await expect(page.getByRole("textbox", { name: "Full name" })).toBeFocused();
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("main").getByRole("alert")).toContainText("Please enter your full name.");
+  await expect(page.getByRole("textbox", { name: "Email" })).toHaveValue("guest@example.com");
 });
 
 test("booking page is private", async ({ request }) => {
   const res = await request.get(`${dinner}/book`);
   expect(res.headers()["cache-control"]).toContain("no-store");
   expect(res.headers()["x-robots-tag"]).toContain("noindex");
+});
+
+test("consent API errors mark the field, then a reload error focuses its own message", async ({ page }) => {
+  await page.goto(`${dinner}/book?mock=checkout-consent-outdated`);
+  await chooseFirstDate(page);
+  await enterBookingDetails(page);
+  await page.getByRole("button", { name: "Continue to mock payment" }).click();
+  const consent = page.getByRole("checkbox", { name: /agree to version/ });
+  await expect(consent).toBeFocused();
+  await expect(consent).toHaveAttribute("aria-invalid", "true");
+  await expect(consent).toHaveAttribute("aria-describedby", "booking-problem");
+  await page.getByRole("button", { name: "Reload the experience" }).click();
+  await expect(page.locator("#booking-problem")).toBeFocused();
+  await expect(page.locator("#booking-problem")).toContainText("not available yet");
+  await expect(consent).not.toHaveAttribute("aria-invalid", "true");
+  await expect(consent).not.toHaveAttribute("aria-describedby", "booking-problem");
+  await expect(page.getByRole("textbox", { name: "Full name" })).toHaveValue("Sample Guest");
 });
 
 test("a newly full date can be checked again without trapping the guest", async ({ page }) => {

@@ -16,7 +16,7 @@ import { Notice } from "@/components/ui";
 import { getExperienceForSite } from "@/lib/api";
 import { faceOf, groupSizeLabel, hostNames, initialOf } from "@/lib/card-model";
 import { config, isPreview } from "@/lib/config";
-import { imageAlt } from "@/lib/experience-copy";
+import { childParticipationCopy, imageAlt } from "@/lib/experience-copy";
 import type { ExperienceDetailForSite, PublicImageForSite } from "@/lib/experience-types";
 import type { SearchParams } from "@/lib/filters";
 import { formatDuration, formatYen } from "@/lib/format";
@@ -27,6 +27,7 @@ import { breadcrumbJsonLd, experienceJsonLd } from "@/lib/structured-data";
 import { iconForText } from "@/lib/themes";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { PRESENTATION_PRIMITIVES_V1 } from "@/components/PresentationV1";
+import { publicMetadata } from "@/lib/public-metadata";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
 async function readExperience(slug: string, query: SearchParams) {
@@ -42,7 +43,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const description = seoDescription(e.lead);
   // The public image DTO has no rights/OG approval flag. Do not publish a
   // provisional image as a share image until approved photos are available.
-  return { title: e.title, description, alternates: { canonical: e.canonicalUrl }, openGraph: { title: e.title, description, images: [] } };
+  return publicMetadata(e.title, description, e.canonicalUrl);
 }
 
 /** Cover first, then the other photos, without repeating the cover. */
@@ -62,19 +63,6 @@ function durationFact(e: ExperienceDetailForSite): { main: string; sub: string |
   const sameTimes = first && e.offers.every((offer) => offer.startTime === first.startTime && offer.durationMinutes === first.durationMinutes);
   const sub = first && sameTimes ? `${formatClock(first.startTime)} – ${formatClock(addMinutesToClock(first.startTime, first.durationMinutes))} JST` : first ? "Times vary by option" : null;
   return { main, sub };
-}
-
-function childNote(e: ExperienceDetailForSite): { fact: string | null; price: string | null } {
-  const children = e.offers.map((offer) => offer.pricing.child).filter((child) => child !== null);
-  if (!children.length) return { fact: null, price: null };
-  const minAge = Math.min(...children.map((child) => child.minAge));
-  const maxAge = Math.max(...children.map((child) => child.maxAge));
-  const prices = [...new Set(children.map((child) => child.priceYen))];
-  const withAdult = children.every((child) => child.adultRequired);
-  return {
-    fact: `ages ${minAge}+${withAdult ? " with an adult" : ""}`,
-    price: `Children ${minAge}–${maxAge} ${prices.length > 1 ? "from " : ""}${formatYen(Math.min(...prices))}`,
-  };
 }
 
 function shorten(text: string, max: number): string {
@@ -118,7 +106,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const photos = galleryPhotos(e);
   const line = scheduleLine(e.offers);
   const duration = durationFact(e);
-  const children = childNote(e);
+  const children = childParticipationCopy(e.offers);
   const group = groupSizeLabel(e.offers);
   const meeting = e.meetingPointDisclosure === "PUBLIC" ? e.meetingPoint : null;
   const exterior = meeting && meeting.exteriorPhotoIndex !== null ? (e.photos[meeting.exteriorPhotoIndex] ?? null) : null;
@@ -467,7 +455,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   return <>
     <TrackView event="experience_view" props={{ experience: e.slug }} />
     <JsonLd data={breadcrumbJsonLd(config.siteUrl, [{ name: "Home", path: "/" }, { name: "Experiences", path: "/experiences" }, { name: e.title, path: `/experiences/${e.slug}` }])} />
-    <JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview)} />
+    <JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview, config.bookingsEnabled)} />
     <PageDocumentContent document={document} pageId="experience-detail" fallback={portableDetail()} slots={{
       ExperienceDetail: (props) => renderDetail(props, false),
       BookingCTA: (props) => <div className="container-page mt-8 hidden lg:block"><aside id="book" aria-labelledby="book-heading"><BookingCard summary={booking} label={blockText(props, "label", "Check dates and book")} /></aside></div>

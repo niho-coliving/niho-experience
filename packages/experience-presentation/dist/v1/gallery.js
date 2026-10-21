@@ -1,10 +1,48 @@
+"use client";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { useId, useRef, useState } from "react";
 import { HandIcon, PhotoV1 } from "./components.js";
 import { EN_STATIC_COPY_V1 } from "./static-copy.js";
 import { primitivesV1 } from "./types.js";
 export function MobileGalleryViewV1({ model, index = 0, onPositionChange, primitives, copy = EN_STATIC_COPY_V1 }) {
     const { Link, Image } = primitivesV1(primitives);
-    return _jsxs("div", { className: "relative lg:hidden", children: [_jsx("div", { tabIndex: 0, role: "region", "aria-label": copy.text("detail.photosOf", { title: model.title }), onScroll: onPositionChange ? (event) => { const element = event.currentTarget; onPositionChange(Math.min(model.photos.length - 1, Math.round(element.scrollLeft / Math.max(1, element.clientWidth)))); } : undefined, className: "scrollbar-none flex snap-x snap-mandatory overflow-x-auto", children: model.photos.length ? model.photos.map((photo, photoIndex) => _jsx("div", { className: "relative aspect-square w-full shrink-0 snap-start bg-sand sm:aspect-[16/10]", children: _jsx(Image, { src: photo.image.src, srcSet: photo.image.srcset, alt: photo.alt, priority: photoIndex === 0, sizes: "100vw", className: "absolute inset-0 h-full w-full object-cover", style: { objectPosition: photo.image.position } }) }, `${photo.image.src}-${photoIndex}`)) : _jsx("div", { className: "aspect-[16/10] w-full bg-sand" }) }), _jsx(Link, { href: model.backHref, "aria-label": copy.text("chrome.allExperiences"), className: "absolute top-3.5 left-3.5 grid size-11 place-items-center rounded-full bg-white/95 shadow-[0_2px_8px_rgb(0_0_0/0.15)]", children: _jsx(HandIcon, { name: "back", className: "size-5 [stroke-width:2.2]" }) }), model.photos.length > 1 ? _jsxs("span", { "aria-hidden": true, className: "absolute right-3.5 bottom-3.5 rounded-full bg-ink/75 px-2.5 py-0.5 text-[0.8125rem] font-extrabold text-white", children: [index + 1, " / ", model.photos.length] }) : null] });
+    const count = model.photos.length;
+    const galleryId = useId();
+    const track = useRef(null);
+    const [localIndex, setLocalIndex] = useState(index);
+    const currentIndex = onPositionChange ? index : localIndex;
+    const setPosition = (next) => {
+        if (!count)
+            return;
+        const position = Math.max(0, Math.min(count - 1, next));
+        setLocalIndex(position);
+        onPositionChange?.(position);
+    };
+    const showPhoto = (next) => {
+        if (!count)
+            return;
+        const position = Math.max(0, Math.min(count - 1, next));
+        const element = track.current;
+        element?.scrollTo({ left: position * (element.clientWidth || 1), behavior: "instant" });
+        setPosition(position);
+    };
+    return _jsxs("div", { className: "relative lg:hidden", children: [_jsx("div", { ref: track, id: galleryId, tabIndex: 0, role: "region", "aria-roledescription": "carousel", "aria-label": copy.text("detail.photosOf", { title: model.title }), "aria-describedby": count > 1 ? `${galleryId}-help` : undefined, onKeyDown: (event) => {
+                    const next = event.key === "ArrowRight" ? currentIndex + 1 : event.key === "ArrowLeft" ? currentIndex - 1 : event.key === "Home" ? 0 : event.key === "End" ? count - 1 : null;
+                    if (next !== null) {
+                        event.preventDefault();
+                        showPhoto(next);
+                    }
+                }, onScroll: (event) => {
+                    const element = event.currentTarget;
+                    setPosition(Math.round(element.scrollLeft / Math.max(1, element.clientWidth)));
+                }, className: "scrollbar-none flex snap-x snap-mandatory overflow-x-auto", children: count ? model.photos.map((photo, photoIndex) => _jsx("div", { className: "relative aspect-square w-full shrink-0 snap-start bg-sand sm:aspect-[16/10]", children: _jsx(GalleryPhotoV1, { Image: Image, photo: photo, priority: photoIndex === 0, copy: copy }) }, `${photo.image.src}-${photoIndex}`))
+                    : _jsx("div", { role: "img", "aria-label": copy.text("detail.photosUnavailable", { title: model.title }), className: "aspect-[16/10] w-full bg-sand" }) }), count > 1 ? _jsx("p", { id: `${galleryId}-help`, className: "sr-only", children: copy.text("detail.galleryKeyboardHelp") }) : null, _jsx(Link, { href: model.backHref, "aria-label": copy.text("chrome.allExperiences"), className: "absolute top-3.5 left-3.5 grid size-11 place-items-center rounded-full bg-white/95 shadow-[0_2px_8px_rgb(0_0_0/0.15)]", children: _jsx(HandIcon, { name: "back", className: "size-5 [stroke-width:2.2]" }) }), count > 1 ? _jsxs("div", { className: "absolute right-3.5 bottom-3.5 flex items-center gap-1 rounded-full bg-ink/85 p-1 text-[0.8125rem] font-extrabold text-white", children: [_jsx("button", { type: "button", "aria-label": copy.text("detail.previousPhoto"), "aria-controls": galleryId, disabled: currentIndex === 0, onClick: () => showPhoto(currentIndex - 1), className: "grid size-11 place-items-center rounded-full hover:bg-white/20 disabled:opacity-40", children: _jsx(HandIcon, { name: "back", className: "size-5" }) }), _jsxs("span", { role: "status", "aria-atomic": "true", className: "min-w-12 text-center", children: [_jsx("span", { className: "sr-only", children: copy.text("detail.photoPosition", { title: model.title, position: currentIndex + 1, count }) }), _jsxs("span", { "aria-hidden": true, children: [currentIndex + 1, " / ", count] })] }), _jsx("button", { type: "button", "aria-label": copy.text("detail.nextPhoto"), "aria-controls": galleryId, disabled: currentIndex === count - 1, onClick: () => showPhoto(currentIndex + 1), className: "grid size-11 place-items-center rounded-full hover:bg-white/20 disabled:opacity-40", children: _jsx(HandIcon, { name: "back", className: "size-5 rotate-180" }) })] }) : null] });
+}
+function GalleryPhotoV1({ Image, photo, priority, copy }) {
+    const [failed, setFailed] = useState(false);
+    return failed
+        ? _jsx("span", { role: "img", "aria-label": photo.alt, className: "absolute inset-0 flex items-center justify-center text-sm text-muted", children: copy.text("detail.photoUnavailable") })
+        : _jsx(Image, { src: photo.image.src, srcSet: photo.image.srcset, alt: photo.alt, priority: priority, sizes: "100vw", className: "absolute inset-0 h-full w-full object-cover", style: { objectPosition: photo.image.position }, onError: () => setFailed(true) });
 }
 export function DesktopGalleryViewV1({ model, dialogRef, dialogOpen, onOpen, onClose, primitives, copy = EN_STATIC_COPY_V1 }) {
     if (!model.photos.length)

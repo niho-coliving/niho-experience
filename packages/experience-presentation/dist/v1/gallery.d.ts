@@ -1,4 +1,4 @@
-import type { Ref } from "react";
+import { type Ref } from "react";
 import { type StaticCopyAccessorV1 } from "./static-copy.js";
 import { type DetailGalleryModelV1, type PresentationPrimitivesV1 } from "./types.js";
 export declare function MobileGalleryViewV1({ model, index, onPositionChange, primitives, copy }: {

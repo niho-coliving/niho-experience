@@ -9,7 +9,7 @@ export declare const PRESENTATION_MANIFEST_V1: Readonly<{
     readonly staticCopy: {
         readonly schemaVersion: 2;
         readonly keyCount: number;
-        readonly sha256: "46501ea5784c6ad7b3d52deab90d4c8fa7a197c75a9e2cb69bfde53b4d6b0b26";
+        readonly sha256: "eaf34f9c1614b38de31abbaf6a8468817f8b67afd0d0f3b23de28e338299e77d";
     };
     readonly assets: {
         readonly schemaVersion: 1;
@@ -17,7 +17,7 @@ export declare const PRESENTATION_MANIFEST_V1: Readonly<{
     };
     readonly style: {
         readonly id: "niho-experience-presentation/v1/scoped-css";
-        readonly sha256: "d959671174ac513b95f7e5d9810a03268b98e661e481008fbad3344d7315fad7";
+        readonly sha256: "6a03a030a14c5eccf525f6c8fec34548f2f90e9becb70126810d5faace1a45c3";
         readonly fonts: {
             readonly "nunito-latin-wght-normal.woff2": "ba344451eab25b217a165363b1982048a5e5830a0daf36577973955a04cac793";
             readonly "nunito-latin-ext-wght-normal.woff2": "2c8d792869818ecb253a46bc3c63c7013df7aac2f69291c3c85e5cdc94160960";

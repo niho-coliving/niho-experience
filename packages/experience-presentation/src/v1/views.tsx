@@ -161,7 +161,7 @@ export function SiteHeaderV1({ primitives, copy = EN_STATIC_COPY_V1, currentPath
 <ul className="flex items-center gap-0.5 text-[0.9375rem] font-bold sm:gap-1">
 <li>{experiencesLink ?? <Link href="/experiences" aria-current={currentPath === "/experiences" ? "page" : undefined} className={`rounded-full px-2.5 py-2 hover:bg-sand sm:px-3 ${currentPath === "/experiences" ? "bg-sand" : ""}`}>{labels.experiences ?? copy.text("chrome.experiences")}</Link>}</li>
 <li className="hidden sm:block">
-<Link href="/host" className="rounded-full px-3 py-2 hover:bg-sand">{labels.host ?? copy.text("chrome.host")}</Link>
+<Link href="/host" className="rounded-full px-3 py-2 hover:bg-sand">{labels.host || copy.text("chrome.host")}</Link>
 </li>
 <li className="hidden sm:block">
 <Link href="/help" className="rounded-full px-3 py-2 hover:bg-sand">{labels.help ?? copy.text("chrome.help")}</Link>

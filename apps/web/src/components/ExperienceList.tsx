@@ -54,6 +54,7 @@ export function ExperienceList({
   const [date, setDate] = useState<string | null>(initialDate);
   const [guests, setGuests] = useState<number | null>(initialGuests);
   const [availability, setAvailability] = useState<Availability>({ state: "loading" });
+  const [readAttempt, setReadAttempt] = useState(0);
   const chips = useRef<HTMLDivElement>(null);
 
   // A date arriving in the URL (e.g. from the home finder) may be off-screen on a phone.
@@ -81,7 +82,7 @@ export function ExperienceList({
     return () => {
       active = false;
     };
-  }, [cards, preview, nihoWebOrigin]);
+  }, [cards, preview, nihoWebOrigin, readAttempt]);
 
   const ready = availability.state === "ready" ? availability.bySlug : null;
   const failed = availability.state === "failed";
@@ -141,10 +142,14 @@ export function ExperienceList({
     <div>
       {failed ? (
         <div className="container-page mt-6 space-y-4">
-          <p className="flex items-start gap-2 rounded-2xl bg-sand p-4 text-ink-soft">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-sand p-4 text-ink-soft">
             <HandIcon name="cal" className="size-6 text-moss" />
-            <span>We couldn&apos;t check dates just now, so date filtering is paused. Known group-size limits still apply; you can choose a date on each experience.</span>
-          </p>
+            <p role="status" className="min-w-0 flex-1">Dates couldn&apos;t be checked. Showing experiences for your group.</p>
+            <button type="button" className={buttonClass("secondary")} onClick={() => {
+              setAvailability({ state: "loading" });
+              setReadAttempt((attempt) => attempt + 1);
+            }}>Retry dates</button>
+          </div>
           {inlineSearch}
         </div>
       ) : (

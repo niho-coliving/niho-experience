@@ -9,8 +9,8 @@ import postcss from "postcss";
 import { describe, expect, it } from "vitest";
 import { bookingCardModel } from "../../../apps/web/src/lib/presentation-booking-model";
 import {
-  BookingPageViewV1, BookingPreviewV1, CatalogueViewV1, COPY_REGISTRY_V1, DetailViewV1, EN_COPY_V1, EN_STATIC_COPY_V1, HelpViewV1,
-  HomeViewV1, HostViewV1, PRESENTATION_MANIFEST_V1, PresentationRootV1, SiteFooterV1, SiteHeaderV1, DetailBookingDatesV1,
+  BookingCheckoutViewV1, BookingPageViewV1, BookingPreviewV1, CatalogueViewV1, COPY_REGISTRY_V1, DetailViewV1, EN_COPY_V1, EN_STATIC_COPY_V1, HelpViewV1,
+  HomeViewV1, HostViewV1, MobileGalleryViewV1, PRESENTATION_MANIFEST_V1, PresentationRootV1, SiteFooterV1, SiteHeaderV1, DetailBookingDatesV1,
   RichMessageV1, STATIC_COPY_REGISTRY_V1, assertAssetBindingsV1, assertPresentationIdentityV1, createCopyV1, createStaticCopyV1,
   defaultAssetBindingsV1, defaultStaticCopyValuesV1, type BookingPreviewModelV1, type HomeViewModelV1,
 } from "../src/v1/index";
@@ -41,7 +41,7 @@ const bookingPreview: BookingPreviewModelV1 = {
   },
   checkout: {
     summary: { title: card.title, image, summary: "2 hours · 2:00 PM JST" }, availability: "ready", refreshing: false, refreshDisabled: true,
-    guestName: "Synthetic Guest", guestEmail: "guest@example.invalid", note: "Invented preview note.",
+    guestName: "Synthetic Guest", invalidGuestName: false, guestEmail: "guest@example.invalid", invalidGuestEmail: false, note: "Invented preview note.", invalidNote: false,
     questions: [
       { id: "short", prompt: "What name should the host use?", required: true, type: "SHORT_TEXT", value: "Sample", options: [] },
       { id: "long", prompt: "What would you like to explore?", required: false, type: "LONG_TEXT", value: "Synthetic answer.", options: [] },
@@ -55,6 +55,38 @@ const bookingPreview: BookingPreviewModelV1 = {
 };
 
 describe("v1 portable presentation", () => {
+  it("keeps the header host link visible when a caller supplies an empty label", () => {
+    const html = renderToStaticMarkup(<SiteHeaderV1 labels={{ host: "" }} />);
+    expect(html).toContain("Host with NIHO");
+  });
+
+  it("renders keyboard and button controls for the mobile photo gallery", () => {
+    const html = renderToStaticMarkup(<MobileGalleryViewV1 model={{ title: card.title, backHref: "/experiences", photos: [{ image, alt: "Synthetic gallery image" }, { image: { ...image, src: "/synthetic/image-2.svg" }, alt: "Second synthetic gallery image" }] }} />);
+    expect(html).toContain('aria-roledescription="carousel"');
+    expect(html).toContain('aria-describedby=');
+    expect(html).toContain('aria-label="Previous photo"');
+    expect(html).toContain('aria-label="Next photo"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain("Use the left and right arrow keys to browse photos.");
+  });
+
+  it("exposes checkout error focus targets to the shared booking form", () => {
+    const invalidCheckout = {
+      ...bookingPreview.checkout,
+      problem: "Please check your booking.",
+      invalidGuestName: true,
+      invalidGuestEmail: false,
+      invalidNote: false,
+      questions: bookingPreview.checkout.questions.map((question) => ({ ...question, invalid: question.id === "short" || question.id === "multi" })),
+      invalidConsent: true,
+    };
+    const html = renderToStaticMarkup(<BookingCheckoutViewV1 model={invalidCheckout} />);
+    expect(html).toContain('id="booking-guestName" aria-invalid="true" aria-describedby="booking-problem"');
+    expect(html).toContain('id="question-short"');
+    expect(html).toContain('id="question-multi" tabindex="-1"');
+    expect(html).toMatch(/id="booking-consent"[^>]*aria-describedby="booking-problem"/);
+  });
+
   it("renders the complete route structures through React SSR", () => {
     const detail = <DetailViewV1 model={{ title: card.title, backHref: "/experiences", gallery: { title: card.title, backHref: "/experiences", photos: [{ image, alt: "Synthetic gallery image" }, { image: { ...image, src: "/synthetic/image-2.svg" }, alt: "Second synthetic gallery image" }] }, hosts: [card.face], hostLine: EN_STATIC_COPY_V1.rich("detail.hostedByRich", { hosts: "Sample Host" }), facts: [{ icon: "clock", label: "Duration", main: "2 hours" }], lead: card.lead, highlights: [{ text: "Synthetic highlight", icon: "check" }], paragraphs: ["First paragraph.", "Second paragraph."], timeline: [{ title: "Make", text: "Synthetic step.", icon: "mend" }], provider: { name: "Synthetic Studio", hosts: [card.face], photo: image }, included: ["Materials"], notIncluded: ["Transport"], emptyListLabel: "None listed.", meeting: { kind: "after-booking" }, know: ["Synthetic note"], showAllKnowLabel: "Show all 1", notSuitable: [], cancellation: { policy: { title: "Synthetic cancellation terms", acceptanceNote: "Applies to this option." }, sellerName: "Synthetic Studio" }, booking: { price: "¥4,000", priceIsFrom: false, canBook: true, bookingHref: "/experiences/synthetic-workshop/book", actionLabel: "Check dates and book", assurances: [{ icon: "check", text: "Synthetic assurance" }], dates: <span>Synthetic dates controller</span> } }} />;
     const booking = <BookingPageViewV1 backHref={card.href} backLabel={card.title} panel={<BookingPreviewV1 model={bookingPreview} />} />;
@@ -117,7 +149,7 @@ describe("v1 portable presentation", () => {
   });
 
   it("renders reordered rich messages and rejects missing, repeated, unknown or unbalanced protected markers", () => {
-    expect(Object.keys(STATIC_COPY_REGISTRY_V1)).toHaveLength(336);
+    expect(Object.keys(STATIC_COPY_REGISTRY_V1)).toHaveLength(341);
     expect(renderToStaticMarkup(<h1><RichMessageV1 segments={EN_STATIC_COPY_V1.rich("home.heroHeadingRich")} emphasisClassName="hand" /></h1>)).toBe('<h1>Meet the people who make Kamakura <span class="hand">home</span></h1>');
     const jaOrder = createStaticCopyV1({ ...defaultStaticCopyValuesV1(), "home.heroHeadingRich": "鎌倉を{em}家{/em}のように感じさせる人々に会う" });
     expect(renderToStaticMarkup(<h1><RichMessageV1 segments={jaOrder.rich("home.heroHeadingRich")} emphasisClassName="hand" /></h1>)).toBe('<h1>鎌倉を<span class="hand">家</span>のように感じさせる人々に会う</h1>');
@@ -145,9 +177,9 @@ describe("v1 portable presentation", () => {
     const metadata = JSON.parse(metadataBytes.toString());
     expect(metadata.schemaVersion).toBe(2);
     expect(metadata.legacySchemaVersion).toBe(1);
-    expect(Object.keys(metadata.definitions)).toHaveLength(336);
+    expect(Object.keys(metadata.definitions)).toHaveLength(341);
     expect(sha256(metadataBytes)).toBe(PRESENTATION_MANIFEST_V1.staticCopy.sha256);
-    expect(PRESENTATION_MANIFEST_V1.staticCopy).toEqual({ schemaVersion: 2, keyCount: 336, sha256: sha256(metadataBytes) });
+    expect(PRESENTATION_MANIFEST_V1.staticCopy).toEqual({ schemaVersion: 2, keyCount: 341, sha256: sha256(metadataBytes) });
     const pureModule = await readFile(resolve(packageDir, "dist/v1/metadata.js"), "utf8");
     expect(pureModule).not.toMatch(/from ["']react/);
   });

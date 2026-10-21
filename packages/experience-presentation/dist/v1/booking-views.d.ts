@@ -81,8 +81,11 @@ export type BookingCheckoutViewModelV1 = Readonly<{
     refreshDisabled: boolean;
     problem?: string;
     guestName: string;
+    invalidGuestName: boolean;
     guestEmail: string;
+    invalidGuestEmail: boolean;
     note: string;
+    invalidNote: boolean;
     questions: readonly BookingQuestionV1[];
     approval: boolean;
     review: readonly {

@@ -9,6 +9,7 @@ import { config } from "@/lib/config";
 import { safeHttpsUrl } from "@/lib/safe-url";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { HOST_BAND_VIDEO } from "@/lib/site-media";
+import { publicMetadata } from "@/lib/public-metadata";
 
 function hostStartUrl(value: string, nihoOrigin: string): string | null {
   try {
@@ -20,7 +21,7 @@ function hostStartUrl(value: string, nihoOrigin: string): string | null {
 
 export async function generateMetadata(): Promise<Metadata> {
   const document = await getPublishedPageDocument("host");
-  return { title: document?.title ?? "Host an experience with NIHO", description: "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.", alternates: { canonical: `${config.siteUrl}/host` } };
+  return publicMetadata(document?.title ?? "Host an experience with NIHO", "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.", `${config.siteUrl}/host`);
 }
 
 const PILOT_STEPS = [
@@ -40,9 +41,38 @@ const NIHO = ["Help write and edit your page in English", "Advise on photos, pri
 
 export default async function HostPage() {
   const document = await getPublishedPageDocument("host");
-  const startUrl = config.hostSignupMode === "open" ? hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin) : null;
+  const managementUrl = hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin);
+  const startUrl = config.hostSignupMode === "open" ? managementUrl : null;
   const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
-  const signup = (props: BlockProps = {}) => <section className="mt-7 max-w-2xl" aria-label="How to start">{startUrl ? <div className="space-y-3"><TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>{blockText(props, "label", "Start with your NIHO account")}</TrackedLink><p className="text-sm text-muted">You&apos;ll sign in or create an account on NIHO, register as an individual or small business, and manage your listing, bookings and sales there. NIHO reviews listings before they go live; Stripe may ask you to verify your identity. Already a NIHO seller? You can use the same account.</p></div> : <div className="flex items-start gap-3.5 rounded-[22px] bg-leaf-pale p-5"><HandIcon name="house" className="size-10 text-moss [stroke-width:1.5]" /><div><p className="text-[1.0625rem] font-extrabold">We&apos;re starting with a small group of hosts</p><p className="mt-1 text-[0.9375rem] text-ink-soft">During the first season we work directly with a few hosts we know. Online sign-up opens after that.{contactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}</p>{contactUrl ? <p className="mt-3"><TrackedLink href={contactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">{blockText(props, "label", "Tell us you're interested")}</TrackedLink></p> : null}</div></div>}</section>;
+  const signup = (props: BlockProps = {}) => (
+    <section className="mt-7 max-w-2xl" aria-label="How to start">
+      {startUrl ? (
+        <div className="space-y-3">
+          <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
+            {blockText(props, "label", "Start with your NIHO account")}
+          </TrackedLink>
+          <p className="text-sm text-muted">
+            Use your NIHO account for experiences, bookings and sales. Listings need NIHO review; Stripe may request identity checks.
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-start gap-3.5 rounded-[22px] bg-leaf-pale p-5">
+          <HandIcon name="house" className="size-10 text-moss [stroke-width:1.5]" />
+          <div>
+            <p className="text-[1.0625rem] font-extrabold">We&apos;re starting with a small group of hosts</p>
+            <p className="mt-1 text-[0.9375rem] text-ink-soft">During the first season we work directly with a few hosts we know. Online sign-up opens after that.
+              {contactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}</p>
+            {contactUrl ? <p className="mt-3"><TrackedLink href={contactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
+              {blockText(props, "label", "Tell us you're interested")}
+            </TrackedLink></p> : null}
+          </div>
+        </div>
+      )}
+      {!startUrl && managementUrl ? <p className="mt-4">
+        <a href={managementUrl} className="link-leaf">Manage your experiences on NIHO</a>
+      </p> : null}
+    </section>
+  );
   const fallback = <HostViewV1 primitives={PRESENTATION_PRIMITIVES_V1} model={{ video: HOST_BAND_VIDEO, steps: startUrl ? OPEN_STEPS : PILOT_STEPS, you: YOU, niho: NIHO, signup: signup(), signupOpen: Boolean(startUrl) }} />;
   return <><TrackView event="host_view" props={{ signup_mode: startUrl ? "open" : "pilot" }} /><PageDocumentContent document={document} pageId="host" fallback={fallback} slots={{ HostSignupCTA: (props) => <div className="container-page">{signup(props)}</div> }} /></>;
 }

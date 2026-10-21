@@ -8,6 +8,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/api-client/package.json packages/api-client/
+COPY packages/experience-presentation/package.json packages/experience-presentation/
 RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build

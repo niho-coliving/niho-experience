@@ -1,5 +1,7 @@
 import { createExperienceApiClient } from "@niho-experience/api-client";
 
+const previewAvailabilityFailures = new Set<string>();
+
 /** Browser only: availability and guest checkout use this client directly. */
 export async function getBrowserApi(preview: boolean, nihoWebOrigin: string) {
   if (!preview) return createExperienceApiClient({ nihoWebOrigin });
@@ -17,5 +19,14 @@ export async function getBrowserApi(preview: boolean, nihoWebOrigin: string) {
   } as const;
   const scenario = scenarios[requested as keyof typeof scenarios] ?? "default";
   // "all": the server may render either mock catalog; slugs never overlap.
-  return createExperienceApiClient({ nihoWebOrigin, fetch: createMockExperienceFetch({ catalog: "all", scenario }) });
+  const mockFetch = createMockExperienceFetch({ catalog: "all", scenario });
+  return createExperienceApiClient({ nihoWebOrigin, fetch: async (input, init) => {
+    // Preview-only recovery exercise: fail each availability read once per document.
+    const path = new URL(input).pathname;
+    if (requested === "availability-retry" && path.endsWith("/availability") && !previewAvailabilityFailures.has(path)) {
+      previewAvailabilityFailures.add(path);
+      throw new TypeError("Preview availability unavailable");
+    }
+    return mockFetch(input, init);
+  } });
 }

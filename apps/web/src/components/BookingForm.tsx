@@ -42,6 +42,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   const retrySecondsRemaining = retryUntil === null ? 0 : Math.max(0, Math.ceil((retryUntil - clockNow) / 1000));
   const checkingAvailability = checking && !apiUnavailable;
   const sellerLegalUrl = safeHttpsUrl(experience.seller.legalNoticeUrl);
+  const consentInvalid = invalidField === "consent" || invalidField === "consent.agreedVersion";
 
   useEffect(() => {
     if (!api) return;
@@ -54,7 +55,14 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     }).catch(() => { if (active) { setAvailabilityOk(false); setChecking(false); } });
     return () => { active = false; };
   }, [api, experience.slug, offer.id, selection.date, headCount, selectionValid]);
-  useEffect(() => { if (problem) alertRef.current?.focus(); }, [problem]);
+  useEffect(() => {
+    if (!problem) return;
+    const id = invalidField === "consent" || invalidField === "consent.agreedVersion" ? "booking-consent"
+      : ["guestName", "guestEmail", "note"].includes(invalidField) ? `booking-${invalidField}`
+      : offer.bookingQuestions.some((question) => question.id === invalidField) ? `question-${invalidField}` : null;
+    const control = id ? document.getElementById(id) : null;
+    (control ?? alertRef.current)?.focus();
+  }, [problem, invalidField, offer.bookingQuestions]);
   useEffect(() => {
     if (retryUntil === null) return;
     const timer = window.setInterval(() => {
@@ -84,6 +92,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   async function submit() {
     if (submitting || checkingAvailability || needsFreshDetails || retrySecondsRemaining > 0 || !api || total === null || !availabilityOk) return;
     setProblem(""); setInvalidField("");
+    if (!guestName.trim()) { setProblem("Please enter your full name."); setInvalidField("guestName"); return; }
     const answered = collectAnswers();
     const missing = offer.bookingQuestions.find((question) => question.required && !answered.some((answer) => answer.questionId === question.id));
     if (missing) { setProblem(EN_STATIC_COPY_V1.text("booking.requiredQuestion")); setInvalidField(missing.id); return; }
@@ -140,6 +149,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     if (!api || refreshing) return;
     setRefreshing(true);
     setProblem("");
+    setInvalidField("");
     try {
       const result = publicApiVersion === "1.0"
         ? await api.getExperience(experience.slug)
@@ -173,6 +183,9 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     guestEmail,
     note,
     questions: offer.bookingQuestions.map((question) => ({ id: question.id, prompt: question.prompt, description: question.description ?? undefined, required: question.required, type: question.inputType, value: answers[question.id] ?? (question.inputType === "SHORT_TEXT" || question.inputType === "LONG_TEXT" ? "" : []), options: question.options, invalid: invalidField === question.id })),
+    invalidGuestName: invalidField === "guestName",
+    invalidGuestEmail: invalidField === "guestEmail",
+    invalidNote: invalidField === "note",
     approval,
     review: [
       { label: EN_STATIC_COPY_V1.text("booking.date"), value: `${when} JST` },
@@ -187,7 +200,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     legalDocuments,
     consentVersion: experience.booking.consentVersion,
     agreed,
-    invalidConsent: invalidField === "consent",
+    invalidConsent: consentInvalid,
     preview,
     submitting,
     retryWaiting: retrySecondsRemaining > 0,

@@ -4,9 +4,9 @@ import type { ImagePrimitiveProps, PresentationPrimitivesV1, VideoPrimitiveProps
 import { AmbientVideo } from "./AmbientVideo";
 import { PresentationGalleryV1 } from "./PresentationGalleryV1";
 
-function PresentationImage({ src, alt, className, sizes, priority, style, srcSet: _srcSet }: ImagePrimitiveProps) {
+function PresentationImage({ src, alt, className, sizes, priority, style, onError, srcSet: _srcSet }: ImagePrimitiveProps) {
   void _srcSet; // Next/Image derives its own srcset; the default portable image primitive uses this value.
-  return <NextImage src={src} alt={alt} fill unoptimized sizes={sizes} priority={priority} className={className} style={style} />;
+  return <NextImage src={src} alt={alt} fill unoptimized sizes={sizes} priority={priority} className={className} style={style} onError={onError} />;
 }
 
 function PresentationVideo({ src, poster, className }: VideoPrimitiveProps) {

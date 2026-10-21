@@ -17,13 +17,13 @@ function galleryModel(photos: PublicImageForSite[], title: string, backHref = "/
   };
 }
 
-/** Public controller owns swipe position; frozen v1 owns the actual mobile gallery markup. */
+/** The public controller owns gallery state; the frozen presentation package owns the markup. */
 export function MobileGallery({ photos, title, backHref = "/experiences" }: { photos: PublicImageForSite[]; title: string; backHref?: string }) {
   const [index, setIndex] = useState(0);
   return <MobileGalleryViewV1 model={galleryModel(photos, title, backHref)} index={index} onPositionChange={setIndex} primitives={PRESENTATION_PRIMITIVES_V1} />;
 }
 
-/** Public controller owns dialog effects; frozen v1 owns the mosaic, trigger and canonical dialog. */
+/** Public controller owns dialog effects; v1 owns the mosaic, trigger and dialog. */
 export function DesktopGallery({ photos, title }: { photos: PublicImageForSite[]; title: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   return <DesktopGalleryViewV1 model={galleryModel(photos, title)} dialogRef={dialog} onOpen={() => dialog.current?.showModal()} onClose={() => dialog.current?.close()} primitives={PRESENTATION_PRIMITIVES_V1} />;
