@@ -39,7 +39,7 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
   }, [dirty]);
   const leaving = useRef(false);
   const historyEntry = useRef<{ href: string; state: unknown }>({ href: "", state: null });
-  useEffect(() => {
+  useLayoutEffect(() => {
     historyEntry.current = { href: window.location.href, state: window.history.state };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirtyRef.current || leaving.current) return;
