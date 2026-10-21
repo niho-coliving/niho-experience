@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EDITOR_LIMITS, experienceContent, listingRequirements, pauseListing, sameContent, submitListing, withdrawListing } from "@/host/editor";
 import type { HostExperience, HostExperienceContent, HostListing } from "@/host/types";
 import { DISABLED } from "./editor-parts";
@@ -34,7 +34,9 @@ interface LeaveGuard {
 function useLeaveGuard(dirty: boolean): LeaveGuard {
   const [destination, setDestination] = useState<LeaveDestination | null>(null);
   const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
+  useLayoutEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
   const leaving = useRef(false);
   const historyEntry = useRef<{ href: string; state: unknown }>({ href: "", state: null });
   useEffect(() => {
