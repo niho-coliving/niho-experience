@@ -33,19 +33,20 @@ interface LeaveGuard {
  */
 function useLeaveGuard(dirty: boolean): LeaveGuard {
   const [destination, setDestination] = useState<LeaveDestination | null>(null);
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
   const leaving = useRef(false);
   const historyEntry = useRef<{ href: string; state: unknown }>({ href: "", state: null });
   useEffect(() => {
-    if (!dirty) return;
     historyEntry.current = { href: window.location.href, state: window.history.state };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (leaving.current) return;
+      if (!dirtyRef.current || leaving.current) return;
       event.preventDefault();
       // Older browsers ask only when returnValue is set.
       event.returnValue = "";
     };
     const onClick = (event: MouseEvent) => {
-      if (leaving.current || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!dirtyRef.current || leaving.current || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(anchor instanceof HTMLAnchorElement) || (anchor.target && anchor.target !== "_self") || anchor.hasAttribute("download")) return;
       const to = new URL(anchor.href, window.location.href);
@@ -64,8 +65,8 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       const targetHref = window.location.href;
       const currentUrl = new URL(current.href);
       const targetUrl = new URL(targetHref);
-      // Hash-only history entries stay in this editor and do not risk losing its contents.
-      if (targetUrl.pathname === currentUrl.pathname && targetUrl.search === currentUrl.search) {
+      // A clean page or a hash-only history entry stays in this editor.
+      if (!dirtyRef.current || (targetUrl.pathname === currentUrl.pathname && targetUrl.search === currentUrl.search)) {
         historyEntry.current = { href: targetHref, state: event.state };
         return;
       }
@@ -83,7 +84,7 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       window.removeEventListener("click", onClick, true);
       window.removeEventListener("popstate", onPopState, true);
     };
-  }, [dirty]);
+  }, []);
   return {
     asking: destination !== null,
     stay: () => setDestination(null),
