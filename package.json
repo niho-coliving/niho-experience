@@ -18,7 +18,9 @@
     "typecheck": "npm -ws --if-present run typecheck",
     "test": "npm -ws --if-present run test",
     "test:e2e": "npm -w @niho-experience/web run test:e2e",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "build:presentation": "npm -w @niho/experience-presentation run build",
+    "check:presentation": "npm -w @niho/experience-presentation run check:generated && npm -w @niho/experience-presentation run typecheck && npm -w @niho/experience-presentation run test"
   },
   "overrides": {
     "playwright-core": "1.56.1"

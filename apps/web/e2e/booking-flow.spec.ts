@@ -137,7 +137,8 @@ test("a newly full date can be checked again without trapping the guest", async 
 test("a changed price requires a fresh detail and agreement", async ({ page }) => {
   await page.goto(`${dinner}/book?mock=checkout-price-changed`);
   await chooseFirstDate(page);
-  const total = page.locator('section[aria-labelledby="check-heading"] dl dd').last();
+  const checkSection = page.locator("section").filter({ has: page.getByRole("heading", { name: /Check and pay/ }) });
+  const total = checkSection.locator("dl dd").last();
   const beforeRefresh = await total.innerText();
   await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
   await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
