@@ -130,11 +130,39 @@
 
 ### 9.1 ホスト API の契約（[#87](https://github.com/niho-life/niho-experience/issues/87)）
 
-- 置き場：`packages/api-client/contract/experience-host-api.openapi.json`（＋ `.sha256`）。NIHO が `npm -C contracts run export:experience-host-contract` で書き出したものを、中身を変えずに写す（手順は §12 と同じ）。版は `0.1.0`・状態は draft。NIHO 側に画面の段ごとの operation が揃ったら agreed にする。
-- 範囲：今は提供者の一覧・登録・取得・更新・審査の申請、受取口座（準備・既存口座の再利用・接続）と `GET /api/auth/me`（表示名と顔写真だけ）。体験ページ・写真（#89）、予約（#90）、売上（#91）の operation は NIHO 側が足した段で写す。
-- 監査：`auditHostContractDocument` と `contract/host-field-policy.json`。path は `/api/experience-providers` 以下と `GET /api/auth/me` だけ、認証は Bearer だけ、schema は `x-niho-experience-host-dto` の印つきで閉じた形（閉じない schema はポリシーの `openSchemas` に理由つきで 2 つだけ）、パスワード・メール・電話・Stripe などの項目名は禁止。公開 API の監査とは別に持つ。
-- クライアント：`@niho-experience/api-client/host` の `createExperienceHostApiClient`。サーバー専用で、ブラウザのコードから実行時に import すると lint で止まる（型だけは可）。結果は `{ ok: true, data }` か、`status`・`code`・`reason` を持つエラー。
-- mock：`@niho-experience/api-client/host/mock` の `createMockExperienceHostFetch`。scenario は `empty`（提供者 0 件）・`two-providers`（OWNER で口座準備済みと、EDITOR で下書き）・`payments-pending`（口座未接続・再利用の候補あり）。書き込みは同じ fetch の中だけで変わり、Web は要求ごとに作り直すので次の要求には残らない。
+- 置き場：`packages/api-client/contract/experience-host-api.openapi.json`（＋ `.sha256`）。NIHO が `npm -C contracts run export:experience-host-contract` で書き出したものを、中身を変えずに写す（手順は §12 と同じ）。版は `0.2.0`・状態は draft・操作は 29。NIHO 側に画面の段ごとの操作が揃ったら agreed にする。
+- 範囲：
+  - 提供者：一覧・登録・取得・更新・審査の申請
+  - 受取口座：準備・既存口座の再利用・接続
+  - 体験ページ：一覧・作成・取得・更新・削除・公開・公開停止・プレビュー
+  - 集合場所：提供者の既定と、ページごとの上書き
+  - 体験サイトへの掲載：取得・申請・取り下げ（OWNER だけ）
+  - 写真の上げ口：署名つき POST と、表示用の署名つき URL
+  - `GET /api/auth/me`（表示名と顔写真だけ）
+  - 予約・顧客・売上（#90・#91）は、NIHO 側が足した段で写す。
+- 失敗の本文：閉じた `ExperienceHostErrorResponse`。`error.code` と `error.details.reason` は enum で、`details` は理由ごとに決まった項目の組（oneOf）。400 以外は `supportId` を持つ。
+- 版の確かめ方：体験ページの保存と公開は header `x-niho-page-updated-at`（違えば 409 `PAGE_UPDATED`）、ページの集合場所は本文の `expectedUpdatedAt`（違えば 409 `PROVIDER_PAGE_CONFLICT`）。ページの集合場所を保存するとページの版が進むので、続く保存はその応答の `updatedAt` を使う。
+- 写真の流れ：
+  1. サーバーが `createExperienceProviderUploadPolicy` で署名つき POST を受け取り、`toExperienceProviderPhotoUploadForm` でブラウザへ渡す。
+  2. ブラウザは fields を全部入れ、最後に `file` を足して GCS へ直接送る。
+  3. 返った `objectKey` を本文の `photoObjectKeys` に入れて保存する。
+  - GCS への直接送信は、NIHO 側でバケットの CORS に体験サイトの origin を足してから使う（#89 の受入）。
+- 監査：`auditHostContractDocument` と `contract/host-field-policy.json`。
+  - path は `/api/experience-providers` 以下と `GET /api/auth/me` だけ。認証は Bearer だけ。
+  - schema は `x-niho-experience-host-dto` の印つきで、閉じた形（oneOf の各組も含む）。応答の項目は全部 required。
+  - 閉じない schema（`openSchemas`）は、`ExperienceHostAuthMe`（me の一部）と `ExperienceProviderUploadPolicyFields`（GCS が名前を決める form の項目）の 2 つだけ。
+  - パスワード・メール・電話・Stripe などの語は禁止。例外は `allowedPropertyNames` で、schema と名前を明示して語ごとに許す。
+    - 写真の識別子（`objectKey` 系の 5 つ）：ホストが上げた写真を指すのに要る。
+    - `ExperienceProviderMeetingPoint.address`：集合場所はホストが入力して管理する。
+    - 同じ名前でも別の schema や別の語は違反のまま。
+- クライアント：`@niho-experience/api-client/host` の `createExperienceHostApiClient`。
+  - サーバー専用で、ブラウザのコードから実行時に import すると lint で止まる（型だけは可）。メソッド名は operationId と同じ。
+  - 結果は `{ ok: true, data }` か、`status`・`code`・`reason`（契約の enum の型）を持つエラー。応答は契約の項目だけを取り出す。
+  - 保存と公開は、読んだ版（`expectedUpdatedAt`）を引数に取る。
+- mock：`@niho-experience/api-client/host/mock` の `createMockExperienceHostFetch`。
+  - scenario は `empty`（提供者 0 件）・`two-providers`（OWNER で口座準備済み・体験ページ 2 件〔英語で公開中・掲載中／日本語の下書き〕・集合場所あり、と EDITOR で下書き）・`payments-pending`（口座未接続・再利用の候補あり）。
+  - 書き込みは同じ fetch の中だけで変わり、Web は要求ごとに作り直すので次の要求には残らない。
+  - 写真の URL は `https://uploads.niho-mock.test/...`（`isMockPhotoUrl`）。option `uploadsDisabled` で上げ口の 503 を再現できる。
 
 ## 10. mock
 

@@ -22,8 +22,8 @@ npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life
 
 - `contract/experience-public-api.openapi.json`：契約（OpenAPI 3.0.3）。`src/generated/openapi.ts` はここから生成する。
 - `contract/public-field-policy.json`：公開してはいけない名前と、要求にだけ置ける個人情報の項目。
-- `contract/experience-host-api.openapi.json`（＋`.sha256`）：ホスト API の契約（**状態：draft・v0.1.0**。NIHO の `contracts/exports` の書き出しをそのまま置く）。`src/generated/host-openapi.ts` はここから生成する。
-- `contract/host-field-policy.json`：ホスト API の範囲（path・Bearer）、閉じない schema の許可リスト、入れてはいけない名前・語。監査は `auditHostContractDocument`（公開の `auditContractDocument` とは別）。
+- `contract/experience-host-api.openapi.json`（＋`.sha256`）：ホスト API の契約（**状態：draft・v0.2.0**。NIHO の `contracts/exports` の書き出しをそのまま置く。操作は 29）。`src/generated/host-openapi.ts` はここから生成する。
+- `contract/host-field-policy.json`：ホスト API の範囲（path・Bearer）、閉じない schema の許可リスト（`openSchemas`：`ExperienceHostAuthMe`・写真の form の項目 `ExperienceProviderUploadPolicyFields`）、入れてはいけない名前・語と、その例外（`allowedPropertyNames`：写真の識別子 `objectKey` 系と集合場所の `address` を、理由と一緒に schema ごと・名前ごとに許す。語そのものの禁止は残す）。監査は `auditHostContractDocument`（公開の `auditContractDocument` とは別。`oneOf` の各組も閉じた形として見る）。
 
 ### ホスト API
 
@@ -35,8 +35,15 @@ const result = await api.listExperienceProviders();
 if (!result.ok && result.kind === "error") console.log(result.status, result.code, result.reason); // reason は error.details.reason
 ```
 
-- メソッド名は契約の operationId と同じ（`getAuthMe`・`listExperienceProviders`・`registerExperienceProvider`・`getExperienceProvider`・`updateExperienceProvider`・`submitExperienceProvider`・`getExperienceProviderPaymentReadiness`・`listExperienceProviderPaymentReuseCandidates`・`reuseExperienceProviderPayment`・`start|resume|syncExperienceProviderPaymentConnect`）。
-- 結果は `{ ok: true, data }` か、`{ kind: "error", status, code, reason }`・`network_error`・`unexpected_response`。応答は契約の項目だけを取り出す（`getAuthMe` は表示名と顔写真だけ）。
+- メソッド名は契約の operationId と同じ。
+  - 提供者・受取口座：`getAuthMe`・`listExperienceProviders`・`registerExperienceProvider`・`getExperienceProvider`・`updateExperienceProvider`・`submitExperienceProvider`・`getExperienceProviderPaymentReadiness`・`listExperienceProviderPaymentReuseCandidates`・`reuseExperienceProviderPayment`・`start|resume|syncExperienceProviderPaymentConnect`
+  - 集合場所：`get|updateExperienceProviderMeetingPoint`（提供者の既定）・`get|updateExperienceProviderPageMeetingPoint`（ページの上書き `OVERRIDE` / 既定 `INHERIT`）
+  - 体験ページ：`listExperienceProviderPages`・`createExperienceProviderPage`・`getExperienceProviderPage`・`updateExperienceProviderPage`・`deleteExperienceProviderPage`・`publishExperienceProviderPage`・`unpublishExperienceProviderPage`・`getExperienceProviderPagePreview`
+  - 体験サイトへの掲載（OWNER だけ）：`getExperienceProviderPageListing`・`requestExperienceProviderPageListing`・`withdrawExperienceProviderPageListing`
+  - 写真：`createExperienceProviderUploadPolicy`・`createExperienceProviderUploadSignedUrl`
+- 結果は `{ ok: true, data }` か、`{ kind: "error", status, code, reason }`・`network_error`・`unexpected_response`。`code` と `reason` は契約の enum の型（知らない値も文字列のまま渡す）で、あれば `field`（体験ページの入力の場所）・`slug`（`PAGE_SLUG_LOCKED` の今の slug）・`blockers`（`PAGE_PUBLISH_BLOCKED`）・`supportId`（問い合わせ用）も付く。応答は契約の項目だけを取り出す（`getAuthMe` は表示名と顔写真だけ。署名つき URL は https だけ）。
+- 体験ページの保存と公開は、読んだときの `updatedAt` を渡す（`updateExperienceProviderPage(providerId, pageId, body, expectedUpdatedAt)`・`publishExperienceProviderPage(providerId, pageId, expectedUpdatedAt)`）。header `x-niho-page-updated-at` に載り、今の版と違えば 409 `PAGE_UPDATED`（読み直す）。`null` なら版を確かめない。ページの集合場所は本文の `expectedUpdatedAt`（違えば 409 `PROVIDER_PAGE_CONFLICT`）。
+- 写真はブラウザが GCS へ直接上げる：サーバーが `createExperienceProviderUploadPolicy` を呼び、`toExperienceProviderPhotoUploadForm(policy)` の値（型 `ExperienceProviderPhotoUploadForm`）をブラウザへ渡す。ブラウザは `fields` を全部 form に入れ、最後に `file` を足して `url` へ POST し、`objectKey` を `photoObjectKeys` に入れて保存する（ブラウザで送る処理はこのパッケージに無い）。
 - Stripe の接続の `url` へ遷移する前に `isStripeConnectUrl(url)` で確かめる（mock の URL は `isMockConnectUrl`）。
-- mock：`createMockExperienceHostFetch({ scenario })`。`scenario` は `empty`（提供者 0 件）・`two-providers`（OWNER・承認済み・口座準備済みの台所と、EDITOR・下書きの工房）・`payments-pending`（口座未接続・再利用の候補あり）。登録・変更・申請・再利用・接続は同じ fetch のインスタンスの中だけで状態を変える。
+- mock：`createMockExperienceHostFetch({ scenario, uploadsDisabled })`。`scenario` は `empty`（提供者 0 件）・`two-providers`（OWNER・承認済み・口座準備済みの台所と、EDITOR・下書きの工房。台所には集合場所の既定と、英語で公開中・掲載中の体験ページと日本語の下書きがある）・`payments-pending`（口座未接続・再利用の候補あり）。登録・変更・申請・再利用・接続・集合場所・体験ページ・掲載・写真の上げ口は同じ fetch のインスタンスの中だけで状態を変える。写真の URL は実在しない host（`isMockPhotoUrl`）。`uploadsDisabled: true` で写真の上げ口が 503 `uploads_disabled`。失敗は契約の `ExperienceHostErrorResponse`（合成の `supportId`）。
 - `src/fixtures/`：架空の体験。`mock-assets/`：仮素材の SVG（`node scripts/write-mock-assets.ts` で再生成）。
