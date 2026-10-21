@@ -20,7 +20,7 @@ vi.mock("@/lib/host/server", async (importActual) => {
   };
 });
 
-import { hostPageContext, loadHostConsoleData } from "./data";
+import { hostPageContext, loadHostBookings, loadHostConsoleData } from "./data";
 
 /** A provider as the host contract shapes it (synthetic values). */
 const provider = (fields: Pick<HostProvider, "id" | "displayName" | "memberRole"> & Partial<HostProvider>): HostProvider => ({
@@ -119,6 +119,35 @@ describe("loadHostConsoleData", () => {
     // A detail for another provider is not taken for this one.
     stubNiho(() => Response.json(detailBody(provider({ id: "someone-else", displayName: "別の提供者", memberRole: "OWNER", kind: "BUSINESS" }))));
     expect((await loadHostConsoleData(KITCHEN)).settings).toMatchObject(fromList);
+  });
+});
+
+describe("loadHostBookings", () => {
+  it("mock: the kitchen's bookings, the one ?booking= names, and the experiences without their pages", async () => {
+    const data = await loadHostBookings(KITCHEN, "bk-2041");
+    expect([data.today, data.now]).toEqual(["2026-10-21", "2026-10-21T15:30"]);
+    expect(data.list.status === "ready" && data.list.bookings).toHaveLength(10);
+    expect(data.requested).toMatchObject({ status: "ready", booking: { id: "bk-2041", guest: "Lucas & Mia Chen" } });
+    expect(data.experiences[0]).toEqual({
+      id: "community-dinner",
+      title: "Kamakura Community Dinner with Locals",
+      offers: [
+        { id: "offer-dinner", capacity: 8, durationMinutes: 120 },
+        { id: "offer-tea", capacity: 8, durationMinutes: 120 },
+      ],
+    });
+    expect((await loadHostBookings(KITCHEN, null)).requested).toBeNull();
+    // The studio has no bookings, and the kitchen's are not its own.
+    const studio = await loadHostBookings(STUDIO, "bk-2041");
+    expect([studio.list, studio.requested]).toEqual([{ status: "ready", bookings: [] }, { status: "missing" }]);
+  });
+
+  it("http: nothing to read until the provider API has bookings (#87)", async () => {
+    state.config.apiMode = "http";
+    const calls = stubNiho(() => new Response("unexpected", { status: 500 }));
+    const data = await loadHostBookings(KITCHEN, "bk-2041");
+    expect([data.list, data.requested, data.now]).toEqual([{ status: "unavailable" }, { status: "unavailable" }, null]);
+    expect(calls).toEqual([]);
   });
 });
 

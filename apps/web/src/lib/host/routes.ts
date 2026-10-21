@@ -22,9 +22,25 @@ export const HOST_NAV = [
   { href: "/host/settings", label: "設定" },
 ] as const;
 
-/** `path?providerId=…` when a provider is chosen; the only query the console carries between pages. */
+/**
+ * `href` with these query values set, after the query it already has. Empty values are left
+ * out, so `withQuery("/host/bookings", { filter: null })` stays "/host/bookings".
+ */
+export function withQuery(href: string, values: Record<string, string | null | undefined>): string {
+  const at = href.indexOf("?");
+  const path = at < 0 ? href : href.slice(0, at);
+  const query = new URLSearchParams(at < 0 ? "" : href.slice(at + 1));
+  for (const [key, value] of Object.entries(values)) if (value) query.set(key, value);
+  const search = query.toString();
+  return search ? `${path}?${search}` : path;
+}
+
+/**
+ * `path?providerId=…` when a provider is chosen: the query every console link carries between
+ * pages. A page's own query (the bookings screen's `?filter=`) stays in front of it.
+ */
 export function withProvider(path: string, providerId: string | null | undefined): string {
-  return providerId ? `${path}?${new URLSearchParams({ providerId })}` : path;
+  return withQuery(path, { providerId });
 }
 
 /** Why the login did not finish; each has its own message on /host/auth/error. */

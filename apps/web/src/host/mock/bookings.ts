@@ -1,14 +1,242 @@
-import type { HostBooking } from "../types";
+import type { HostBooking, HostBookingEvent } from "../types";
 
 /** The preview's fixed "today" (JST). The synthetic dates below are written around it. */
 export const MOCK_TODAY = "2026-10-21";
 
-// Invented guests; nothing here is a real booking.
+/**
+ * The preview's fixed moment (JST) that the host's actions on bookings are dated with: after
+ * every synthetic event, before today's first deadline (22:00).
+ */
+export const MOCK_NOW = `${MOCK_TODAY}T15:30`;
+
+/*
+ * Invented guests and requests for the sample kitchen; nothing here is a real booking, and
+ * the emails are example.com. The offers and prices are the Community Dinner's
+ * (mock/experiences.ts): Dinner on Tuesday, Thursday and Saturday at 18:00, tea time on
+ * Sunday at 13:00. Every booking waits for the host's approval before it is charged.
+ */
+
+const DIETARY = "Any dietary preferences we should know about?";
+
+type BookedOffer = Pick<HostBooking, "experienceId" | "offerId" | "offer" | "start" | "end" | "adultPriceYen" | "childPriceYen">;
+
+const DINNER: BookedOffer = { experienceId: "community-dinner", offerId: "offer-dinner", offer: "Dinner", start: "18:00", end: "20:00", adultPriceYen: 30000, childPriceYen: 12000 };
+const TEA_TIME: BookedOffer = { experienceId: "community-dinner", offerId: "offer-tea", offer: "tea time", start: "13:00", end: "15:00", adultPriceYen: 15000, childPriceYen: null };
+
+type MockBooking = BookedOffer &
+  Pick<HostBooking, "id" | "guest" | "email" | "date" | "adults" | "status" | "channel" | "timeline"> &
+  Partial<Omit<HostBooking, "guests" | "amountYen">>;
+
+/** A booking with what it leaves out filled in, and its head count and total worked out from the prices. */
+function booking({ adults, children = 0, ...fields }: MockBooking): HostBooking {
+  return {
+    language: "en",
+    note: "",
+    answers: [],
+    meetingGuide: null,
+    authorizedAt: null,
+    paidAt: null,
+    respondBy: null,
+    cancelRequestedAt: null,
+    cancelledAt: null,
+    cancelReason: null,
+    cancelMessage: null,
+    refundedYen: 0,
+    messages: [],
+    ...fields,
+    adults,
+    children,
+    guests: adults + children,
+    amountYen: adults * fields.adultPriceYen + children * (fields.childPriceYen ?? 0),
+  };
+}
+
+/** The request and its card hold, in the same minute. */
+const requested = (at: string, channel: string): HostBookingEvent[] => [
+  { at, text: `申込（${channel}）` },
+  { at, text: "与信" },
+];
+
+/** The host's approval: confirmed and charged. */
+const approved = (at: string): HostBookingEvent[] => [
+  { at, text: "承認 · 確定" },
+  { at, text: "支払い" },
+];
+
 export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
-  { id: "bk-2041", experienceId: "community-dinner", guest: "Lucas & Mia Chen", date: "2026-10-22", start: "18:00", end: "20:00", offer: "Dinner", guests: 2, amountYen: 60000, status: "pending", channel: "体験サイト", respondBy: "2026-10-21T22:00" },
-  { id: "bk-2038", experienceId: "community-dinner", guest: "Emma Larsson", date: "2026-10-22", start: "18:00", end: "20:00", offer: "Dinner", guests: 2, amountYen: 60000, status: "confirmed", channel: "体験サイト" },
-  { id: "bk-2035", experienceId: "community-dinner", guest: "Noah Williams", date: "2026-10-24", start: "18:00", end: "20:00", offer: "Dinner", guests: 1, amountYen: 30000, status: "confirmed", channel: "体験サイト" },
-  { id: "bk-2031", experienceId: "community-dinner", guest: "Sofia Rossi", date: "2026-10-27", start: "18:00", end: "20:00", offer: "Dinner", guests: 3, amountYen: 90000, status: "confirmed", channel: "NIHO" },
-  { id: "bk-2020", experienceId: "community-dinner", guest: "Oliver Brown", date: "2026-10-18", start: "18:00", end: "20:00", offer: "Dinner", guests: 2, amountYen: 60000, status: "confirmed", channel: "体験サイト" },
-  { id: "bk-2012", experienceId: "community-dinner", guest: "Hannah Kim", date: "2026-10-14", start: "18:00", end: "20:00", offer: "Dinner", guests: 2, amountYen: 60000, status: "cancelled", channel: "体験サイト" },
+  booking({
+    ...DINNER,
+    id: "bk-2041",
+    guest: "Lucas & Mia Chen",
+    email: "lucas.chen@example.com",
+    date: "2026-10-22",
+    adults: 2,
+    status: "pending",
+    channel: "体験サイト",
+    note: "It is our anniversary that evening!",
+    answers: [{ question: DIETARY, answer: "One of us is vegetarian." }],
+    meetingGuide: { version: 2, sentAt: null },
+    authorizedAt: "2026-10-20T14:02",
+    respondBy: "2026-10-21T22:00",
+    timeline: requested("2026-10-20T14:02", "体験サイト"),
+  }),
+  booking({
+    ...DINNER,
+    id: "bk-2038",
+    guest: "Emma Larsson",
+    email: "emma.larsson@example.com",
+    date: "2026-10-22",
+    adults: 2,
+    status: "confirmed",
+    channel: "体験サイト",
+    answers: [{ question: DIETARY, answer: "No restrictions." }],
+    meetingGuide: { version: 2, sentAt: "2026-10-18T10:05" },
+    authorizedAt: "2026-10-18T09:41",
+    paidAt: "2026-10-18T10:05",
+    timeline: [...requested("2026-10-18T09:41", "体験サイト"), ...approved("2026-10-18T10:05")],
+  }),
+  booking({
+    ...DINNER,
+    id: "bk-2035",
+    guest: "Noah Williams",
+    email: "noah.w@example.com",
+    date: "2026-10-24",
+    adults: 1,
+    status: "confirmed",
+    channel: "体験サイト",
+    answers: [{ question: DIETARY, answer: "No shellfish, please." }],
+    meetingGuide: { version: 2, sentAt: "2026-10-18T08:30" },
+    authorizedAt: "2026-10-17T21:10",
+    paidAt: "2026-10-18T08:30",
+    timeline: [...requested("2026-10-17T21:10", "体験サイト"), ...approved("2026-10-18T08:30")],
+  }),
+  booking({
+    ...DINNER,
+    id: "bk-2031",
+    guest: "Sofia Rossi",
+    email: "sofia.rossi@example.com",
+    date: "2026-10-27",
+    adults: 3,
+    status: "confirmed",
+    channel: "NIHO",
+    note: "We arrive from Tokyo around 5pm.",
+    answers: [{ question: DIETARY, answer: "None." }],
+    // Confirmed before the meeting guide was rewritten (v2): the guest has the first version.
+    meetingGuide: { version: 1, sentAt: "2026-10-15T18:02" },
+    authorizedAt: "2026-10-15T16:48",
+    paidAt: "2026-10-15T18:02",
+    messages: [
+      {
+        id: "bk-2031-message-1",
+        at: "2026-10-16T09:20",
+        subject: "Before your dinner on 27 October",
+        body: "Thank you for booking with us! If your train is late, come straight up: we start at 18:00 and will keep your seats.",
+        status: "sent",
+      },
+    ],
+    timeline: [...requested("2026-10-15T16:48", "NIHO"), ...approved("2026-10-15T18:02"), { at: "2026-10-16T09:20", text: "メッセージ送信 · Before your dinner on 27 October" }],
+  }),
+  booking({
+    ...DINNER,
+    id: "bk-2020",
+    guest: "Oliver Brown",
+    email: "oliver.b@example.com",
+    date: "2026-10-17",
+    adults: 2,
+    status: "confirmed",
+    channel: "体験サイト",
+    answers: [{ question: DIETARY, answer: "No restrictions." }],
+    meetingGuide: { version: 1, sentAt: "2026-10-09T13:10" },
+    authorizedAt: "2026-10-09T12:30",
+    paidAt: "2026-10-09T13:10",
+    timeline: [...requested("2026-10-09T12:30", "体験サイト"), ...approved("2026-10-09T13:10")],
+  }),
+  booking({
+    ...DINNER,
+    id: "bk-2012",
+    guest: "Hannah Kim",
+    email: "hannah.kim@example.com",
+    date: "2026-10-15",
+    adults: 2,
+    status: "cancelled",
+    channel: "体験サイト",
+    answers: [{ question: DIETARY, answer: "No pork, please." }],
+    meetingGuide: { version: 1, sentAt: "2026-10-05T12:00" },
+    authorizedAt: "2026-10-05T11:20",
+    paidAt: "2026-10-05T12:00",
+    cancelRequestedAt: "2026-10-12T09:14",
+    cancelledAt: "2026-10-12T09:30",
+    cancelReason: "guest",
+    cancelMessage: "As you asked, we have cancelled your booking. The full amount will go back to your card.",
+    refundedYen: 60000,
+    timeline: [
+      ...requested("2026-10-05T11:20", "体験サイト"),
+      ...approved("2026-10-05T12:00"),
+      { at: "2026-10-12T09:14", text: "取消依頼（旅行者）" },
+      { at: "2026-10-12T09:30", text: "取消 · 返金 ¥60,000" },
+    ],
+  }),
+  // The traveler asked to cancel a confirmed booking (要返金): it waits for the host's refund.
+  booking({
+    ...TEA_TIME,
+    id: "bk-2033",
+    guest: "Mateo García",
+    email: "mateo.garcia@example.com",
+    date: "2026-10-25",
+    adults: 2,
+    status: "refund_needed",
+    channel: "体験サイト",
+    meetingGuide: { version: 2, sentAt: "2026-10-16T20:15" },
+    authorizedAt: "2026-10-16T19:40",
+    paidAt: "2026-10-16T20:15",
+    cancelRequestedAt: "2026-10-20T08:12",
+    timeline: [...requested("2026-10-16T19:40", "体験サイト"), ...approved("2026-10-16T20:15"), { at: "2026-10-20T08:12", text: "取消依頼（旅行者）" }],
+  }),
+  booking({
+    ...DINNER,
+    id: "bk-2044",
+    guest: "Ana Souza",
+    email: "ana.souza@example.com",
+    date: "2026-10-29",
+    adults: 2,
+    children: 1,
+    status: "pending",
+    channel: "体験サイト",
+    note: "Our daughter is 8 and loves cooking.",
+    answers: [{ question: DIETARY, answer: "Our daughter does not eat raw fish." }],
+    meetingGuide: { version: 2, sentAt: null },
+    authorizedAt: "2026-10-21T09:15",
+    respondBy: "2026-10-23T12:00",
+    timeline: requested("2026-10-21T09:15", "体験サイト"),
+  }),
+  booking({
+    ...DINNER,
+    id: "bk-2026",
+    guest: "Chloé Dubois",
+    email: "chloe.dubois@example.com",
+    date: "2026-10-17",
+    adults: 4,
+    status: "declined",
+    channel: "体験サイト",
+    note: "Could we start at 19:30? Our train arrives late.",
+    answers: [{ question: DIETARY, answer: "No restrictions." }],
+    authorizedAt: "2026-10-13T10:05",
+    respondBy: "2026-10-14T10:05",
+    timeline: [...requested("2026-10-13T10:05", "体験サイト"), { at: "2026-10-13T18:30", text: "お断り · 与信を取り消し" }],
+  }),
+  booking({
+    ...DINNER,
+    id: "bk-2017",
+    guest: "森 健二",
+    email: "kenji.mori@example.com",
+    language: "ja",
+    date: "2026-10-10",
+    adults: 2,
+    status: "expired",
+    channel: "NIHO",
+    answers: [{ question: DIETARY, answer: "特になし" }],
+    authorizedAt: "2026-10-07T20:30",
+    respondBy: "2026-10-08T20:30",
+    timeline: [...requested("2026-10-07T20:30", "NIHO"), { at: "2026-10-08T20:30", text: "承認期限切れ · 与信を取り消し" }],
+  }),
 ];
