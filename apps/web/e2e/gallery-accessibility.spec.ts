@@ -7,19 +7,19 @@ test("photo navigation is operable by buttons and keyboard, with a spoken positi
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(dinner);
   const gallery = page.getByRole("region", { name: /^Photos of/ });
-  const position = page.getByRole("status").filter({ hasText: /^Photo \d+ of \d+/ });
-  await expect(position).toContainText("Photo 1 of 4");
+  const position = page.getByRole("status").filter({ hasText: /photo \d+ of \d+/i });
+  await expect(position).toContainText(/photo 1 of 4/i);
   await expect(page.getByRole("button", { name: "Previous photo" })).toBeDisabled();
   await page.getByRole("button", { name: "Next photo" }).click();
-  await expect(position).toContainText("Photo 2 of 4");
+  await expect(position).toContainText(/photo 2 of 4/i);
   await gallery.focus();
   await page.keyboard.press("End");
-  await expect(position).toContainText("Photo 4 of 4");
+  await expect(position).toContainText(/photo 4 of 4/i);
   await expect(page.getByRole("button", { name: "Next photo" })).toBeDisabled();
   await page.keyboard.press("ArrowLeft");
-  await expect(position).toContainText("Photo 3 of 4");
+  await expect(position).toContainText(/photo 3 of 4/i);
   await page.keyboard.press("Home");
-  await expect(position).toContainText("Photo 1 of 4");
+  await expect(position).toContainText(/photo 1 of 4/i);
   await expect(gallery).toBeFocused();
 });
 
@@ -52,7 +52,7 @@ test("a failed photo keeps its description and does not disable navigation", asy
   await expect(gallery.getByText("Photo unavailable").first()).toBeVisible();
   await expect(gallery.getByRole("img").first()).toHaveAccessibleName(/.+/);
   await page.getByRole("button", { name: "Next photo" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Photo 2 of 4" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /photo 2 of 4/i })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

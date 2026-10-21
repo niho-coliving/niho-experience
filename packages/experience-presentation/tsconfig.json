@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": false,
+    "declaration": true,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "jsx": "react-jsx",
+    "noEmit": false,
+    "outDir": "dist/v1",
+    "rootDir": "src/v1",
+    "sourceMap": false,
+    "stripInternal": true
+  },
+  "include": ["src/v1/**/*.ts", "src/v1/**/*.tsx"],
+  "exclude": ["src/**/*.test.ts", "dist"]
+}

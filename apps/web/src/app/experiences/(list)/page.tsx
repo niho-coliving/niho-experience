@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CatalogueViewV1 } from "@niho/experience-presentation/v1";
 import { TrackView } from "@/components/Analytics";
 import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { ExperienceList } from "@/components/ExperienceList";
@@ -55,12 +56,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
     filtersActive: Boolean(searchQuery || theme || date || initialGuests !== null),
   };
   const listContent = (props: BlockProps = {}) => (
-    <div className="pt-9 sm:pt-14">
-      <header className="container-page">
-        <p className="eyebrow">small groups · local hosts</p>
-        <h1 className="mt-1.5 text-[2.5rem] sm:text-[3.625rem]">{blockText(props, "heading", "Experiences in Kamakura")}</h1>
-        <p className="mt-2.5 text-[0.9375rem] text-muted">Prices in Japanese yen, tax included. Times in Japan time (JST).</p>
-      </header>
+    <CatalogueViewV1 heading={blockText(props, "heading", "Experiences in Kamakura")} content={
       <ExperienceList
         key={JSON.stringify([searchQuery, theme, initialDate, initialGuests])}
         cards={cards}
@@ -71,12 +67,12 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
         catalogDateFiltered={config.publicApiVersion === "1.2" && Boolean(date)}
         preview={isPreview}
         nihoWebOrigin={config.nihoWebOrigin}
-        search={<ExperienceFiltersForm {...searchProps} placement="bar" />}
-        inlineSearch={<ExperienceFiltersForm {...searchProps} placement="inline" />}
+        search={<ExperienceFiltersForm key="bar-search" {...searchProps} placement="bar" />}
+        inlineSearch={<ExperienceFiltersForm key="inline-search" {...searchProps} placement="inline" />}
         columns={props.columns === "two" ? "two" : "three"}
-        empty={<><EmptyResults clearHref={searchQuery || theme || date || initialGuests !== null ? "/experiences" : null} searchActive={Boolean(searchQuery)} />{props.emptyMessage ? <p>{String(props.emptyMessage)}</p> : null}</>}
+        empty={<><EmptyResults key="empty-results" clearHref={searchQuery || theme || date || initialGuests !== null ? "/experiences" : null} searchActive={Boolean(searchQuery)} />{props.emptyMessage ? <p key="empty-message">{String(props.emptyMessage)}</p> : null}</>}
       />
-    </div>
+    } />
   );
   return <>
     <TrackView event="list_view" props={{ theme: theme ?? "all", date_filtered: initialDate !== null, result_count: items.length }} />

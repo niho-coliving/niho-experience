@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BookingPageViewV1 } from "@niho/experience-presentation/v1";
 import { TrackView } from "@/components/Analytics";
 import { BookingFlow } from "@/components/BookingFlow";
 import { BookingSummaryCard } from "@/components/BookingParts";
-import { HandIcon } from "@/components/HandIcon";
 import { PageDocumentContent } from "@/components/PageDocument";
 import { ButtonLink, Notice } from "@/components/ui";
 import { getExperienceForSite } from "@/lib/api";
@@ -13,6 +12,7 @@ import type { SearchParams } from "@/lib/filters";
 import { browseHref, readBrowseContext } from "@/lib/browse-context";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { shortName } from "@/lib/themes";
+import { PRESENTATION_PRIMITIVES_V1 } from "@/components/PresentationV1";
 
 export const metadata: Metadata = { title: "Your booking", robots: { index: false, follow: false } };
 export default async function BookPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> }) {
@@ -31,10 +31,6 @@ export default async function BookPage({ params, searchParams }: { params: Promi
   const panel = (titleAs: "h1" | "p") => available
     ? <BookingFlow experience={experience} preview={isPreview} availabilityIsProvisional={isPreview && config.mockCatalog === "pilot"} nihoWebOrigin={config.nihoWebOrigin} attributionEnabled={config.publicApiVersion === "1.2"} publicApiVersion={config.publicApiVersion} initialOfferId={initialOfferId} initialDate={initialDate} initialAdultCount={browseContext.guests} titleAs={titleAs} />
     : <><TrackView event="booking_unavailable" props={{ experience: slug, error_code: "bookings_paused" }} /><BookingSummaryCard experience={experience} offer={null} titleAs={titleAs} /><div className="mt-6"><Notice role="alert" tone="warn" title="Online booking is paused for now">New bookings are unavailable. Please check back later.</Notice></div><div className="mt-6"><ButtonLink href={`/experiences/${slug}`} variant="secondary">Back to the experience</ButtonLink></div></>;
-  return <div className="container-page max-w-2xl pb-6">
-    <Link href={browseHref(`/experiences/${slug}`, browseContext, initialOfferId)} className="mt-[18px] inline-flex items-center gap-1.5 text-sm font-extrabold text-ink-soft hover:text-ink">
-      <HandIcon name="back" className="size-[18px] [stroke-width:2.2]" /><span className="sr-only">Back to </span>{shortName(experience, isPilotPreview)}
-    </Link>
-    <PageDocumentContent document={document} pageId="booking" fallback={panel("h1")} slots={{ BookingPanel: () => <div className="mt-6">{panel("p")}</div> }} />
-  </div>;
+  const backLabel = shortName(experience, isPilotPreview);
+  return <BookingPageViewV1 primitives={PRESENTATION_PRIMITIVES_V1} backHref={browseHref(`/experiences/${slug}`, browseContext, initialOfferId)} backLabel={backLabel} backAccessibleLabel={`Back to ${backLabel}`} panel={<PageDocumentContent document={document} pageId="booking" fallback={panel("h1")} slots={{ BookingPanel: () => <div className="mt-6">{panel("p")}</div> }} />} />;
 }

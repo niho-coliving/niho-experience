@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+import { DetailViewV1, EN_STATIC_COPY_V1, type DetailViewModelV1 } from "@niho/experience-presentation/v1";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TrackView } from "@/components/Analytics";
 import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
-import { BookingCard, MobileBookingBar, type BookingSummary } from "@/components/DetailBooking";
+import { BookingCard, BookingDatesController, MobileBookingBar, type BookingSummary } from "@/components/DetailBooking";
+import { bookingCardModel } from "@/lib/presentation-booking-model";
 import { browseHref, readBrowseContext } from "@/lib/browse-context";
-import { AllPhotosButton, MobileGallery } from "@/components/DetailGallery";
+import { DesktopGallery, MobileGallery } from "@/components/DetailGallery";
 import { FaceBadge } from "@/components/Face";
 import { HandIcon, RubberStamp, type HandIconName } from "@/components/HandIcon";
 import { JsonLd } from "@/components/JsonLd";
@@ -24,6 +26,7 @@ import { seoDescription } from "@/lib/seo-description";
 import { breadcrumbJsonLd, experienceJsonLd } from "@/lib/structured-data";
 import { iconForText } from "@/lib/themes";
 import { getPublishedPageDocument } from "@/lib/page-documents";
+import { PRESENTATION_PRIMITIVES_V1 } from "@/components/PresentationV1";
 import { publicMetadata } from "@/lib/public-metadata";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
@@ -409,41 +412,56 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
       </div>
     </div>
   );
+  const portableDetail = (props: BlockProps = {}, includeBooking = true) => {
+    const toImage = (photo: PublicImageForSite | null, fallback = "") => photo ? { src: photo.url, alt: imageAlt(photo, fallback) } : null;
+    const model: DetailViewModelV1 = {
+      title: e.title,
+      backHref: browseHref("/experiences", browseContext),
+      gallery: {
+        title: e.title,
+        backHref: browseHref("/experiences", browseContext),
+        photos: photos.map((photo, index) => {
+          const alt = imageAlt(photo, index === 0 ? e.title : `${e.title}, photo ${index + 1} of ${photos.length}`);
+          return { image: { src: photo.url, alt }, alt };
+        }),
+      },
+      schedule: line ?? undefined,
+      hosts: hostFaces.map((face) => ({ ...face, image: toImage(face.image) })),
+      hostLine: EN_STATIC_COPY_V1.rich(e.hosts.length ? (e.provider.kind === "SPOT" ? "detail.hostedAtRich" : "detail.hostedOfRich") : "detail.hostedByRich", { hosts: hostNames(e), provider: e.provider.name }),
+      facts: [
+        { icon: "clock", label: EN_STATIC_COPY_V1.text("detail.durationLabel"), main: duration.main, sub: duration.sub },
+        { icon: "chat", label: EN_STATIC_COPY_V1.text("detail.languageLabel"), ...languageFact(e.languageNote) },
+        ...(group ? [{ icon: "people" as const, label: EN_STATIC_COPY_V1.text("detail.groupSize"), main: group, sub: children.fact ?? EN_STATIC_COPY_V1.text("detail.smallGroup") }] : []),
+        ...(meeting?.accessNote ? [{ icon: "train" as const, label: EN_STATIC_COPY_V1.text("detail.gettingThere"), ...accessFact(meeting.accessNote, meeting.name) }] : []),
+      ],
+      lead: e.lead,
+      highlights: e.highlights.map((text) => ({ text, icon: iconForText(text) })),
+      paragraphs,
+      timeline: e.timeline.map((step) => ({ time: step.time ? formatClock(step.time) : undefined, title: step.title, text: step.text, icon: iconForText(`${step.title} ${step.text}`, "clock"), photo: toImage(step.photoIndex !== null ? (e.photos[step.photoIndex] ?? null) : null, `${e.title}, ${step.title}`) })),
+      provider: { name: e.provider.name, tagline: e.provider.tagline ?? undefined, photo: toImage(hostPhoto), hosts: hostFaces.map((face) => ({ ...face, image: toImage(face.image) })) },
+      included: e.included,
+      notIncluded: e.notIncluded,
+      emptyListLabel: EN_STATIC_COPY_V1.text("detail.noneListed"),
+      meeting: meeting ? { kind: "location", name: meeting.name, address: meeting.address ?? undefined, accessNote: meeting.accessNote ?? undefined, entranceNote: meeting.entranceNote ?? undefined, mapUrl: mapUrl ?? undefined, exterior: toImage(exterior, `${meeting.name} from outside`) } : { kind: "after-booking" },
+      know: e.knowBeforeYouGo,
+      showAllKnowLabel: EN_STATIC_COPY_V1.text("detail.showAllCount", { count: e.knowBeforeYouGo.length }),
+      notSuitable: e.notSuitableFor,
+      cancellation: { policy: sharedPolicy && policyTitle ? { title: policyTitle, acceptanceNote } : undefined, sellerName: e.seller.displayName, sellerLegalUrl: sellerLegalUrl ?? undefined },
+      booking: includeBooking ? bookingCardModel(booking, <BookingDatesController summary={booking} />) : undefined,
+      checkoutCancelled: checkoutCancelled ? <div className="mt-5"><Notice tone="info" title={EN_STATIC_COPY_V1.text("detail.checkoutCancelled")} role="status" action={<Link href={bookingHref} className="font-bold text-moss underline underline-offset-4">{EN_STATIC_COPY_V1.text("detail.chooseDate")}</Link>} /></div> : undefined,
+    };
+    return <DetailViewV1 model={model} primitives={PRESENTATION_PRIMITIVES_V1} headings={{ overview: blockText(props, "overviewHeading", "What you'll do"), details: blockText(props, "detailsHeading", "How the time flows") }} />;
+  };
   return <>
     <TrackView event="experience_view" props={{ experience: e.slug }} />
     <JsonLd data={breadcrumbJsonLd(config.siteUrl, [{ name: "Home", path: "/" }, { name: "Experiences", path: "/experiences" }, { name: e.title, path: `/experiences/${e.slug}` }])} />
     <JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview, config.bookingsEnabled)} />
-    <PageDocumentContent document={document} pageId="experience-detail" fallback={renderDetail()} slots={{
+    <PageDocumentContent document={document} pageId="experience-detail" fallback={portableDetail()} slots={{
       ExperienceDetail: (props) => renderDetail(props, false),
       BookingCTA: (props) => <div className="container-page mt-8 hidden lg:block"><aside id="book" aria-labelledby="book-heading"><BookingCard summary={booking} label={blockText(props, "label", "Check dates and book")} /></aside></div>
     }} />
     <MobileBookingBar summary={booking} />
   </>;
-}
-
-/** Desktop: the cover and up to four more photos, with every photo one click away. */
-function DesktopGallery({ photos, title }: { photos: PublicImageForSite[]; title: string }) {
-  if (!photos.length) return null;
-  const [cover, ...rest] = photos;
-  const small = rest.slice(0, 4);
-  const columns = small.length >= 3 ? "grid-cols-[2fr_1fr_1fr]" : small.length ? "grid-cols-[2fr_1fr]" : "grid-cols-1";
-  return (
-    <div className={`relative mt-7 hidden h-[466px] grid-rows-2 gap-1.5 overflow-hidden rounded-3xl lg:grid ${columns}`} role="group" aria-label="Experience photos">
-      <Photo image={cover ?? null} alt={imageAlt(cover ?? null, title)} priority aspect="" rounded="" className="row-span-2 h-full" sizes="(min-width: 64rem) 780px, 100vw" />
-      {small.map((photo, i) => (
-        <Photo
-          key={`${photo.url}-${i}`}
-          image={photo}
-          alt={imageAlt(photo, `${title}, photo ${i + 2} of ${photos.length}`)}
-          aspect=""
-          rounded=""
-          className={`h-full min-h-0 ${small.length === 1 ? "row-span-2" : small.length === 3 && i === 2 ? "col-span-2" : ""}`}
-          sizes="(min-width: 64rem) 300px, 50vw"
-        />
-      ))}
-      {photos.length > 1 ? <AllPhotosButton photos={photos} title={title} /> : null}
-    </div>
-  );
 }
 
 function Fact({ icon, label, main, sub = null }: { icon: HandIconName; label: string; main: string; sub?: string | null }) {
