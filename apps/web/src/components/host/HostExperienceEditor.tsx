@@ -58,6 +58,12 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       setDestination({ kind: "link", anchor });
     };
     const onPopState = (event: PopStateEvent) => {
+      console.info("[host-history-guard:popstate]", {
+        dirty: dirtyRef.current,
+        savedUrl: historyEntry.current.href,
+        targetUrl: window.location.href,
+        leaving: leaving.current,
+      });
       if (leaving.current) {
         leaving.current = false;
         historyEntry.current = { href: window.location.href, state: event.state };
@@ -76,6 +82,7 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       // router can navigate, keeping the editor mounted while the user decides.
       event.stopImmediatePropagation();
       window.history.pushState(current.state, "", current.href);
+      console.info("[host-history-guard:blocked]", { current: current.href, target: targetHref });
       setDestination({ kind: "history", href: targetHref });
     };
     window.addEventListener("beforeunload", onBeforeUnload);
