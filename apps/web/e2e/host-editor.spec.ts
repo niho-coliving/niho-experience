@@ -236,6 +236,25 @@ test("under review: 申請を取り下げる makes the listing a draft again", a
   await expect(page.getByRole("button", { name: "保存後にプレビュー" })).toBeDisabled();
 });
 
+test("an offer name made only of whitespace is rejected", async ({ page }) => {
+  await signIn(page);
+  await openEditor(page, "/host/experiences/coffee");
+  const offers = panel(page, "申込の設定");
+  await offers.getByRole("button", { name: "商品を追加" }).click();
+  const dialog = page.getByRole("dialog", { name: "商品の追加" });
+  const name = dialog.getByRole("textbox", { name: "商品名" });
+  await name.fill("   ");
+  await dialog.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  expect(await name.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(false);
+
+  await name.fill("Roasting workshop");
+  await dialog.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(offers.getByRole("listitem")).toHaveCount(1);
+  await expect(offers.getByRole("listitem").first()).toContainText("Roasting workshop");
+});
+
 test("申込の設定: an offer's dialog, 並び替え and この商品を削除", async ({ page }) => {
   await signIn(page);
   await openEditor(page, "/host/experiences/community-dinner");
@@ -299,6 +318,48 @@ test("申込の設定: an offer's dialog, 並び替え and この商品を削除
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("Dinner");
   await expect(offers.getByRole("button", { name: "並び替え" })).toHaveCount(0);
+});
+
+test("browser back keeps unsaved edits behind the leave dialog", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/host/experiences");
+  await page.getByRole("region", { name: "体験の一覧" }).getByRole("link").first().click();
+  await page.waitForURL((url) => url.pathname === "/host/experiences/community-dinner");
+  const highlight = panel(page, "見どころ").getByRole("textbox", { name: "見どころ 1" });
+  await highlight.fill("Unsaved browser history edit.");
+  await expect(saveButton(page)).toBeVisible();
+
+  await page.goBack();
+  const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
+  await expect(ask).toBeVisible();
+  await expect(page).toHaveURL((url) => url.pathname === "/host/experiences/community-dinner");
+  await expect(highlight).toHaveValue("Unsaved browser history edit.");
+  await ask.getByRole("button", { name: "保存せずに移動" }).click();
+  await page.waitForURL((url) => url.pathname === "/host/experiences");
+  await expect(page.getByRole("heading", { level: 1, name: "体験" })).toBeVisible();
+});
+
+test("browser forward keeps unsaved edits behind the leave dialog", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/host/experiences");
+  await page.getByRole("region", { name: "体験の一覧" }).getByRole("link").first().click();
+  await page.waitForURL((url) => url.pathname === "/host/experiences/community-dinner");
+  await page.getByRole("link", { name: "体験へ戻る" }).click();
+  await page.waitForURL((url) => url.pathname === "/host/experiences");
+  await page.goBack();
+  await page.waitForURL((url) => url.pathname === "/host/experiences/community-dinner");
+
+  const highlight = panel(page, "見どころ").getByRole("textbox", { name: "見どころ 1" });
+  await highlight.fill("Unsaved browser history edit.");
+  await expect(saveButton(page)).toBeVisible();
+  await page.goForward();
+  const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
+  await expect(ask).toBeVisible();
+  await expect(page).toHaveURL((url) => url.pathname === "/host/experiences/community-dinner");
+  await expect(highlight).toHaveValue("Unsaved browser history edit.");
+  await ask.getByRole("button", { name: "保存せずに移動" }).click();
+  await page.waitForURL((url) => url.pathname === "/host/experiences");
+  await expect(page.getByRole("heading", { level: 1, name: "体験" })).toBeVisible();
 });
 
 test("leaving with unsaved changes asks on the page: 編集を続ける stays, 保存せずに移動 goes", async ({ page }) => {

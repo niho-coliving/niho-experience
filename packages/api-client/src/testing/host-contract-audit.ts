@@ -5,8 +5,10 @@
  * - path は `/api/experience-providers` 以下と `GET /api/auth/me` だけ。各 operation の security は Bearer（`FirebaseIdToken`）だけ。
  * - 操作から辿れる schema（閉包）は `x-niho-experience-host-dto: true` の印が必須。どの操作からも辿れない schema は置かない。
  * - object は `additionalProperties: false`。閉じない schema は `host-field-policy.json` の `openSchemas` に理由と一緒に書いたものだけ。
+ *   `oneOf` / `anyOf` / `allOf` の各組も同じ規則で見る（組ごとに閉じた object か `$ref` か型のある値。何でも通る組は置かない）。
  * - 応答だけで使う object は全項目を required にする（応答の項目は常に返す）。
- * - 項目名・引数名は `host-field-policy.json` の禁止の名前・語を含まない。
+ * - 項目名・引数名は `host-field-policy.json` の禁止の名前・語を含まない。禁止の語に当たる項目名は、`allowedPropertyNames` に
+ *   schema ごとに書いた名前だけを、その語についてだけ許す（ほかの schema・ほかの名前・ほかの語は引き続き違反。語そのものの禁止は残す）。
  */
 import hostContractDocument from "../../contract/experience-host-api.openapi.json" with { type: "json" };
 import hostFieldPolicy from "../../contract/host-field-policy.json" with { type: "json" };
@@ -23,7 +25,18 @@ function asObject(value: unknown): JsonObject {
 }
 
 export const EXPERIENCE_HOST_CONTRACT_DOCUMENT = hostContractDocument as unknown as JsonObject;
-export const EXPERIENCE_HOST_FIELD_POLICY = hostFieldPolicy;
+/** host-field-policy.json の形（監査の自己検査は、これを書き換えた写しで監査する）。 */
+export type HostFieldPolicy = {
+  pathPrefixes: string[];
+  exactPaths: Record<string, string[]>;
+  securityScheme: string;
+  openSchemas: Record<string, string>;
+  allowedPropertyNames: Record<string, { token: string; reason: string; schemas: Record<string, string[]> }>;
+  forbiddenPropertyNames: string[];
+  forbiddenNameTokens: string[];
+};
+
+export const EXPERIENCE_HOST_FIELD_POLICY: HostFieldPolicy = hostFieldPolicy;
 export const EXPERIENCE_HOST_DTO_MARKER = "x-niho-experience-host-dto";
 
 /** ホスト契約の schema で応答・値を検証する（公開契約と同じ検証器）。 */
@@ -35,6 +48,21 @@ const HTTP_METHODS = new Set(["get", "put", "post", "delete", "options", "head",
 const COMPOSITION_KEYWORDS = ["allOf", "anyOf", "oneOf", "$ref"];
 
 type ComponentRef = { kind: string; name: string };
+
+type AllowedPropertyNames = HostFieldPolicy["allowedPropertyNames"];
+
+/** schema ごとに、禁止の語のうち許す語（項目名 → 語の一覧）。 */
+function allowedTokensBySchema(allowed: AllowedPropertyNames): Map<string, Map<string, Set<string>>> {
+  const bySchema = new Map<string, Map<string, Set<string>>>();
+  for (const { token, schemas } of Object.values(allowed)) {
+    for (const [schemaName, names] of Object.entries(schemas)) {
+      const byName = bySchema.get(schemaName) ?? new Map<string, Set<string>>();
+      for (const name of names) byName.set(name, (byName.get(name) ?? new Set<string>()).add(token));
+      bySchema.set(schemaName, byName);
+    }
+  }
+  return bySchema;
+}
 
 /** 値の中の `#/components/<kind>/<name>`（`…/properties/x` のような深い参照は根の名前）を集める。 */
 function componentRefs(value: unknown): ComponentRef[] {
@@ -52,6 +80,27 @@ function isBearerOnly(security: unknown, schemeName: string): boolean {
   if (!isObject(requirement)) return false;
   const keys = Object.keys(requirement);
   return keys.length === 1 && keys[0] === schemeName && Array.isArray(requirement[schemeName]) && requirement[schemeName].length === 0;
+}
+
+/** schema の中の `oneOf` / `anyOf` / `allOf` の組で、何でも通るもの（`$ref`・型・合成・列挙・項目のどれも無い）を探す。 */
+function forEachUntypedVariant(schema: unknown, path: string, visit: (path: string) => void): void {
+  if (Array.isArray(schema)) {
+    schema.forEach((item, index) => forEachUntypedVariant(item, `${path}[${index}]`, visit));
+    return;
+  }
+  if (!isObject(schema)) return;
+  for (const keyword of ["oneOf", "anyOf", "allOf"]) {
+    const variants = schema[keyword];
+    if (!Array.isArray(variants)) continue;
+    variants.forEach((variant, index) => {
+      const typed = isObject(variant) && ["$ref", "type", "oneOf", "anyOf", "allOf", "enum", "properties"].some((key) => key in variant);
+      if (!typed) visit(`${path}.${keyword}[${index}]`);
+    });
+  }
+  for (const [key, value] of Object.entries(schema)) {
+    if (key.startsWith("x-") || key === "example" || key === "examples" || key === "enum" || key === "description") continue;
+    forEachUntypedVariant(value, key === "properties" || COMPOSITION_KEYWORDS.includes(key) ? path : `${path}.${key}`, visit);
+  }
 }
 
 /** schema の中の object の節（inline の入れ子を含む）を、場所の名前と一緒に辿る。 */
@@ -73,13 +122,19 @@ function forEachObjectNode(schema: unknown, path: string, visit: (node: JsonObje
 }
 
 /** ホスト契約が規則を満たしているか。違反の説明を返す（空なら OK）。 */
-export function auditHostContractDocument(document: JsonObject = EXPERIENCE_HOST_CONTRACT_DOCUMENT): string[] {
+export function auditHostContractDocument(
+  document: JsonObject = EXPERIENCE_HOST_CONTRACT_DOCUMENT,
+  policy: HostFieldPolicy = EXPERIENCE_HOST_FIELD_POLICY,
+): string[] {
   const violations: string[] = [];
-  const policy = hostFieldPolicy;
-  const exactPaths = policy.exactPaths as Record<string, string[]>;
+  const exactPaths = policy.exactPaths;
   const components = asObject(document.components);
   const schemas = asObject(components.schemas);
   const openSchemas = new Set(Object.keys(policy.openSchemas));
+  const allowedPropertyNames = policy.allowedPropertyNames;
+  const allowedTokens = allowedTokensBySchema(allowedPropertyNames);
+  /** 許可リストに書いた (schema, 項目名) のうち、契約で実際に見つかったもの。 */
+  const allowedSeen = new Set<string>();
 
   const schemes = asObject(components.securitySchemes);
   const schemeNames = Object.keys(schemes);
@@ -163,6 +218,7 @@ export function auditHostContractDocument(document: JsonObject = EXPERIENCE_HOST
     if (schema[EXPERIENCE_HOST_DTO_MARKER] !== true) violations.push(`${name}: ${EXPERIENCE_HOST_DTO_MARKER}: true が必要です`);
     const open = openSchemas.has(name);
     const responseOnly = !requestClosure.has(name);
+    forEachUntypedVariant(schema, name, (path) => violations.push(`${path}: 何でも通る組です（閉じた object か $ref か型を書く）`));
     forEachObjectNode(schema, name, (node, path) => {
       const properties = isObject(node.properties) ? Object.keys(node.properties) : [];
       const wrapper = properties.length === 0 && COMPOSITION_KEYWORDS.some((keyword) => keyword in node);
@@ -173,23 +229,40 @@ export function auditHostContractDocument(document: JsonObject = EXPERIENCE_HOST
         if (missing.length > 0) violations.push(`${path}: 応答の項目は常に返す（required に ${missing.join(", ")} が無い）`);
       }
       for (const property of properties) {
-        const violation = forbiddenNameViolation(property);
+        const allowed = allowedTokens.get(name)?.get(property);
+        if (allowed) allowedSeen.add(`${name}.${property}`);
+        const violation = forbiddenNameViolation(policy, property, allowed);
         if (violation) violations.push(`${path}.${property}: ${violation}`);
       }
     });
   }
 
+  const forbiddenTokens = new Set(policy.forbiddenNameTokens);
+  for (const [group, { token, schemas: allowedSchemas }] of Object.entries(allowedPropertyNames)) {
+    if (!forbiddenTokens.has(token)) violations.push(`host-field-policy.json の allowedPropertyNames.${group}: ${token} は禁止の語にありません（許す必要がない）`);
+    for (const [schemaName, names] of Object.entries(allowedSchemas)) {
+      for (const property of names) {
+        if (!allowedSeen.has(`${schemaName}.${property}`)) {
+          violations.push(`host-field-policy.json の allowedPropertyNames.${group} の ${schemaName}.${property} が契約にありません`);
+        } else if (!findForbiddenToken(property, [token])) {
+          violations.push(`host-field-policy.json の allowedPropertyNames.${group} の ${schemaName}.${property} は ${token} に当たりません（許す必要がない）`);
+        }
+      }
+    }
+  }
+
   for (const { context, name } of parameterNames) {
-    const violation = forbiddenNameViolation(name);
+    const violation = forbiddenNameViolation(policy, name);
     if (violation) violations.push(`${context} の引数 ${name}: ${violation}`);
   }
   return violations;
 }
 
-function forbiddenNameViolation(name: string): string | null {
-  if (hostFieldPolicy.forbiddenPropertyNames.some((forbidden) => forbidden.toLowerCase() === name.toLowerCase())) {
+/** 禁止の名前・語に当たれば説明を返す。`allowedTokens` は、許可リストでこの名前に許した語（禁止の名前は許さない）。 */
+function forbiddenNameViolation(policy: HostFieldPolicy, name: string, allowedTokens: ReadonlySet<string> = new Set()): string | null {
+  if (policy.forbiddenPropertyNames.some((forbidden) => forbidden.toLowerCase() === name.toLowerCase())) {
     return "ホスト API に入れてはいけない名前です";
   }
-  const token = findForbiddenToken(name, hostFieldPolicy.forbiddenNameTokens);
+  const token = findForbiddenToken(name, policy.forbiddenNameTokens.filter((forbidden) => !allowedTokens.has(forbidden)));
   return token ? `ホスト API に入れてはいけない語（${token}）を含みます` : null;
 }

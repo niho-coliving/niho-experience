@@ -78,6 +78,7 @@ export function HostOfferDialog({ offer, isNew, today, onSave, onDelete, onClose
         className="flex max-h-[calc(100dvh-2rem)] flex-col"
         onSubmit={(event) => {
           event.preventDefault();
+          firstField.current?.setCustomValidity(draft.name.trim() ? "" : "商品名は空白以外で入力してください。");
           if (!event.currentTarget.reportValidity()) return;
           onSave(offerFromDraft(offer.id, draft));
           close();
@@ -94,7 +95,20 @@ export function HostOfferDialog({ offer, isNew, today, onSave, onDelete, onClose
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 md:px-5">
           <Field label="商品名" htmlFor={id("name")}>
-            <input ref={firstField} id={id("name")} required maxLength={EDITOR_LIMITS.offerName} value={draft.name} placeholder="例: Dinner" onChange={(event) => set({ name: event.currentTarget.value })} className={INPUT} />
+            <input
+              ref={firstField}
+              id={id("name")}
+              required
+              maxLength={EDITOR_LIMITS.offerName}
+              value={draft.name}
+              placeholder="例: Dinner"
+              onChange={(event) => {
+                const name = event.currentTarget.value;
+                event.currentTarget.setCustomValidity(name.trim() ? "" : "商品名は空白以外で入力してください。");
+                set({ name });
+              }}
+              className={INPUT}
+            />
           </Field>
           <div className="grid grid-cols-2 items-end gap-3">
             <Field label="大人の料金（円）" htmlFor={id("adult")}>

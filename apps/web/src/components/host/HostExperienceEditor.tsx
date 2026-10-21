@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EDITOR_LIMITS, experienceContent, listingRequirements, pauseListing, sameContent, submitListing, withdrawListing } from "@/host/editor";
 import type { HostExperience, HostExperienceContent, HostListing } from "@/host/types";
 import { DISABLED } from "./editor-parts";
@@ -15,57 +15,92 @@ import { HostPageBody } from "./ui";
 const SAVE_DELAY_MS = 500;
 const SAVED_NOTICE_MS = 2500;
 
+type LeaveDestination =
+  | { kind: "link"; anchor: HTMLAnchorElement }
+  | { kind: "history"; href: string };
+
 interface LeaveGuard {
-  /** A link was clicked with unsaved changes: LeaveDialog asks before following it. */
+  /** A link or browser history entry was requested with unsaved changes. */
   asking: boolean;
   stay: () => void;
   leave: () => void;
 }
 
+interface HostHistoryGuardState {
+  readonly dirty: boolean;
+  readonly leaving: boolean;
+  readonly current: { href: string; state: unknown };
+  onHistoryLeave: (href: string) => void;
+}
+
+declare global {
+  interface Window {
+    __nihoHostHistoryGuard?: HostHistoryGuardState;
+  }
+}
+
 /**
  * With unsaved changes, leaving asks first. A reload, a closed tab or a typed address get
- * the browser's own prompt (beforeunload). A link on the page is stopped before the
- * console's own link handling (capture on window runs first) and asked about on the page,
- * never with a browser dialog; 保存せずに移動 then follows that same link without asking again.
+ * the browser's own prompt (beforeunload). Links and browser back/forward are stopped and
+ * asked about on the page, never with a browser dialog.
  */
 function useLeaveGuard(dirty: boolean): LeaveGuard {
-  const [link, setLink] = useState<HTMLAnchorElement | null>(null);
+  const [destination, setDestination] = useState<LeaveDestination | null>(null);
+  const dirtyRef = useRef(dirty);
   const leaving = useRef(false);
-  useEffect(() => {
-    if (!dirty) return;
+  const historyEntry = useRef<{ href: string; state: unknown }>({ href: "", state: null });
+  useLayoutEffect(() => {
+    dirtyRef.current = dirty;
+    // The App Router can finish updating the URL after the editor mounts. Refresh the
+    // guarded history entry whenever the editor's dirty state changes.
+    historyEntry.current = { href: window.location.href, state: window.history.state };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (leaving.current) return;
+      if (!dirtyRef.current || leaving.current) return;
       event.preventDefault();
       // Older browsers ask only when returnValue is set.
       event.returnValue = "";
     };
     const onClick = (event: MouseEvent) => {
-      if (leaving.current || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!dirtyRef.current || leaving.current || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!(anchor instanceof HTMLAnchorElement) || (anchor.target && anchor.target !== "_self") || anchor.hasAttribute("download")) return;
       const to = new URL(anchor.href, window.location.href);
       if (to.pathname === window.location.pathname && to.search === window.location.search) return;
       event.preventDefault();
       event.stopPropagation();
-      setLink(anchor);
+      setDestination({ kind: "link", anchor });
     };
+    const historyGuard: HostHistoryGuardState = {
+      get dirty() { return dirtyRef.current; },
+      get leaving() { return leaving.current; },
+      get current() { return historyEntry.current; },
+      onHistoryLeave: (href) => setDestination({ kind: "history", href }),
+    };
+    window.__nihoHostHistoryGuard = historyGuard;
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("click", onClick, true);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("click", onClick, true);
+      if (window.__nihoHostHistoryGuard === historyGuard) delete window.__nihoHostHistoryGuard;
     };
   }, [dirty]);
   return {
-    asking: link !== null,
-    stay: () => setLink(null),
+    asking: destination !== null,
+    stay: () => setDestination(null),
     leave: () => {
-      if (!link) return;
+      if (!destination) return;
       leaving.current = true;
-      setLink(null);
-      // The same link leads on as it would have: the console's links move inside it, the others load their page.
-      if (link.isConnected) link.click();
-      else window.location.assign(link.href);
+      setDestination(null);
+      if (destination.kind === "link") {
+        // The same link leads on as it would have: console links move inside it, others load their page.
+        if (destination.anchor.isConnected) destination.anchor.click();
+        else window.location.assign(destination.anchor.href);
+      } else {
+        // The browser already moved to this history entry; a full navigation honors it after
+        // restoring the editor entry above and avoids guessing whether it was back or forward.
+        window.location.assign(destination.href);
+      }
     },
   };
 }
