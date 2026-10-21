@@ -337,6 +337,8 @@ test("browser back keeps unsaved edits behind the leave dialog", async ({ page }
   await ask.getByRole("button", { name: "保存せずに移動" }).click();
   await page.waitForURL((url) => url.pathname === "/host/experiences");
   await expect(page.getByRole("heading", { level: 1, name: "体験" })).toBeVisible();
+  await page.goBack();
+  await page.waitForURL((url) => url.pathname === "/host/home");
 });
 
 test("browser forward keeps unsaved edits behind the leave dialog", async ({ page }) => {
@@ -360,6 +362,12 @@ test("browser forward keeps unsaved edits behind the leave dialog", async ({ pag
   await ask.getByRole("button", { name: "保存せずに移動" }).click();
   await page.waitForURL((url) => url.pathname === "/host/experiences");
   await expect(page.getByRole("heading", { level: 1, name: "体験" })).toBeVisible();
+  await page.goBack();
+  await page.waitForURL((url) => url.pathname === "/host/experiences/community-dinner");
+  await page.goBack();
+  await page.waitForURL((url) => url.pathname === "/host/experiences");
+  await page.goBack();
+  await page.waitForURL((url) => url.pathname === "/host/home");
 });
 
 test("leaving with unsaved changes asks on the page: 編集を続ける stays, 保存せずに移動 goes", async ({ page }) => {

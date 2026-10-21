@@ -17,6 +17,6 @@
 
     event.stopImmediatePropagation();
     window.history.pushState(current.state, "", current.href);
-    guard.onHistoryLeave(targetHref);
+    guard.onHistoryLeave();
   }, true);
 })();

@@ -17,7 +17,7 @@ const SAVED_NOTICE_MS = 2500;
 
 type LeaveDestination =
   | { kind: "link"; anchor: HTMLAnchorElement }
-  | { kind: "history"; href: string };
+  | { kind: "history" };
 
 interface LeaveGuard {
   /** A link or browser history entry was requested with unsaved changes. */
@@ -30,7 +30,7 @@ interface HostHistoryGuardState {
   readonly dirty: boolean;
   readonly leaving: boolean;
   readonly current: { href: string; state: unknown };
-  onHistoryLeave: (href: string) => void;
+  onHistoryLeave: () => void;
 }
 
 declare global {
@@ -74,7 +74,7 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       get dirty() { return dirtyRef.current; },
       get leaving() { return leaving.current; },
       get current() { return historyEntry.current; },
-      onHistoryLeave: (href) => setDestination({ kind: "history", href }),
+      onHistoryLeave: () => setDestination({ kind: "history" }),
     };
     window.__nihoHostHistoryGuard = historyGuard;
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -97,9 +97,9 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
         if (destination.anchor.isConnected) destination.anchor.click();
         else window.location.assign(destination.anchor.href);
       } else {
-        // The browser already moved to this history entry; a full navigation honors it after
-        // restoring the editor entry above and avoids guessing whether it was back or forward.
-        window.location.assign(destination.href);
+        // The editor entry was restored above, with the requested entry immediately before
+        // it. Continue the original browser navigation so Back/Forward keeps its history shape.
+        window.history.back();
       }
     },
   };
