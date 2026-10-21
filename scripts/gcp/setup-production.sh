@@ -116,7 +116,7 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" --project "$PRO
 if ! gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" >/dev/null 2>&1; then
   gcloud run deploy "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
     --image=us-docker.pkg.dev/cloudrun/container/hello \
-    --service-account="$RUNTIME_SA" --no-allow-unauthenticated --no-traffic \
+    --service-account="$RUNTIME_SA" --no-allow-unauthenticated \
     --port=8080 --cpu=1 --memory=512Mi --min-instances=0 --max-instances=2 \
     --labels=app=niho-experience,env=production --quiet
 fi
