@@ -74,5 +74,13 @@ test("the booking card states the terms before the booking page", async ({ page 
   await expect(card).toContainText("No account needed");
   // Party size and totals belong to the booking page.
   await expect(card.getByRole("spinbutton")).toHaveCount(0);
-  await expect(page.getByText("The meeting point is shared after your booking is confirmed.")).toBeVisible();
+  await expect(page.getByText("The meeting point is shared after your booking is confirmed.", { exact: true })).toBeVisible();
+});
+
+test("public meeting overview is visible without exposing the private meeting point", async ({ page }) => {
+  await page.goto("/experiences/indigo-dyeing-with-an-artisan");
+  const meeting = page.getByRole("heading", { name: "Where you'll meet", exact: true }).locator("..");
+  await expect(meeting.getByText("A small indigo studio in Kamakura.", { exact: true })).toBeVisible();
+  await expect(meeting.getByText("The meeting point is shared after your booking is confirmed.", { exact: true })).toBeVisible();
+  await expect(meeting.getByRole("link", { name: "Open in Maps" })).toHaveCount(0);
 });

@@ -145,7 +145,7 @@ export declare function BookingPreviewV1({ model, primitives, copy }: {
     primitives?: Partial<PresentationPrimitivesV1>;
     copy?: StaticCopyAccessorV1;
 }): import("react").JSX.Element;
-export type DetailMeetingModelV1 = Readonly<{
+export type DetailMeetingModelV1 = Readonly<({
     kind: "location";
     name: string;
     address?: string;
@@ -155,6 +155,8 @@ export type DetailMeetingModelV1 = Readonly<{
     exterior?: DisplayImageV1 | null;
 } | {
     kind: "after-booking";
+}) & {
+    overview?: string;
 }>;
 export type DetailCancellationModelV1 = Readonly<{
     policy?: {

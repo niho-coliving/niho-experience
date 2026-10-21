@@ -61,12 +61,20 @@ describe("mock の読み取りが契約を満たす", () => {
   it("v1.0 の厳密契約を維持し、v1.1 だけ写真 alt と提供者 bio を返す", async () => {
     const legacy = await call("default", "/api/public/experiences/home-cooked-dinner-with-locals");
     const next = await call("default", "/api/public/experiences/v1.1/home-cooked-dinner-with-locals");
+    const privateMeeting = await call("default", "/api/public/experiences/v1.1/indigo-dyeing-with-an-artisan");
     const catalog = await call("default", "/api/public/experiences/v1.1/catalog");
     expect(validator.validateResponse("getPublicExperience", legacy.response.status, legacy.body)).toEqual({ ok: true });
     expect(validator.validateResponse("getPublicExperienceV11", next.response.status, next.body)).toEqual({ ok: true });
+    expect(validator.validateResponse("getPublicExperienceV11", privateMeeting.response.status, privateMeeting.body)).toEqual({ ok: true });
     expect(validator.validateResponse("listPublicExperiencesV11", catalog.response.status, catalog.body)).toEqual({ ok: true });
     expect(validator.validateResponse("getPublicExperience", next.response.status, next.body).ok).toBe(false);
     expect((next.body as { experience: { cover: { alt: string | null }; hosts: Array<{ bio: string | null }> } }).experience.cover.alt).toBeTruthy();
+    expect((privateMeeting.body as { experience: { meetingOverview: string | null; meetingPointDisclosure: string; meetingPoint: unknown } }).experience).toMatchObject({
+      meetingOverview: "A small indigo studio in Kamakura.",
+      meetingPointDisclosure: "AFTER_BOOKING",
+      meetingPoint: null,
+    });
+    expect(findSensitiveValues(privateMeeting.body)).toEqual([]);
     expect((legacy.body as { experience: { cover: Record<string, unknown> } }).experience.cover).not.toHaveProperty("alt");
     const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: createMockExperienceFetch({ now: () => NOW }) });
     expect((await client.listExperiencesV11()).ok).toBe(true);

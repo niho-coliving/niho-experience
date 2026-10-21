@@ -1,8 +1,8 @@
 // 実 API（stg・本番）の公開 GET 応答を、mock と同じ契約で検証する（読み取りだけ・認証なし）。
 // checkout は送らない（実際の仮押さえを作らないため）。checkout/UTM/DNT は docs/production-deploy.md の安全な stg 手順で確かめる。
 //
-//   npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life [--api-version 1.1]
-//   npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life --api-version 1.2 --region kamakura --theme FOOD --available-on 2026-11-06 --expect-slug synthetic-food-on-date --expect-theme-excluded-slug synthetic-craft-on-date --expect-date-excluded-slug synthetic-food-other-date
+//   npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life --api-version 1.1 --expect-private-meeting-slug synthetic-private-meeting
+//   npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life --api-version 1.2 --region kamakura --theme FOOD --available-on 2026-11-06 --expect-slug synthetic-food-on-date --expect-theme-excluded-slug synthetic-craft-on-date --expect-date-excluded-slug synthetic-food-other-date --expect-private-meeting-slug synthetic-private-meeting
 import { createContractValidator, findSensitiveValues } from "../src/testing/index.ts";
 
 const V12_THEMES = ["FOOD", "CULTURE", "CRAFT", "OUTDOORS", "LOCAL_LIFE"] as const;
@@ -41,6 +41,7 @@ const availableOn = argument("available-on") ?? undefined;
 const expectedSlug = argument("expect-slug") ?? undefined;
 const expectedThemeExcludedSlug = argument("expect-theme-excluded-slug") ?? undefined;
 const expectedDateExcludedSlug = argument("expect-date-excluded-slug") ?? undefined;
+const expectedPrivateMeetingSlug = argument("expect-private-meeting-slug") ?? undefined;
 const isValidLocalDate = (value: string | undefined): value is string => {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -49,6 +50,10 @@ const isValidLocalDate = (value: string | undefined): value is string => {
 
 if (!origin || !/^https:\/\/[^/]+$/.test(origin) || !["1.0", "1.1", "1.2"].includes(apiVersion)) {
   console.error("usage: verify:live -- --origin https://<NIHO の公開 Web origin> [--api-version 1.0|1.1|1.2] [--region <key>]");
+  process.exit(2);
+}
+if (apiVersion !== "1.0" && (!expectedPrivateMeetingSlug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(expectedPrivateMeetingSlug))) {
+  console.error("v1.1/v1.2 では公開概要を持つ AFTER_BOOKING の合成商品を --expect-private-meeting-slug <slug> で指定してください");
   process.exit(2);
 }
 if (apiVersion === "1.2" && (!theme || !V12_THEMES.includes(theme as (typeof V12_THEMES)[number]) || !isValidLocalDate(availableOn) || !expectedSlug || !expectedThemeExcludedSlug || !expectedDateExcludedSlug)) {
@@ -89,13 +94,28 @@ const listOperation = apiVersion === "1.0" ? "listPublicExperiences" : apiVersio
 const listPath = apiVersion === "1.0" ? "/api/public/experiences" : `/api/public/experiences/v${apiVersion}/catalog`;
 const catalog = await check(listOperation, queryPath(listPath, { region }), SHARED);
 const detailOperation = apiVersion === "1.0" ? "getPublicExperience" : "getPublicExperienceV11";
+let verifiedPrivateMeeting = false;
 for (const item of catalogExperiences(catalog)) {
   if (typeof item.slug !== "string") continue;
   const detailPath = apiVersion === "1.0"
     ? `/api/public/experiences/${encodeURIComponent(item.slug)}`
     : `/api/public/experiences/v1.1/${encodeURIComponent(item.slug)}`;
-  await check(detailOperation, detailPath, SHARED);
+  const detail = await check(detailOperation, detailPath, SHARED);
+  if (apiVersion !== "1.0" && item.slug === expectedPrivateMeetingSlug) {
+    const experience = isObject(detail) && isObject(detail.experience) ? detail.experience : null;
+    verifiedPrivateMeeting = experience?.slug === expectedPrivateMeetingSlug
+      && typeof experience.meetingOverview === "string" && experience.meetingOverview.trim().length > 0
+      && experience.meetingPointDisclosure === "AFTER_BOOKING" && experience.meetingPoint === null;
+  }
   await check("getPublicExperienceAvailability", `/api/public/experiences/${encodeURIComponent(item.slug)}/availability`, NO_STORE);
+}
+if (apiVersion !== "1.0") {
+  if (!verifiedPrivateMeeting) {
+    failures += 1;
+    console.error("NG private meeting fixture: 一覧掲載・空でない公開概要・AFTER_BOOKING・meetingPoint:null の確認が必要です");
+  } else {
+    console.log("OK private meeting fixture: 公開概要と非公開集合情報の除外を確認しました");
+  }
 }
 const notListedPath = apiVersion === "1.0"
   ? "/api/public/experiences/zz-not-listed-check"

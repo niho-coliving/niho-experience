@@ -109,6 +109,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const children = childParticipationCopy(e.offers);
   const group = groupSizeLabel(e.offers);
   const meeting = e.meetingPointDisclosure === "PUBLIC" ? e.meetingPoint : null;
+  const meetingOverview = "meetingOverview" in e && typeof e.meetingOverview === "string" ? e.meetingOverview : null;
   const exterior = meeting && meeting.exteriorPhotoIndex !== null ? (e.photos[meeting.exteriorPhotoIndex] ?? null) : null;
   const mapUrl = meeting?.mapUrl ? safeHttpsUrl(meeting.mapUrl) : null;
   const paragraphs = e.description.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
@@ -321,6 +322,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
             </Section>
 
             <Section title="Where you'll meet">
+              {meetingOverview ? <p className="mb-4 leading-relaxed text-ink-soft">{meetingOverview}</p> : null}
               {meeting ? (
                 <div className={`grid items-start gap-5 ${exterior ? "sm:grid-cols-[200px_1fr] sm:gap-7" : ""}`}>
                   {exterior ? (
@@ -442,7 +444,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
       included: e.included,
       notIncluded: e.notIncluded,
       emptyListLabel: EN_STATIC_COPY_V1.text("detail.noneListed"),
-      meeting: meeting ? { kind: "location", name: meeting.name, address: meeting.address ?? undefined, accessNote: meeting.accessNote ?? undefined, entranceNote: meeting.entranceNote ?? undefined, mapUrl: mapUrl ?? undefined, exterior: toImage(exterior, `${meeting.name} from outside`) } : { kind: "after-booking" },
+      meeting: meeting ? { kind: "location", overview: meetingOverview ?? undefined, name: meeting.name, address: meeting.address ?? undefined, accessNote: meeting.accessNote ?? undefined, entranceNote: meeting.entranceNote ?? undefined, mapUrl: mapUrl ?? undefined, exterior: toImage(exterior, `${meeting.name} from outside`) } : { kind: "after-booking", overview: meetingOverview ?? undefined },
       know: e.knowBeforeYouGo,
       showAllKnowLabel: EN_STATIC_COPY_V1.text("detail.showAllCount", { count: e.knowBeforeYouGo.length }),
       notSuitable: e.notSuitableFor,

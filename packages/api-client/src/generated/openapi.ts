@@ -349,6 +349,8 @@ export type components = {
             /** @description 当日の言語（提供者の記述。例: English & Japanese）。 */
             languageNote: string;
             lead: string;
+            /** @description 外部提供者が予約前に公開する集合の概要。住所・アクセス・入口案内・地図URLは含めない。 */
+            meetingOverview: string | null;
             meetingPoint: components["schemas"]["PublicExperienceMeetingPoint"] | null;
             /**
              * @description AFTER_BOOKING のときは `meetingPoint` を常に null にし（集合場所は予約確定後に NIHO の状態ページとメールで案内）、画面では「予約確定後に案内」と伝える。
