@@ -246,7 +246,7 @@ test("an offer name made only of whitespace is rejected", async ({ page }) => {
   await name.fill("   ");
   await dialog.getByRole("button", { name: "保存", exact: true }).click();
   await expect(dialog).toBeVisible();
-  await expect(name).toBeInvalid();
+  expect(await name.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(false);
 
   await name.fill("Roasting workshop");
   await dialog.getByRole("button", { name: "保存", exact: true }).click();
