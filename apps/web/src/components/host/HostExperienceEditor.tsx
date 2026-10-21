@@ -34,15 +34,12 @@ interface LeaveGuard {
 function useLeaveGuard(dirty: boolean): LeaveGuard {
   const [destination, setDestination] = useState<LeaveDestination | null>(null);
   const dirtyRef = useRef(dirty);
-  useLayoutEffect(() => {
-    dirtyRef.current = dirty;
-    // The App Router can finish updating the URL after the editor mounts. Refresh the
-    // guarded history entry when edits start so back/forward compares against this page.
-    historyEntry.current = { href: window.location.href, state: window.history.state };
-  }, [dirty]);
   const leaving = useRef(false);
   const historyEntry = useRef<{ href: string; state: unknown }>({ href: "", state: null });
   useLayoutEffect(() => {
+    dirtyRef.current = dirty;
+    // The App Router can finish updating the URL after the editor mounts. Refresh the
+    // guarded history entry whenever the editor's dirty state changes.
     historyEntry.current = { href: window.location.href, state: window.history.state };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirtyRef.current || leaving.current) return;
@@ -89,7 +86,7 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       window.removeEventListener("click", onClick, true);
       window.removeEventListener("popstate", onPopState, true);
     };
-  }, []);
+  }, [dirty]);
   return {
     asking: destination !== null,
     stay: () => setDestination(null),
