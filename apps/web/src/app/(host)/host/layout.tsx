@@ -1,4 +1,7 @@
 import "../../globals.css";
+// Same stylesheet as the traveler root: it carries the @font-face rules for
+// Fraunces / Nunito (the presentation rules themselves are scoped to .nexp-v1).
+import "@niho/experience-presentation/v1/styles.css";
 import type { Metadata, Viewport } from "next";
 
 // The host console (#86) has its own root: Japanese, no analytics, no site chrome,
