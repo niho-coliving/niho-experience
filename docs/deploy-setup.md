@@ -77,6 +77,18 @@ iPhoneの場合はSafariで github.com を開き、画面下の「aA」→「デ
 
 Actions → **Deploy preview** → Run workflow（branch: main）。5〜10分で終わり、実行結果の上部にプレビューのURL（`https://niho-experience-preview-….a.run.app`）が出る。以後は `main` へのmergeごとに自動で更新される。
 
+## stg公開文書のSSR候補（#39/#42）
+
+NIHO stgで公開済みの英語文書をクラウドSSRで確認するときだけ、既存の **Deploy preview** を手動起動する。branchは `main`、`stg_documents` を有効にし、`commit_sha` には起動時点の `main` と完全一致する40文字SHAを入力する。公開文書の `home/en` が準備済みであることを先に確認する。入力SHAがcurrent `main` と違う場合は、build前かつGoogle Cloudの資格情報を取得する前に停止する。
+
+この起動は、新しいプロジェクト・サービス・サービスアカウント・IAM・有料resourceを作らない。既存の `niho-experience-preview` と現在の有効なtraffic配分がある場合だけ、stg公開APIを読むrevisionを `--no-traffic --tag stg-docs-<sha12>` で追加する。既存serviceの公開・IAM・ingress設定は変更せず、配備前後でpercentが正のrevision配列と割合が完全一致することをworkflowが確認するため、通常のmockプレビューは引き続き配信される。公開文書のreadbackは配備資格情報を持たない別jobがreview済みSHAをcheckoutして実行する。サービスが未作成、trafficが無効、候補URLをCloud Run statusから取得できない、またはreadbackが不一致ならfail closedで停止する。
+
+候補は表示用公開文書のGET・SSRだけを受け入れる。`SITE_URL` は候補URLではなく既存previewサービスのstatus URLへ固定し、`SITE_INDEXING=block`、`BOOKINGS_ENABLED=false`、stgのNIHO管理入口を維持する。この候補をcanonical切替、販売開始、予約API、決済、個人情報、ログインcookieの受入には使わない。商品が0件でもHome文書SSRは判定できるが、Booking実APIは未検証として実行summaryへ残る。`EXPERIENCE_SITE_PUBLIC_ORIGIN` の設定や候補をtrafficへ昇格する操作は、この手順には含まれない。
+
+通常のpushと、`stg_documents`を無効にした手動起動は、従来どおりmockプレビューを更新する。
+
+`--no-traffic` は以後のLATESTへの自動配分も止めるため、通常のmock配備では、同じcommitかつmock設定のrevisionを再検証し、そのrevision名へ100%を明示配分します。候補配備ではこの操作を実行しません（[Cloud Runの仕様](https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy)）。
+
 ## うまくいかない時
 
 | 症状 | 確認すること |

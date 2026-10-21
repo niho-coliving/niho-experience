@@ -1,5 +1,6 @@
-# Deploys main to the preview Cloud Run service: sample data only (mock API),
-# never indexed, nothing can be booked. See docs/deploy-setup.md.
+# Normally deploys main with sample data only (mock API), never indexed.
+# Manual stg-document candidates use real public GETs at 0% serving traffic
+# with bookings disabled. See docs/deploy-setup.md.
 #
 # - Authenticates to Google Cloud with GitHub OIDC (Workload Identity Federation).
 #   No service-account keys are stored anywhere.
@@ -15,6 +16,17 @@ on:
       - "**/*.md"
       - "docs/**"
   workflow_dispatch:
+    inputs:
+      stg_documents:
+        description: Deploy an isolated stg published-document candidate (main only)
+        required: true
+        type: boolean
+        default: false
+      commit_sha:
+        description: Exact main commit SHA for a stg document candidate
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -36,6 +48,13 @@ jobs:
     outputs:
       image_sha256: ${{ steps.image.outputs.sha256 }}
     steps:
+      - name: Require the exact reviewed main SHA for a stg document candidate
+        if: inputs.stg_documents
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$REQUESTED_SHA" = "$GITHUB_SHA"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -60,11 +79,15 @@ jobs:
   deploy:
     needs: build
     if: vars.GCP_PROJECT_ID != '' && github.ref == 'refs/heads/main'
+    outputs:
+      candidate_url: ${{ steps.candidate.outputs.url }}
+      candidate_revision: ${{ steps.candidate.outputs.revision }}
+      candidate_image_digest: ${{ steps.pushed_image.outputs.digest }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment:
       name: preview
-      url: ${{ steps.deploy.outputs.url }}
+      url: ${{ steps.deploy.outputs.url || steps.candidate.outputs.url }}
     permissions:
       contents: read
       id-token: write
@@ -74,7 +97,9 @@ jobs:
       SERVICE: niho-experience-preview
       RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/web:${{ github.sha }}
+      REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
       ARTIFACT_NAME: preview-image-${{ github.run_id }}-${{ github.run_attempt }}
+      STG_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.stg_documents && 'true' || 'false' }}
       # pilot: the first experiences the owner has permission to list, with provisional details (docs/content/README.md).
       MOCK_CATALOG: ${{ vars.PREVIEW_MOCK_CATALOG || 'pilot' }}
     steps:
@@ -97,12 +122,53 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-      - name: Push image
+      - name: Require the existing preview service and save active traffic
+        if: inputs.stg_documents
+        id: service
+        run: |
+          state="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json)"
+          url="$(jq -r '.status.url' <<< "$state")"
+          [[ "$url" =~ ^https://[A-Za-z0-9.-]+/?$ ]]
+          test "$(jq -r '.spec.template.spec.serviceAccountName' <<< "$state")" = "$RUNTIME_SERVICE_ACCOUNT"
+          jq -e '(.spec.template.spec.containers | length) == 1 and
+            ((.spec.template.spec.volumes // []) | length) == 0' <<< "$state" >/dev/null
+          if ! jq -e '
+            (.spec.template.spec.containers[0].env // []) |
+            all(.[]; has("value") and (.value | type) == "string" and
+              (has("valueFrom") | not) and (has("valueSource") | not))
+          ' <<< "$state" >/dev/null; then
+            echo "::error::Existing preview service has a non-literal runtime environment; candidate deployment refused"
+            exit 1
+          fi
+          jq -cS '{
+            ingress: (.metadata.annotations["run.googleapis.com/ingress"] // null),
+            invokerIamDisabled: (.metadata.annotations["run.googleapis.com/invoker-iam-disabled"] // null)
+          }' <<< "$state" > service-boundary-before.json
+          traffic="$(jq -ce '
+            [.status.traffic[]? | select((.percent // 0) > 0) | {revisionName, percent}] | sort_by(.revisionName, .percent)
+          ' <<< "$state")"
+          jq -e '
+            length > 0 and
+            all(.[]; (.revisionName | type) == "string" and (.revisionName | length) > 0 and
+              (.percent | type) == "number" and .percent > 0) and
+            (map(.percent) | add) == 100
+          ' <<< "$traffic" >/dev/null
+          printf '%s\n' "$traffic" > traffic-before.json
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Push image and resolve candidate digest
+        id: pushed_image
         run: |
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
           docker push "$IMAGE"
+          if [ "$STG_DOCUMENTS" = true ]; then
+            digest="$(gcloud artifacts docker images describe "$IMAGE" --project "$PROJECT_ID" --format='value(image_summary.digest)')"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Deploy to Cloud Run
+      - name: Deploy mock preview
+        if: ${{ !inputs.stg_documents }}
         id: deploy
         run: |
           describe_url() {
@@ -134,7 +200,91 @@ jobs:
           fi
           echo "url=${url}" >> "$GITHUB_OUTPUT"
 
-      - name: Check the live preview
+      - name: Deploy isolated stg document candidate
+        if: inputs.stg_documents
+        id: candidate
+        env:
+          SITE_URL: ${{ steps.service.outputs.url }}
+          IMAGE_DIGEST: ${{ steps.pushed_image.outputs.digest }}
+        run: |
+          image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web@${IMAGE_DIGEST}"
+          tag="stg-docs-${GITHUB_SHA:0:12}"
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --image "$image" \
+            --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+            --port 8080 \
+            --cpu 1 \
+            --memory 512Mi \
+            --min-instances 0 \
+            --max-instances 2 \
+            --no-traffic \
+            --tag "$tag" \
+            --set-env-vars "EXPERIENCE_API_MODE=http,EXPERIENCE_PUBLIC_API_VERSION=1.0,NEXT_PUBLIC_NIHO_WEB_ORIGIN=https://app-stg.niho.life,SITE_INDEXING=block,BOOKINGS_ENABLED=false,HOST_SIGNUP_MODE=pilot,NIHO_HOST_START_URL=https://app-stg.niho.life/experiences/provider,SITE_URL=${SITE_URL}" \
+            --labels "app=niho-experience,env=preview,commit=${GITHUB_SHA:0:12}" \
+            --quiet
+
+          state="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json)"
+          test "$(jq -r '.status.url' <<< "$state")" = "$SITE_URL"
+          jq -cS '{
+            ingress: (.metadata.annotations["run.googleapis.com/ingress"] // null),
+            invokerIamDisabled: (.metadata.annotations["run.googleapis.com/invoker-iam-disabled"] // null)
+          }' <<< "$state" > service-boundary-after.json
+          cmp --silent service-boundary-before.json service-boundary-after.json
+          candidate="$(jq -ce --arg tag "$tag" '
+            [.status.traffic[]? | select(.tag == $tag) | {revisionName, url}] |
+            if length == 1 then .[0] else error("candidate tag is missing or ambiguous") end
+          ' <<< "$state")"
+          revision="$(jq -r '.revisionName' <<< "$candidate")"
+          url="$(jq -r '.url' <<< "$candidate")"
+          [[ "$revision" =~ ^${SERVICE}-[a-z0-9-]+$ ]]
+          [[ "$url" =~ ^https://[A-Za-z0-9.-]+/?$ ]]
+
+          traffic="$(jq -ce '
+            [.status.traffic[]? | select((.percent // 0) > 0) | {revisionName, percent}] | sort_by(.revisionName, .percent)
+          ' <<< "$state")"
+          printf '%s\n' "$traffic" > traffic-after.json
+          cmp --silent traffic-before.json traffic-after.json
+
+          revision_json="$(gcloud run revisions describe "$revision" --project "$PROJECT_ID" --region "$REGION" --format=json)"
+          test "$(jq -r '.spec.containers[0].image' <<< "$revision_json")" = "$image"
+          test "$(jq -r '.metadata.labels.commit' <<< "$revision_json")" = "${GITHUB_SHA:0:12}"
+          jq -e '.status.conditions[] | select(.type == "Ready" and .status == "True")' <<< "$revision_json" >/dev/null
+          actual_env="$(jq -cS '[.spec.containers[0].env[]? | {name, value}] | sort_by(.name)' <<< "$revision_json")"
+          expected_env="$(jq -cnS --arg site_url "$SITE_URL" '[
+            {name:"BOOKINGS_ENABLED",value:"false"},
+            {name:"EXPERIENCE_API_MODE",value:"http"},
+            {name:"EXPERIENCE_PUBLIC_API_VERSION",value:"1.0"},
+            {name:"HOST_SIGNUP_MODE",value:"pilot"},
+            {name:"NEXT_PUBLIC_NIHO_WEB_ORIGIN",value:"https://app-stg.niho.life"},
+            {name:"NIHO_HOST_START_URL",value:"https://app-stg.niho.life/experiences/provider"},
+            {name:"SITE_INDEXING",value:"block"},
+            {name:"SITE_URL",value:$site_url}
+          ] | sort_by(.name)')"
+          test "$actual_env" = "$expected_env"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # --no-traffic pins the serving revision. A later normal deploy must
+      # explicitly send traffic to its verified mock revision, never to LATEST.
+      - name: Route normal preview traffic to the reviewed mock revision
+        if: ${{ !inputs.stg_documents }}
+        run: |
+          revision="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.latestReadyRevisionName)')"
+          [[ "$revision" =~ ^${SERVICE}-[a-z0-9-]+$ ]]
+          revision_json="$(gcloud run revisions describe "$revision" --project "$PROJECT_ID" --region "$REGION" --format=json)"
+          test "$(jq -r '.metadata.labels.commit' <<< "$revision_json")" = "${GITHUB_SHA:0:12}"
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "EXPERIENCE_API_MODE") | .value' <<< "$revision_json")" = mock
+          test "$(jq -r '.spec.containers[0].env[] | select(.name == "SITE_INDEXING") | .value' <<< "$revision_json")" = block
+          gcloud run services update-traffic "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
+            --to-revisions "${revision}=100" --quiet
+          state="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json)"
+          jq -e --arg revision "$revision" '[.status.traffic[]? | select((.percent // 0) > 0)] |
+            length == 1 and .[0].revisionName == $revision and .[0].percent == 100' <<< "$state" >/dev/null
+
+      - name: Check the live mock preview
+        if: ${{ !inputs.stg_documents }}
         env:
           URL: ${{ steps.deploy.outputs.url }}
         run: |
@@ -151,3 +301,38 @@ jobs:
           echo "ok   robots.txt blocks indexing"
           echo "### Preview: ${URL}" >> "$GITHUB_STEP_SUMMARY"
           echo "Commit: ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+
+  readback:
+    needs: deploy
+    if: github.event_name == 'workflow_dispatch' && inputs.stg_documents
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      CANDIDATE_URL: ${{ needs.deploy.outputs.candidate_url }}
+      CANDIDATE_REVISION: ${{ needs.deploy.outputs.candidate_revision }}
+      CANDIDATE_IMAGE_DIGEST: ${{ needs.deploy.outputs.candidate_image_digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Read back the isolated stg document candidate
+        run: |
+          [[ "$CANDIDATE_URL" =~ ^https://[A-Za-z0-9.-]+/?$ ]]
+          [[ "$CANDIDATE_REVISION" =~ ^niho-experience-preview-[a-z0-9-]+$ ]]
+          [[ "$CANDIDATE_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          python3 scripts/stg_document_readback.py \
+            --candidate-url "$CANDIDATE_URL" \
+            --api-origin https://app-stg.niho.life \
+            --revision "$CANDIDATE_REVISION"
+          {
+            echo "### Stg published-document candidate"
+            echo "Exact commit: ${GITHUB_SHA}"
+            echo "Revision: ${CANDIDATE_REVISION}"
+            echo "Image digest: ${CANDIDATE_IMAGE_DIGEST}"
+            echo "Candidate URL: ${CANDIDATE_URL}"
+            echo "Serving traffic: unchanged (candidate remains at 0%)"
+            echo "Booking API acceptance: not verified (GET-only document acceptance; bookings remain disabled)"
+          } >> "$GITHUB_STEP_SUMMARY"
