@@ -27,77 +27,6 @@ async function openEditor(page: Page, path: string) {
   await expect(page.getByRole("textbox", { name: "題名" })).toBeVisible();
 }
 
-async function dispatchSyntheticPopstate(page: Page) {
-  await page.evaluate(() => {
-    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-  });
-}
-
-async function logHistoryGuardState(page: Page) {
-  const diagnostics = await page.evaluate(() => {
-    const target = window as Window & {
-      __hostHistoryGuardDebug?: unknown;
-      __hostHistoryGuardRegistrations?: Array<{ name: string; capture: boolean; active: boolean }>;
-    };
-    return {
-      guard: target.__hostHistoryGuardDebug ?? null,
-      registrations: target.__hostHistoryGuardRegistrations ?? [],
-    };
-  });
-  console.log("[host-history-guard:e2e-state]", JSON.stringify(diagnostics));
-}
-
-async function collectHistoryGuardDiagnostics(page: Page) {
-  page.on("console", (message) => {
-    if (message.text().startsWith("[host-history-guard:")) console.log(message.text());
-  });
-  await page.addInitScript(() => {
-    const target = window as Window & {
-      __hostHistoryGuardRegistrations?: Array<{ name: string; capture: boolean; active: boolean }>;
-    };
-    const registrations: Array<{ name: string; capture: boolean; active: boolean }> = [];
-    const wrappedListeners = new WeakMap<EventListener, EventListener>();
-    const records = new WeakMap<EventListener, { active: boolean }>();
-    target.__hostHistoryGuardRegistrations = registrations;
-    const originalAdd = EventTarget.prototype.addEventListener;
-    const originalRemove = EventTarget.prototype.removeEventListener;
-    EventTarget.prototype.addEventListener = function (type, listener, options) {
-      if (this === window && type === "popstate" && typeof listener === "function") {
-        const record = {
-          name: listener.name || "anonymous",
-          capture: typeof options === "boolean" ? options : Boolean(options?.capture),
-          active: true,
-        };
-        registrations.push(record);
-        records.set(listener, record);
-        const wrapped: EventListener = function (this: EventTarget, event) {
-          console.info("[host-history-guard:dispatch]", { name: record.name, pathname: window.location.pathname });
-          listener.call(this, event);
-        };
-        wrappedListeners.set(listener, wrapped);
-        return originalAdd.call(this, type, wrapped, options);
-      }
-      return originalAdd.call(this, type, listener, options);
-    };
-    EventTarget.prototype.removeEventListener = function (type, listener, options) {
-      if (this === window && type === "popstate" && typeof listener === "function") {
-        const wrapped = wrappedListeners.get(listener);
-        const record = records.get(listener);
-        if (record) record.active = false;
-        if (wrapped) return originalRemove.call(this, type, wrapped, options);
-      }
-      return originalRemove.call(this, type, listener, options);
-    };
-    window.addEventListener("popstate", (event) => {
-      console.info("[host-history-guard:test-popstate]", {
-        pathname: window.location.pathname,
-        hasState: Boolean(event.state),
-      });
-    }, true);
-  });
-}
-
-
 async function audit(page: Page, label: string) {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   expect(results.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`), label).toEqual([]);
@@ -392,7 +321,6 @@ test("申込の設定: an offer's dialog, 並び替え and この商品を削除
 });
 
 test("browser back keeps unsaved edits behind the leave dialog", async ({ page }) => {
-  await collectHistoryGuardDiagnostics(page);
   await signIn(page);
   await page.goto("/host/experiences");
   await page.getByRole("region", { name: "体験の一覧" }).getByRole("link").first().click();
@@ -400,12 +328,8 @@ test("browser back keeps unsaved edits behind the leave dialog", async ({ page }
   const highlight = panel(page, "見どころ").getByRole("textbox", { name: "見どころ 1" });
   await highlight.fill("Unsaved browser history edit.");
   await expect(saveButton(page)).toBeVisible();
-  await logHistoryGuardState(page);
-  await dispatchSyntheticPopstate(page);
-  await logHistoryGuardState(page);
 
   await page.goBack();
-  await logHistoryGuardState(page);
   const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
   await expect(ask).toBeVisible();
   await expect(page).toHaveURL((url) => url.pathname === "/host/experiences/community-dinner");
@@ -416,7 +340,6 @@ test("browser back keeps unsaved edits behind the leave dialog", async ({ page }
 });
 
 test("browser forward keeps unsaved edits behind the leave dialog", async ({ page }) => {
-  await collectHistoryGuardDiagnostics(page);
   await signIn(page);
   await page.goto("/host/experiences");
   await page.getByRole("region", { name: "体験の一覧" }).getByRole("link").first().click();
@@ -429,11 +352,7 @@ test("browser forward keeps unsaved edits behind the leave dialog", async ({ pag
   const highlight = panel(page, "見どころ").getByRole("textbox", { name: "見どころ 1" });
   await highlight.fill("Unsaved browser history edit.");
   await expect(saveButton(page)).toBeVisible();
-  await logHistoryGuardState(page);
-  await dispatchSyntheticPopstate(page);
-  await logHistoryGuardState(page);
   await page.goForward();
-  await logHistoryGuardState(page);
   const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
   await expect(ask).toBeVisible();
   await expect(page).toHaveURL((url) => url.pathname === "/host/experiences/community-dinner");

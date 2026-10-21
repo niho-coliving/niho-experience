@@ -26,6 +26,19 @@ interface LeaveGuard {
   leave: () => void;
 }
 
+interface HostHistoryGuardState {
+  readonly dirty: boolean;
+  readonly leaving: boolean;
+  readonly current: { href: string; state: unknown };
+  onHistoryLeave: (href: string) => void;
+}
+
+declare global {
+  interface Window {
+    __nihoHostHistoryGuard?: HostHistoryGuardState;
+  }
+}
+
 /**
  * With unsaved changes, leaving asks first. A reload, a closed tab or a typed address get
  * the browser's own prompt (beforeunload). Links and browser back/forward are stopped and
@@ -57,54 +70,19 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       event.stopPropagation();
       setDestination({ kind: "link", anchor });
     };
-    const onPopState = (event: PopStateEvent) => {
-      console.info("[host-history-guard:popstate]", {
-        dirty: dirtyRef.current,
-        savedUrl: historyEntry.current.href,
-        targetUrl: window.location.href,
-        leaving: leaving.current,
-      });
-      (window as Window & { __hostHistoryGuardDebug?: unknown }).__hostHistoryGuardDebug = {
-        phase: "popstate",
-        dirty: dirtyRef.current,
-        savedUrl: historyEntry.current.href,
-        targetUrl: window.location.href,
-        leaving: leaving.current,
-      };
-      if (leaving.current) {
-        leaving.current = false;
-        historyEntry.current = { href: window.location.href, state: event.state };
-        return;
-      }
-      const current = historyEntry.current;
-      const targetHref = window.location.href;
-      const currentUrl = new URL(current.href);
-      const targetUrl = new URL(targetHref);
-      // A clean page or a hash-only history entry stays in this editor.
-      if (!dirtyRef.current || (targetUrl.pathname === currentUrl.pathname && targetUrl.search === currentUrl.search)) {
-        historyEntry.current = { href: targetHref, state: event.state };
-        return;
-      }
-      // Next.js listens for popstate in the bubble phase. Restore this entry before its
-      // router can navigate, keeping the editor mounted while the user decides.
-      event.stopImmediatePropagation();
-      window.history.pushState(current.state, "", current.href);
-      console.info("[host-history-guard:blocked]", { current: current.href, target: targetHref });
-      setDestination({ kind: "history", href: targetHref });
+    const historyGuard: HostHistoryGuardState = {
+      get dirty() { return dirtyRef.current; },
+      get leaving() { return leaving.current; },
+      get current() { return historyEntry.current; },
+      onHistoryLeave: (href) => setDestination({ kind: "history", href }),
     };
-    (window as Window & { __hostHistoryGuardDebug?: unknown }).__hostHistoryGuardDebug = {
-      phase: "registered",
-      dirty,
-      savedUrl: historyEntry.current.href,
-      targetUrl: window.location.href,
-    };
+    window.__nihoHostHistoryGuard = historyGuard;
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("click", onClick, true);
-    window.addEventListener("popstate", onPopState, true);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("click", onClick, true);
-      window.removeEventListener("popstate", onPopState, true);
+      if (window.__nihoHostHistoryGuard === historyGuard) delete window.__nihoHostHistoryGuard;
     };
   }, [dirty]);
   return {
