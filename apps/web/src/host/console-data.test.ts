@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMockHostFetch, MOCK_ID_TOKEN_PREFIX } from "@/lib/host/mock-niho";
-import { hostConsoleSnapshot, hostHome } from "./console-data";
+import { editorExperience, hostConsoleSnapshot, hostHome } from "./console-data";
 import { MOCK_CONSOLE_PROVIDERS } from "./mock/provider";
 
 const NOW = Date.UTC(2026, 11, 1, 3, 0);
@@ -29,7 +29,8 @@ describe("console data per provider", () => {
     expect(snapshot.payout).toEqual({ reason: "NOT_CONNECTED", label: null });
     const home = hostHome(snapshot);
     expect(home.todos.map((todo) => [todo.title, todo.detail, todo.action?.href])).toEqual([
-      ["Write Your Own Kanji with a Kamakura Calligrapher の原稿を仕上げる", "日程と料金が未入力", "/host/experiences/calligraphy"],
+      // Derived from the page (no photo, no offer yet), as the editor's 掲載までに必要 shows it.
+      ["Write Your Own Kanji with a Kamakura Calligrapher の原稿を仕上げる", "表紙写真と料金が未入力", "/host/experiences/calligraphy"],
     ]);
     expect(home.upcoming).toEqual([]);
     expect(home.month).toEqual({ label: "10月", sales: "¥0", refunds: "¥0", confirmed: "0件" });
@@ -46,6 +47,16 @@ describe("console data per provider", () => {
       const snapshot = hostConsoleSnapshot(id, "mock", NOW);
       expect(snapshot, id).toMatchObject({ experiences: [], bookings: [], sales: [], payout: null, month: null });
     }
+  });
+
+  it("opens the provider's own experience in the editor, and nothing in http mode yet (#87)", () => {
+    const kitchen = hostConsoleSnapshot("sample-provider-kitchen", "mock", NOW);
+    const opened = editorExperience(kitchen, "mock", "community-dinner");
+    expect(opened.status === "ready" && [opened.experience.title, opened.experience.photos.length, opened.experience.offers.map((offer) => offer.name)]).toEqual(["Kamakura Community Dinner with Locals", 8, ["Dinner", "tea time"]]);
+    // Another provider's experience is not this provider's to edit.
+    expect(editorExperience(hostConsoleSnapshot("sample-provider-studio", "mock", NOW), "mock", "community-dinner")).toEqual({ status: "missing" });
+    expect(editorExperience(kitchen, "mock", "no-such-experience")).toEqual({ status: "missing" });
+    expect(editorExperience(kitchen, "http", "community-dinner")).toEqual({ status: "unavailable" });
   });
 
   it("is empty in http mode until the provider API is connected (#87)", () => {

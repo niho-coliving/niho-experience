@@ -44,6 +44,21 @@ export function hostConsoleSnapshot(providerId: string, mode: HostDataMode, now:
   };
 }
 
+/** What the experience editor (#89) opens for an id. */
+export type HostEditorExperience =
+  | { status: "ready"; experience: HostExperience }
+  | { status: "missing" }
+  /** http mode: pages cannot be read or saved until the provider API is connected (#87). The page says 準備中. */
+  | { status: "unavailable" };
+
+/** The page the editor opens: the synthetic one in mock mode; nothing to edit yet in http mode. */
+export function editorExperience(snapshot: Pick<HostConsoleSnapshot, "experiences">, mode: HostDataMode, id: string): HostEditorExperience {
+  // TODO(#87): read the page, with the x-niho-page-updated-at it was read at, from the provider API.
+  if (mode === "http") return { status: "unavailable" };
+  const experience = snapshot.experiences.find((candidate) => candidate.id === id);
+  return experience ? { status: "ready", experience } : { status: "missing" };
+}
+
 export interface HostHomeData {
   todos: HomeTodo[];
   upcoming: HomeUpcoming[];

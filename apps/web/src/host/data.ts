@@ -3,7 +3,7 @@ import { config } from "@/lib/config";
 import { nihoIdOrNull, parseProviderDetail, selectProvider, type HostProvider } from "@/lib/host/providers";
 import { isHostMock, loadHostProviders, nihoApiFetch, readHostSession } from "@/lib/host/server";
 import { idTokenUsable, type HostSession } from "@/lib/host/session";
-import { hostConsoleSnapshot, hostHome, type HostHomeData } from "./console-data";
+import { editorExperience, hostConsoleSnapshot, hostHome, type HostEditorExperience, type HostHomeData } from "./console-data";
 import type { HostExperience, HostSettings } from "./types";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -33,6 +33,8 @@ export async function hostPageContext(query: SearchParams): Promise<HostPageCont
 }
 
 export interface HostConsoleData {
+  /** YYYY-MM-DD in Japan (the preview's fixed day in mock mode). */
+  today: string;
   home: HostHomeData;
   experiences: readonly HostExperience[];
   settings: HostSettings;
@@ -68,6 +70,7 @@ export async function loadHostConsoleData(provider: HostProvider): Promise<HostC
   const snapshot = hostConsoleSnapshot(provider.id, isHostMock() ? "mock" : "http", Date.now());
   const known = (await loadProviderDetail(provider.id)) ?? provider;
   return {
+    today: snapshot.today,
     home: hostHome(snapshot),
     experiences: snapshot.experiences,
     settings: {
@@ -80,5 +83,23 @@ export async function loadHostConsoleData(provider: HostProvider): Promise<HostC
       meetingPoint: snapshot.meetingPoint,
       notificationEmail: snapshot.notificationEmail,
     },
+  };
+}
+
+export interface HostExperienceEditorData {
+  editor: HostEditorExperience;
+  /** 迎える人: the provider's name and introduction, as 設定 › 提供者情報 has them. */
+  host: { name: string; bio: string };
+  /** The day a submission is dated (申請日). */
+  today: string;
+}
+
+/** The experience editor's page (#89): the experience with this id and the provider who hosts it. */
+export async function loadHostExperienceEditor(provider: HostProvider, id: string): Promise<HostExperienceEditorData> {
+  const data = await loadHostConsoleData(provider);
+  return {
+    editor: editorExperience(data, isHostMock() ? "mock" : "http", id),
+    host: { name: data.settings.displayName, bio: data.settings.bio },
+    today: data.today,
   };
 }
