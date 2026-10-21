@@ -43,6 +43,15 @@ export function withProvider(path: string, providerId: string | null | undefined
   return withQuery(path, { providerId });
 }
 
+/**
+ * Where a signed-in host lands from /host: the home, or 設定 when Stripe sends them back from the
+ * payout account's page (`?connect=return|refresh`, which 設定 handles). Only `providerId` and a
+ * known `connect` are carried.
+ */
+export function hostLandingPath(providerId: string | null, connect: unknown): string {
+  return connect === "return" || connect === "refresh" ? withQuery(HOST_SETTINGS_PATH, { providerId, connect }) : withProvider(HOST_HOME_PATH, providerId);
+}
+
 /** Why the login did not finish; each has its own message on /host/auth/error. */
 export const LOGIN_ERROR_REASONS = ["expired", "state", "denied", "rejected", "unavailable"] as const;
 export type LoginErrorReason = (typeof LOGIN_ERROR_REASONS)[number];

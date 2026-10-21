@@ -31,14 +31,15 @@ export const BOOKING_STATUS: Record<HostBookingStatus, StatusLabel> = {
 /** A booking whose day has passed stays 確定, in the quiet tone (mock v2). */
 export const PAST_CONFIRMED_BOOKING: StatusLabel = { label: "確定", tone: "draft" };
 
-/** The provider's own review, shown beside 設定 › 提供者情報. */
+/** The provider's own review, shown beside 設定 › 提供者情報 (NIHO's provider screen calls SUSPENDED 確認が必要). */
 export const PROVIDER_REVIEW_STATUS: Record<HostProviderReviewStatus, StatusLabel> = {
   DRAFT: { label: "未申請", tone: "draft" },
   REQUESTED: { label: "審査待ち", tone: "wait" },
   APPROVED: { label: "審査済み", tone: "ok" },
-  SUSPENDED: { label: "停止中", tone: "stop" },
+  SUSPENDED: { label: "確認が必要", tone: "stop" },
 };
 
+/** The payout account's state beside 設定 › 売上受取口座. */
 export function payoutStatus(reason: PaymentReadinessReason): StatusLabel {
   if (reason === "READY") return { label: "準備済み", tone: "ok" };
   if (reason === "NOT_CONNECTED") return { label: "未接続", tone: "wait" };
