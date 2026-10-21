@@ -1,24 +1,24 @@
 # 本番候補の配備と公開ゲート
 
-対象: [#5](https://github.com/niho-coliving/niho-experience/issues/5)、[#15](https://github.com/niho-coliving/niho-experience/issues/15)。2026-10-19 時点の準備案。**販売開始、検索公開、外部提供者登録は別々に受入する。**
+対象: [#5](https://github.com/niho-coliving/niho-experience/issues/5)、[#15](https://github.com/niho-coliving/niho-experience/issues/15)。2026-10-21 更新。**販売開始、検索公開、外部提供者登録は別々に受入する。**
 
 ## 固定する構成
 
 | 項目 | 設定 |
 | --- | --- |
-| GCP | プレビュー `niho-experience-web` と NIHOapp から分離した `niho-experience-prod`。`asia-northeast1` |
+| GCP | 初期pilotは既存 `niho-app-prd` を共用し、Cloud Runサービス・実行ID・配備権限を分離。`asia-northeast1` |
 | Cloud Run | `niho-experience`、`experience-runtime`（権限なし）、1 vCPU / 512 MiB、候補段階は min 0 / max 2 |
 | イメージ | 本リポのレビュー済み `main` の40文字SHA。資格情報なしで build と smoke を行い、SHA256確認済みのイメージだけを配備jobへ渡す |
-| 配備権限 | 本番プロジェクト専用の `experience-deployer`。専用 Workload Identity Pool は GitHub repository ID `1425500695`、`refs/heads/main`、`production` environment、手動起動、`deploy-production.yml` の同時一致を要求 |
+| 配備権限 | `experience-deployer` に `niho-experience` サービス単位の `roles/run.admin`、専用Artifact Registryのwriter、runtime SAだけのService Account Userを付与。専用 Workload Identity Pool は GitHub repository ID `1425500695`、`refs/heads/main`、`production` environment、手動起動、`deploy-production.yml` の同時一致を要求 |
 | GitHub | `production` environment に `main` のみの branch rule と required reviewer を設定。repository variable `PRODUCTION_DEPLOY_ENABLED=true` は設定が揃うまで付けない |
 | 初期revision | `EXPERIENCE_API_MODE=http`、`EXPERIENCE_PUBLIC_API_VERSION=1.0`、`SITE_URL=https://experience.niho.life`、`NEXT_PUBLIC_NIHO_WEB_ORIGIN=https://niho.life`、`SITE_INDEXING=block`、`BOOKINGS_ENABLED=false`、`HOST_SIGNUP_MODE=pilot`、`NIHO_HOST_START_URL=https://niho.life/experiences/provider`。`MOCK_CATALOG` と `UMAMI_WEBSITE_ID` は渡さない |
 
-本番プロジェクトの新設・請求先連結・ロードバランサーの利用料金はオーナー判断事項。推奨は**専用本番プロジェクト＋global external Application Load Balancer＋Cloudflare proxy**。Googleは Cloud Run domain mapping を production に推奨していないため、DNS only の domain mapping は採らない。Cloud Run は候補段階で公開 `run.app` URL を使うが、販売開始前に ALB 経由だけを受ける ingress と候補revisionの検証経路を整える。プレビュー用 deployer に本番プロジェクトの権限を付けない。
+初期pilotでは既存の `niho-app-prd` にCloud Runサービスと限定した配備IDを足し、既存のglobal external Application Load BalancerとCloudflare proxyを再利用する。新規プロジェクト作成と新しいロードバランサーは不要。GCP project Owner、請求、API有効化、クォータの管理境界は共有する一方、GitHub deployerのCloud Run Adminは `niho-experience` サービスだけに付け、既存アプリのサービス・runtime identity・DB/Secretsへ権限を与えない（[Cloud Runのリソース単位IAM](https://docs.cloud.google.com/run/docs/securing/managing-access)）。売上や取り扱いデータが増える、組織ポリシー・障害範囲・請求分離が必要になる段階では専用GCP projectへ移行する。Googleは Cloud Run domain mapping をproductionに推奨していないため、DNS onlyのdomain mappingは採らない。Cloud Runは候補段階で公開 `run.app` のrevision URLを使い、販売前にはALB経由だけを受けるingressと候補revisionの検証経路を整える。プレビュー用deployerに本番権限は付けない。
 
-## 初回準備（オーナーが請求先・権限を承認した後）
+## 初回準備（本番設定の確認後）
 
-1. 管理者アカウントで `ORG_ID`、`BILLING_ACCOUNT`、`PROJECT_ID=niho-experience-prod` を確認する。`ORG_ID=... BILLING_ACCOUNT=... bash scripts/gcp/setup-production.sh` を実行する。スクリプトはプロジェクト、請求先、Artifact Registry、runtime/deployer SA、専用 OIDC pool/provider を作り、GitHub variables の値を出す。既存プレビュー・NIHOappのプロジェクトを指定すると停止する。
-2. GitHub の `production` environment を作り、**required reviewer と main のみの branch rule** を設定する。スクリプトが出した `PROD_GCP_*` 6変数を repository variables に登録する。preview 用 `GCP_*` と混ぜない。最後に `PRODUCTION_DEPLOY_ENABLED=true` を登録する。
+1. `@niho.life` の `niho-app-prd` Ownerで `ORG_ID=299180592876 PROJECT_ID=niho-app-prd ALLOW_SHARED_NIHO_APP_PROJECT=true bash scripts/gcp/setup-production.sh` を実行する。既存請求先は確認するだけで変更しない。スクリプトは専用Artifact Registry、runtime/deployer SA、GitHub OIDC pool/providerを作り、private・trafficなしのbootstrap serviceを用意する。deployerの `roles/run.admin` はこのCloud Run serviceにだけ付与する。出力されたGitHub variablesを記録する。
+2. GitHubの `production` environment が **required reviewer と mainのみのbranch rule** を持つことを確認する。スクリプトが出した `PROD_GCP_*` 6変数をrepository variablesに登録する。preview用 `GCP_*` と混ぜない。最後に `PRODUCTION_DEPLOY_ENABLED=true` を登録する。
 3. `.github/workflows/deploy-production.yml` を `main` から `action=candidate` で手動起動し、入力 `commit_sha` を起動時の `main` SHA と完全一致させる。workflow は資格情報なしで build/smoke → 保護環境で image push → digest固定の `--no-traffic --tag candidate-<sha12>` → NIHO本番公開APIの一覧・revision専用URL・runtime env・robots・preview 404 を確認する。APIが未配備で404なら候補を受け入れない。実行結果に出るSHA・revision・image digest・候補URLを確認する。
 4. 候補URLを確認して受け入れた後、別の手動実行で `action=promote` を選び、候補実行の同じ `commit_sha`、`candidate_revision`、`candidate_image_digest` を入力する。保護環境で既存revisionのcommit label・不変image digest・停止設定・候補URLを再検証し、そのrevision自体を昇格する。promotionではbuild・image push・再配備を行わない。候補SHA・revision・digest・配備run・環境変数・HTTP結果を #15 に記録する。予約停止と検索除外は維持する。
 
@@ -35,17 +35,17 @@
 
 このstg確認が完了するまで、公開API版を `1.2` に切り替えない。テスト予約ができない環境では、v1.2の公開GET確認だけを根拠に切り替えず、NIHO側の安全な予約検証経路を整えてから再開する。
 
-## `experience.niho.life` の入口案（有料の ALB を承認後）
+## `experience.niho.life` の入口（本番revisionを昇格後）
 
 | 層 | 作るものと値 | 確認 |
 | --- | --- | --- |
-| GCP | 本番プロジェクトに global external Application Load Balancer。`asia-northeast1` の `niho-experience` を指す serverless NEG、HTTPS backend service、HTTP→HTTPS redirect、専用 global static IPv4 を割り当てる | `Host: experience.niho.life` でトップと静的assetが 200 |
-| TLS | Certificate Manager の DNS authorization で `experience.niho.life` の証明書を発行し、ALB の HTTPS proxy に付ける。DNS authorization の CNAME を Cloudflare DNS へ追加する | 証明書が active、TLS hostname が一致、HTTP が HTTPS へ転送 |
-| Cloudflare | `experience` の A record を専用 ALB IPv4 に向けて proxy を有効にする。SSL/TLS は Full (strict)。既存 `niho.life` / `app` / `api` の DNS は触らない | DNS、TLS、`cf-ray`、ALB access log を突合 |
+| GCP | 既存 `nihoapp-prd-cf-https-fr` と `nihoapp-prd-cf-urlmap` を使う。新しい `asia-northeast1` serverless NEGとHTTPS backend serviceを作り、`experience.niho.life` 専用host rule/path matcherを追加する。forwarding rule・static IPv4・ALBは増やさない | `Host: experience.niho.life` でトップと静的assetが200。既存hostの経路に変化がない |
+| TLS | Certificate ManagerのDNS authorizationで `experience.niho.life` の証明書を発行し、既存 `nihoapp-prd-cf-cert-map` に専用hostname entryを追加する。DNS authorizationのCNAMEだけCloudflare DNSへ追加する | 証明書がactive、TLS hostnameが一致、HTTPが既存redirect経由でHTTPSへ転送 |
+| Cloudflare | `experience` のA recordを既存Cloudflare向けALB IPv4へ向け、proxyを有効にする。SSL/TLSはFull (strict)。既存 `niho.life` / `app` / `api` のDNSは触らない | DNS、TLS、`cf-ray`、ALB access logを突合 |
 | cache | この hostname の既定は bypass。後順位の例外 rule として `/_next/static/*` のみ cache eligible。`/experiences/*/book`、`/booking/*`、`/preview/*`、API、HTML は常に bypass。`/_next/image` は初回は bypass | 予約関連の `Cache-Control: private, no-store`、`CF-Cache-Status` が `HIT` でないことを確認 |
 | origin protection | 販売前に Cloud Run ingress を `internal-and-cloud-load-balancing` にし、`run.app` の直アクセスが拒否されることを確認。候補revisionの検証を ALB 経由に切り替えたworkflowを同時に入れる | `run.app` でアクセス不可、ALB経由は正常 |
 
-ALB/DNSは、この文書の設定と Google Cloud の [Cloud Run custom domain 手順](https://cloud.google.com/run/docs/mapping-custom-domains)、[revision の段階切替](https://cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration)、Cloudflare の [cache rule 順序](https://developers.cloudflare.com/cache/how-to/cache-rules/order/)を照合して適用する。DNS cutover前に現行レコードの値とIDを保存し、切戻しは旧レコードへ戻す。
+ALB/DNSは、この文書の設定とGoogle Cloudの[Cloud Run custom domain手順](https://cloud.google.com/run/docs/mapping-custom-domains)、[revisionの段階切替](https://cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration)、Cloudflareの[cache rule順序](https://developers.cloudflare.com/cache/how-to/cache-rules/order/)を照合して適用する。既存URL mapへhost ruleを追加する前に全host/path ruleを保存し、`experience.niho.life` だけに新経路を加える。DNS cutover前にレコードの値とIDを保存し、切戻しはexperience用host ruleとDNS recordだけを戻す。共有ALBのforwarding ruleや既存host ruleは削除しない。
 
 ## NIHO の実APIとの整合
 

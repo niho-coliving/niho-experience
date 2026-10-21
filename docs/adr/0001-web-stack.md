@@ -40,7 +40,7 @@
 
 構成の決まり：
 
-- NIHOappとは別のCloud Runサービスにする（できれば別のGCPプロジェクト）。公開サイトの障害や設定ミスが予約・決済の基盤へ広がらないようにする。リージョンはNIHOのAPIと同じにする。
+- NIHOappとは別のCloud Runサービスにする。GCP projectの分離はより強い隔離として推奨するが、初期pilotは既存の `niho-app-prd` に置き、専用runtime SA・Artifact Registry・Workload Identityと、Experienceサービスに限定したdeployer権限で境界を作る。売上や取扱データ、可用性要件が増えた段階で専用projectへ移行する。リージョンはNIHOのAPIと同じにする。
 - 画像・JS・CSSはCloudflareでcacheする。予約入力・決済復帰・previewはアプリが `Cache-Control: private, no-store` を返すので、Cloudflare側でもcacheしない設定を確認する。
 - イメージは一つだけ作り、プレビューと本番へ同じものを出す。環境ごとの値（`SITE_INDEXING`、`EXPERIENCE_API_MODE`、`HOST_SIGNUP_MODE` 等）は実行時の環境変数で渡し、ページ側はリクエスト時に読む。ビルドに環境ごとの値を焼き込まない。
 - 実装：`next.config.ts` の `output: "standalone"`、root の `Dockerfile`（Node 24 slim をdigestで固定、非rootで実行、port 8080）。`scripts/container-smoke.sh` で、同じイメージが設定だけで検索許可・提供者登録の表示を切り替えることを確認する。

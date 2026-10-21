@@ -14,7 +14,7 @@ main に merge → GitHub Actions（.github/workflows/deploy-preview.yml）
 
 - プレビューはmock（`EXPERIENCE_API_MODE=mock`）で、検索に出ず、予約も決済もできない。表示する体験は、既定で掲載許可のある最初の5体験（`MOCK_CATALOG=pilot`、価格・日程は推奨値）。架空の合成データに戻すときは、手順2-2と同じ画面でリポジトリ変数 `PREVIEW_MOCK_CATALOG` を `synthetic` にして配備し直す。Cloud Runの画面で環境変数を直接変えても、次の配備で上書きされる。
 - 最小インスタンス0なので、使わない時はほぼ費用がかからない（しばらく使わないと最初の表示に数秒かかる）。
-- NIHOappとは別のGCPプロジェクトに作る。NIHOappの権限・データには触れない。
+- 初期pilotは既存 `niho-app-prd` に専用Cloud Runサービスとして作る。GitHub deployerにはそのサービスだけのCloud Run管理権限を付与し、NIHOappのruntime identity・DB・Secretsには触れない。分離の判断と本番の入口は [production-deploy.md](production-deploy.md) を参照。
 - 準備が済むまで、このworkflowは何もせずに終わる（`GCP_PROJECT_ID` 変数がない間はskip）。
 
 ## 手順1：Google Cloudの準備（オーナーが1回だけ）
@@ -120,7 +120,7 @@ PC/スマホで日時・人数・入力・Checkout・失敗からの復帰・計
 
 ## 本番について
 
-本番の固定SHA配備、専用GCPプロジェクト、`experience.niho.life` の入口・DNS/TLS/cache、NIHO側のCORS/canonical、販売・検索・外部提供者の個別ゲートは [production-deploy.md](production-deploy.md) を正とする。
+本番の固定SHA配備、GCP projectとCloud Runの権限境界、`experience.niho.life` の入口・DNS/TLS/cache、NIHO側のCORS/canonical、販売・検索・外部提供者の個別ゲートは [production-deploy.md](production-deploy.md) を正とする。
 
 ## Cloudflareについて
 
@@ -128,8 +128,8 @@ PC/スマホで日時・人数・入力・Checkout・失敗からの復帰・計
 
 本番（独自ドメイン）ではCloudflareを入口に置く。ホスト名は `experience.niho.life` と決まった。
 
-入口は専用の global external Application Load Balancer と Cloudflare proxy を推奨する。Cloud Run の直接 domain mapping は Google が production に推奨していない。新規課金・権限の判断と適用手順は [production-deploy.md](production-deploy.md) にまとめた。Cloudflareでcacheするのは初期は `/_next/static/*` だけとし、予約入力・決済後ページは bypass を確認する。
+入口はNIHOが既に使う global external Application Load Balancer と Cloudflare proxy を再利用する。Cloud Runの直接domain mappingはGoogleがproductionに推奨していない。Cloudflareでcacheするのは初期は `/_next/static/*` だけとし、予約入力・決済後ページはbypassを確認する。
 
-本番候補のworkflowと準備スクリプトは用意済み。請求先と入口方式の承認後にサービスを作り、受入中は最小インスタンス0・予約停止・検索除外で運用する。販売開始時の最小インスタンス1への変更も受入記録に含める。
+本番候補のworkflowと準備スクリプトは用意済み。既存請求とALBを確認してからExperience専用サービスを作り、受入中は最小インスタンス0・予約停止・検索除外で運用する。販売開始時の最小インスタンス1への変更も受入記録に含める。
 
 Umami CloudのWebsite IDは `f7a8b3ed-ef71-4a35-969e-955b88f01902`（ドメイン `experience.niho.life`）。プライバシーポリシーへの計測内容の追記後に、実行時環境変数 `UMAMI_WEBSITE_ID` として本番サービスだけへ設定する。previewには設定しない。サイトID自体は公開情報で、GitHub Secretではなくランタイム設定として扱う。
