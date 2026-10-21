@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { HostViewV1 } from "@niho/experience-presentation/v1";
 import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { TrackView, TrackedLink } from "@/components/Analytics";
@@ -10,6 +11,9 @@ import { safeHttpsUrl } from "@/lib/safe-url";
 import { getPublishedPageDocument } from "@/lib/page-documents";
 import { HOST_BAND_VIDEO } from "@/lib/site-media";
 import { publicMetadata } from "@/lib/public-metadata";
+import { nihoIdOrNull } from "@/lib/host/providers";
+import { HOST_HOME_PATH, HOST_LOGIN_PATH, withProvider } from "@/lib/host/routes";
+import { isHostMock, readHostSession } from "@/lib/host/server";
 
 function hostStartUrl(value: string, nihoOrigin: string): string | null {
   try {
@@ -39,15 +43,36 @@ const OPEN_STEPS = [
 const YOU = ["Host the experience and look after your guests", "Keep your dates and capacity up to date", "Check facts in your listing, like what's included and where to meet", "Complete identity and payout checks with Stripe if your account needs them"];
 const NIHO = ["Help write and edit your page in English", "Advise on photos, pricing and terms", "Show your experience to travelers and take bookings and payments", "Answer guest questions before the day"];
 
-export default async function HostPage() {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+/**
+ * With HOST_CONSOLE_ENABLED, signed-in hosts go straight to the console and others
+ * get "NIHO でログイン". Only a well-formed `providerId` is carried over.
+ */
+async function hostConsoleEntry(query: SearchParams): Promise<{ loginHref: string } | null> {
+  if (!config.hostConsoleEnabled) return null;
+  const providerId = nihoIdOrNull(query.providerId);
+  if (await readHostSession()) redirect(withProvider(HOST_HOME_PATH, providerId));
+  const params = new URLSearchParams();
+  if (providerId) params.set("providerId", providerId);
+  // Preview only: `?mock=empty` signs in as a synthetic host with no providers.
+  if (isHostMock() && query.mock === "empty") params.set("mock", "empty");
+  return { loginHref: params.size ? `${HOST_LOGIN_PATH}?${params}` : HOST_LOGIN_PATH };
+}
+
+export default async function HostPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const consoleEntry = await hostConsoleEntry(await searchParams);
   const document = await getPublishedPageDocument("host");
-  const managementUrl = hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin);
+  const nihoProviderUrl = hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin);
+  // The console login replaces the links to NIHO's provider screen.
+  const managementUrl = consoleEntry ? null : nihoProviderUrl;
   const startUrl = config.hostSignupMode === "open" ? managementUrl : null;
+  const openSignup = config.hostSignupMode === "open" && Boolean(consoleEntry || nihoProviderUrl);
   const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
   const signup = (props: BlockProps = {}) => (
     // Full width under the hero on desktop. Phone-only values are max-lg: so package-scoped base classes cannot override the lg: ones.
     <section className="max-lg:mt-7 max-lg:max-w-2xl lg:mt-10" aria-label="How to start">
-      {startUrl ? (
+      {consoleEntry && openSignup ? null : startUrl ? (
         <div className="space-y-3">
           <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
             {blockText(props, "label", "Start with your NIHO account")}
@@ -72,8 +97,19 @@ export default async function HostPage() {
       {!startUrl && managementUrl ? <p className="mt-4">
         <a href={managementUrl} className="link-leaf">Manage your experiences on NIHO</a>
       </p> : null}
+      {consoleEntry ? (
+        <div className={openSignup ? "space-y-3" : "mt-5 space-y-3"}>
+          {/* A plain link: the console has its own root layout and login is a route handler. */}
+          <a href={consoleEntry.loginHref} lang="ja" className={buttonClass("primary", "text-lg")}>NIHO でログイン</a>
+          <p className="text-sm text-muted">
+            {openSignup
+              ? "Sign in with your NIHO account to register as a host, edit your experiences and see bookings and sales. Stripe may request identity checks."
+              : "Already hosting with NIHO? Sign in to edit your experiences and see bookings and sales."}
+          </p>
+        </div>
+      ) : null}
     </section>
   );
-  const fallback = <HostViewV1 primitives={PRESENTATION_PRIMITIVES_V1} model={{ video: HOST_BAND_VIDEO, steps: startUrl ? OPEN_STEPS : PILOT_STEPS, you: YOU, niho: NIHO, signup: signup(), signupOpen: Boolean(startUrl) }} />;
-  return <><TrackView event="host_view" props={{ signup_mode: startUrl ? "open" : "pilot" }} /><PageDocumentContent document={document} pageId="host" fallback={fallback} slots={{ HostSignupCTA: (props) => <div className="container-page">{signup(props)}</div> }} /></>;
+  const fallback = <HostViewV1 primitives={PRESENTATION_PRIMITIVES_V1} model={{ video: HOST_BAND_VIDEO, steps: openSignup ? OPEN_STEPS : PILOT_STEPS, you: YOU, niho: NIHO, signup: signup(), signupOpen: Boolean(startUrl || consoleEntry) }} />;
+  return <><TrackView event="host_view" props={{ signup_mode: openSignup ? "open" : "pilot" }} /><PageDocumentContent document={document} pageId="host" fallback={fallback} slots={{ HostSignupCTA: (props) => <div className="container-page">{signup(props)}</div> }} /></>;
 }

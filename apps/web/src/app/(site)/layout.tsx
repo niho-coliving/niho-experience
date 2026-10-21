@@ -1,4 +1,4 @@
-import "./globals.css";
+import "../globals.css";
 import "@niho/experience-presentation/v1/styles.css";
 import type { Metadata, Viewport } from "next";
 import { AnalyticsSetup } from "@/components/Analytics";

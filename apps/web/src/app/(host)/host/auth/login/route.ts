@@ -1,0 +1,28 @@
+import type { NextRequest } from "next/server";
+import { config } from "@/lib/config";
+import { nihoConnectUrl } from "@/lib/host/niho-auth";
+import { createLoginState, createPkceVerifier, pkceChallenge } from "@/lib/host/pkce";
+import { nihoIdOrNull } from "@/lib/host/providers";
+import { HOST_MOCK_LOGIN_PATH } from "@/lib/host/routes";
+import { hostNotFound, isHostMock, seeOther, setLoginCookie, siteOrigin } from "@/lib/host/server";
+import { LOGIN_MAX_AGE_SECONDS } from "@/lib/host/session";
+
+/** Starts "NIHO でログイン": PKCE verifier and state in a 10-minute sealed cookie, then NIHO's confirmation page. */
+export function GET(request: NextRequest) {
+  if (!config.hostConsoleEnabled) return hostNotFound();
+  const providerId = nihoIdOrNull(request.nextUrl.searchParams.get("providerId"));
+
+  if (isHostMock()) {
+    // Preview: no NIHO round trip; a synthetic session is made locally.
+    const params = new URLSearchParams();
+    if (providerId) params.set("providerId", providerId);
+    if (request.nextUrl.searchParams.get("mock") === "empty") params.set("mock", "empty");
+    return seeOther(params.size ? `${HOST_MOCK_LOGIN_PATH}?${params}` : HOST_MOCK_LOGIN_PATH);
+  }
+
+  const verifier = createPkceVerifier();
+  const state = createLoginState();
+  const response = seeOther(nihoConnectUrl(config.nihoWebOrigin, { challenge: pkceChallenge(verifier), state, origin: siteOrigin() }));
+  setLoginCookie(response, { verifier, state, providerId, expiresAt: Date.now() + LOGIN_MAX_AGE_SECONDS * 1000 });
+  return response;
+}

@@ -33,6 +33,14 @@ const privatePageHeaders = [
   { key: "X-Robots-Tag", value: "noindex, nofollow" },
 ];
 
+/**
+ * Host console (#86): private like the booking pages. `same-origin` replaces
+ * `no-referrer` so the console's own POSTs carry a real Origin header (with
+ * no-referrer, browsers send `Origin: null` and the same-origin check would fail).
+ * Other sites still get no Referer.
+ */
+const hostConsoleHeaders = [...privatePageHeaders, { key: "Referrer-Policy", value: "same-origin" }];
+
 const nextConfig: NextConfig = {
   // Self-contained server for the container image (docs/adr/0001-web-stack.md).
   output: "standalone",
@@ -46,6 +54,8 @@ const nextConfig: NextConfig = {
       { source: "/experiences/:slug/book", headers: privatePageHeaders },
       { source: "/booking/:path*", headers: privatePageHeaders },
       { source: "/preview/:path*", headers: privatePageHeaders },
+      // `:path+` leaves /host itself (the public introduction) indexable.
+      { source: "/host/:path+", headers: hostConsoleHeaders },
     ];
   },
 };
