@@ -1,0 +1,40 @@
+import type { HostProviderReviewStatus } from "@/lib/host/providers";
+import type { HostBookingStatus, ListingStatus, PaymentReadinessReason } from "./types";
+
+/**
+ * Pill tones: ok = leaf-pale, wait = warn-pale, draft = sand, stop = danger-pale.
+ * The words always carry the meaning; the color only repeats it.
+ */
+export type PillTone = "ok" | "wait" | "draft" | "stop";
+
+export interface StatusLabel {
+  label: string;
+  tone: PillTone;
+}
+
+export const LISTING_STATUS: Record<ListingStatus, StatusLabel> = {
+  live: { label: "掲載中", tone: "ok" },
+  review: { label: "審査待ち", tone: "wait" },
+  draft: { label: "下書き", tone: "draft" },
+  paused: { label: "停止中", tone: "stop" },
+};
+
+export const BOOKING_STATUS: Record<HostBookingStatus, StatusLabel> = {
+  pending: { label: "承認待ち", tone: "wait" },
+  confirmed: { label: "確定", tone: "ok" },
+  cancelled: { label: "取消済み", tone: "stop" },
+};
+
+/** The provider's own review, shown beside 設定 › 提供者情報. */
+export const PROVIDER_REVIEW_STATUS: Record<HostProviderReviewStatus, StatusLabel> = {
+  DRAFT: { label: "未申請", tone: "draft" },
+  REQUESTED: { label: "審査待ち", tone: "wait" },
+  APPROVED: { label: "審査済み", tone: "ok" },
+  SUSPENDED: { label: "停止中", tone: "stop" },
+};
+
+export function payoutStatus(reason: PaymentReadinessReason): StatusLabel {
+  if (reason === "READY") return { label: "準備済み", tone: "ok" };
+  if (reason === "NOT_CONNECTED") return { label: "未接続", tone: "wait" };
+  return { label: "確認が必要", tone: "wait" };
+}

@@ -19,6 +19,20 @@ async function noHorizontalScroll(page: Page) {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 }
 
+/** The provider switch: the sidebar on PC, the account menu (the header's initial) on phones. Only one is visible. */
+const providerMenu = (page: Page) => page.locator("summary:visible", { hasText: "提供者" });
+
+/** The provider being shown, as the visible switch names it. */
+async function expectProvider(page: Page, name: string) {
+  await expect(providerMenu(page)).toContainText(name);
+}
+
+/** Phones keep sign-out in the account menu; the PC sidebar shows it as it is. */
+async function openAccountMenu(page: Page) {
+  const menu = page.locator("summary:visible", { hasText: "のアカウント" });
+  if (await menu.count()) await menu.click();
+}
+
 test("a host signs in from /host, switches provider, opens a section and signs out", async ({ page, context }) => {
   // /host stays the public introduction: only the pages below it are private.
   expect((await page.goto("/host"))!.headers()["x-robots-tag"]).toBeUndefined();
@@ -28,7 +42,7 @@ test("a host signs in from /host, switches provider, opens a section and signs o
 
   await page.getByRole("link", { name: "NIHO でログイン" }).click();
   await page.waitForURL(/\/host\/home$/);
-  await expect(page.getByRole("heading", { level: 1, name: /サンプル ホスト さん、\s?こんにちは/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "ホーム" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "ja");
 
   // The console root has no analytics, no site chrome and nothing in browser storage.
@@ -44,13 +58,12 @@ test("a host signs in from /host, switches provider, opens a section and signs o
   expect(headers["x-robots-tag"]).toContain("noindex");
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 
-  const provider = page.getByRole("heading", { level: 2, name: "サンプルの台所" });
-  await expect(provider).toBeVisible();
-  await page.locator("summary", { hasText: "提供者" }).click();
+  await expectProvider(page, "サンプルの台所");
+  await providerMenu(page).click();
+  await expect(page.getByRole("link", { name: /サンプル工房/ })).toContainText("編集者");
   await page.getByRole("link", { name: /サンプル工房/ }).click();
   await page.waitForURL(/providerId=sample-provider-studio/);
-  await expect(page.getByRole("heading", { level: 2, name: "サンプル工房" })).toBeVisible();
-  await expect(page.getByText("あなたの役割：編集者")).toBeVisible();
+  await expectProvider(page, "サンプル工房");
 
   await page.getByRole("navigation", { name: "ホストのメニュー" }).getByRole("link", { name: "予約" }).click();
   await page.waitForURL("**/host/bookings?providerId=sample-provider-studio");
@@ -58,7 +71,7 @@ test("a host signs in from /host, switches provider, opens a section and signs o
   await expect(page.getByRole("link", { name: "予約" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("この画面は準備中です")).toBeVisible();
 
-  await page.locator("summary", { hasText: "のアカウント" }).click();
+  await openAccountMenu(page);
   await page.getByRole("button", { name: "ログアウト" }).click();
   await page.waitForURL(/\/host$/);
   await expect(page.getByRole("link", { name: "NIHO でログイン" })).toBeVisible();
@@ -73,7 +86,7 @@ test("an account without providers sees the registration entry", async ({ page }
   await expect(page.locator("summary", { hasText: "提供者" })).toHaveCount(0);
   await page.getByRole("link", { name: "提供者として登録" }).click();
   await page.waitForURL("**/host/register");
-  await expect(page.getByText("この画面は準備中です")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "提供者の登録" })).toBeVisible();
 });
 
 test("/host?providerId= is carried through sign-in, and only a valid providerId", async ({ page }) => {
@@ -81,12 +94,12 @@ test("/host?providerId= is carried through sign-in, and only a valid providerId"
   await expect(page.getByRole("link", { name: "NIHO でログイン" })).toHaveAttribute("href", "/host/auth/login?providerId=sample-provider-studio");
   await page.getByRole("link", { name: "NIHO でログイン" }).click();
   await page.waitForURL("**/host/home?providerId=sample-provider-studio");
-  await expect(page.getByRole("heading", { level: 2, name: "サンプル工房" })).toBeVisible();
+  await expectProvider(page, "サンプル工房");
 
   // Signed in: /host opens the console with that provider.
   await page.goto("/host?providerId=sample-provider-kitchen");
   await page.waitForURL("**/host/home?providerId=sample-provider-kitchen");
-  await expect(page.getByRole("heading", { level: 2, name: "サンプルの台所" })).toBeVisible();
+  await expectProvider(page, "サンプルの台所");
 
   await page.goto("/host/home?providerId=someone-else");
   await expect(page.locator("main").getByRole("alert")).toContainText("指定された提供者を開けませんでした");
@@ -103,7 +116,7 @@ test("an expired ID token is refreshed once by the browser before the page shows
     if (new URL(request.url()).pathname === "/host/auth/refresh") refreshes.push(request.method());
   });
   await page.goto("/host/auth/mock-login?expired=1");
-  await expect(page.getByRole("heading", { level: 1, name: /サンプル ホスト さん、\s?こんにちは/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "ホーム" })).toBeVisible();
   expect(refreshes).toEqual(["POST"]);
 });
 
@@ -144,7 +157,7 @@ test("keyboard users can skip to content and switch providers", async ({ page })
   const skip = page.getByRole("link", { name: "本文へ移動" });
   await expect(skip).toBeFocused();
   await expect(skip).toBeVisible();
-  const switcher = page.locator("summary", { hasText: "提供者" });
+  const switcher = providerMenu(page);
   await switcher.focus();
   await page.keyboard.press("Enter");
   const studio = page.getByRole("link", { name: /サンプル工房/ });
@@ -152,7 +165,7 @@ test("keyboard users can skip to content and switch providers", async ({ page })
   await studio.focus();
   await page.keyboard.press("Enter");
   await page.waitForURL(/providerId=sample-provider-studio/);
-  await expect(page.getByRole("heading", { level: 2, name: "サンプル工房" })).toBeVisible();
+  await expectProvider(page, "サンプル工房");
 });
 
 test("host pages have no serious accessibility violations and fit the screen", async ({ page }) => {
@@ -166,7 +179,9 @@ test("host pages have no serious accessibility violations and fit the screen", a
     expect(await noHorizontalScroll(page), path).toBeLessThanOrEqual(0);
   }
   for (const menu of ["提供者", "のアカウント"]) {
-    const summary = page.locator("summary", { hasText: menu });
+    // The PC sidebar has no account menu (sign-out is shown as it is).
+    const summary = page.locator("summary:visible", { hasText: menu });
+    if (!(await summary.count())) continue;
     await summary.click();
     expect(await seriousViolations(page), `${menu} open`).toEqual([]);
     await summary.click();

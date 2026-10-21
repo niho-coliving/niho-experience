@@ -1,4 +1,4 @@
-import type { ExperienceProviderMemberRole, ExperienceProviderWithMemberRole } from "@niho-experience/api-client/host";
+import type { ExperienceProviderKind, ExperienceProviderMemberRole, ExperienceProviderReviewStatus, ExperienceProviderWithMemberRole } from "@niho-experience/api-client/host";
 
 /**
  * Providers as NIHO's host API returns them. The shapes come from the host
@@ -17,8 +17,10 @@ export function nihoIdOrNull(value: unknown): string | null {
 /** A provider in the signed-in host's list (server side only: it carries NIHO's internal ids). */
 export type HostProvider = ExperienceProviderWithMemberRole;
 export type HostProviderRole = ExperienceProviderMemberRole;
+export type HostProviderKind = ExperienceProviderKind;
+export type HostProviderReviewStatus = ExperienceProviderReviewStatus;
 
-/** What the header's provider switcher (a client component) receives: the id for `?providerId=`, the name and the role. */
+/** What the sidebar's and the phone menu's provider switch (client components) receive: the id for `?providerId=`, the name and the role. */
 export type HostProviderChoice = Pick<HostProvider, "id" | "displayName" | "memberRole">;
 
 const ROLE_LABELS: Record<HostProviderRole, string> = { OWNER: "オーナー", EDITOR: "編集者" };
