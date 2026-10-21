@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useId, useRef, useState } from "react";
 import {
   BOOKING_TEXT_LIMITS,
   bookingWhen,
@@ -17,17 +17,15 @@ import { yen } from "@/host/format";
 import type { HostBooking, HostCancelReason, HostRefundChoice } from "@/host/types";
 import { DISABLED, FIELD_LABEL } from "./editor-parts";
 import { TEXTAREA } from "./fields";
+import { HostConfirmDialog } from "./HostConfirmDialog";
 import { consoleButtonClass } from "./host-ui";
 
 /*
  * The booking actions' confirmations (#90): 承認, お断り and 取消（と返金）, each in a modal
- * <dialog> on the page (the offer dialog's make). Nothing happens until its own button is
- * pressed; Esc and やめる close it and change nothing. The dialog closes first, then hands
- * the choice to the page, which applies it and moves focus to the booking's name.
+ * <dialog> on the page (HostConfirmDialog). Nothing happens until its own button is pressed;
+ * Esc and やめる close it and change nothing. The dialog closes first, then hands the choice
+ * to the page, which applies it and moves focus to the booking's name.
  */
-
-const DIALOG =
-  "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[460px] overflow-hidden rounded-2xl border-0 bg-canvas p-0 text-[0.875rem] leading-[1.6] text-ink shadow-[0_20px_60px_rgb(0_0_0/0.2)] backdrop:bg-ink/40";
 
 /** The irreversible actions: danger text on white with the field line (mock v2 `.btn-danger`). */
 export const DANGER_BUTTON =
@@ -54,70 +52,12 @@ function BookingSummary({ booking }: { booking: HostBooking }) {
   );
 }
 
-interface ConfirmDialogProps {
-  title: string;
-  description: string;
-  /** What gets focus when it opens: the safe choice, or the first field. */
-  focusRef: RefObject<HTMLElement | null>;
-  stayRef?: RefObject<HTMLButtonElement | null>;
-  /** The confirming button (type="submit"). */
-  confirm: ReactNode;
-  /** Said next to the buttons while the confirming one waits for something. */
-  hint?: ReactNode;
-  onConfirm: () => void;
-  onClose: () => void;
-  children: ReactNode;
-}
-
-function ConfirmDialog({ title, description, focusRef, stayRef, confirm, hint, onConfirm, onClose, children }: ConfirmDialogProps) {
-  const baseId = useId();
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const element = dialog.current;
-    // Opened once: removing the element when the dialog is done closes it without a "close" event.
-    if (element && !element.open) element.showModal();
-    focusRef.current?.focus();
-  }, [focusRef]);
-  const close = () => dialog.current?.close();
-  return (
-    <dialog ref={dialog} aria-labelledby={`${baseId}-title`} aria-describedby={`${baseId}-body`} onClose={onClose} className={DIALOG}>
-      <form
-        className="flex max-h-[calc(100dvh-2rem)] flex-col"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!event.currentTarget.reportValidity()) return;
-          // Closed first: the page under a modal dialog cannot take focus.
-          close();
-          onConfirm();
-        }}
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 md:px-5 md:pt-5">
-          <h2 id={`${baseId}-title`} className="font-sans text-[0.9375rem] leading-normal font-extrabold tracking-normal">
-            {title}
-          </h2>
-          <p id={`${baseId}-body`} className="mt-1 text-ink-soft">
-            {description}
-          </p>
-          {children}
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-4 py-3 md:px-5">
-          {hint}
-          <button ref={stayRef} type="button" onClick={close} className={consoleButtonClass("secondary")}>
-            やめる
-          </button>
-          {confirm}
-        </div>
-      </form>
-    </dialog>
-  );
-}
-
 /** 承認 or お断り of a request. Focus starts on やめる. */
 export function BookingDecisionDialog({ kind, booking, onConfirm, onClose }: { kind: "approve" | "decline"; booking: HostBooking; onConfirm: () => void; onClose: () => void }) {
   const stay = useRef<HTMLButtonElement>(null);
   const approve = kind === "approve";
   return (
-    <ConfirmDialog
+    <HostConfirmDialog
       title={approve ? "申込を承認しますか？" : "申込をお断りしますか？"}
       description={approve ? "カードに請求し、決済できたら予約が確定します。" : "カードの仮押さえを取り消し、席を空けます。この操作は元に戻せません。"}
       focusRef={stay}
@@ -131,7 +71,7 @@ export function BookingDecisionDialog({ kind, booking, onConfirm, onClose }: { k
       onClose={onClose}
     >
       <BookingSummary booking={booking} />
-    </ConfirmDialog>
+    </HostConfirmDialog>
   );
 }
 
@@ -158,7 +98,7 @@ export function BookingCancelDialog({ booking, onConfirm, onClose }: { booking: 
   const hintId = `${baseId}-waiting`;
 
   return (
-    <ConfirmDialog
+    <HostConfirmDialog
       title="予約を取り消しますか？"
       description={`${booking.guest}さんの予約を取り消します。この操作は元に戻せません。`}
       focusRef={first}
@@ -234,6 +174,6 @@ export function BookingCancelDialog({ booking, onConfirm, onClose }: { booking: 
         <textarea id={`${baseId}-message`} required maxLength={BOOKING_TEXT_LIMITS.cancelMessage} rows={4} value={message} onChange={(event) => setMessage(event.currentTarget.value)} className={TEXTAREA} />
         <p className="text-xs text-muted">取消のお知らせと一緒に、NIHO からメールで届きます。</p>
       </div>
-    </ConfirmDialog>
+    </HostConfirmDialog>
   );
 }
