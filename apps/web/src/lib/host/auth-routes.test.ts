@@ -144,7 +144,7 @@ describe("login and callback (http mode)", () => {
 
   it("has no mock login in http mode", async () => {
     const { GET } = await import("@/app/(host)/host/auth/mock-login/route");
-    expect(GET(new NextRequest(`${SITE}/host/auth/mock-login`)).status).toBe(404);
+    expect((await GET(new NextRequest(`${SITE}/host/auth/mock-login`))).status).toBe(404);
   });
 });
 

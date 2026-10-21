@@ -4,6 +4,7 @@ export {
   createContractValidator,
   EXPERIENCE_CONTRACT_DOCUMENT,
   EXPERIENCE_FIELD_POLICY,
+  findForbiddenToken,
   findOperation,
   findSensitiveValues,
   splitNameTokens,
@@ -11,3 +12,10 @@ export {
   type ContractValidator,
   type ValidationResult,
 } from "./contract-validator.ts";
+export {
+  auditHostContractDocument,
+  createHostContractValidator,
+  EXPERIENCE_HOST_CONTRACT_DOCUMENT,
+  EXPERIENCE_HOST_DTO_MARKER,
+  EXPERIENCE_HOST_FIELD_POLICY,
+} from "./host-contract-audit.ts";

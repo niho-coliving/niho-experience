@@ -30,8 +30,9 @@ const NO_MEETING_POINT: HostMeetingDefaults = { area: "", mapUrl: "", entrance: 
 export function hostConsoleSnapshot(providerId: string, mode: HostDataMode, now: number): HostConsoleSnapshot {
   const mock = mode === "mock" ? MOCK_CONSOLE_PROVIDERS.get(providerId) : undefined;
   if (mock) return { today: MOCK_TODAY, month: MOCK_SALES_MONTH, ...mock };
-  // TODO(#87): read experiences, bookings, sales, the payout account and the meeting and
-  // notification defaults from the provider API once the contract is agreed.
+  // TODO: experiences, bookings, sales and the meeting and notification defaults are not in
+  // the host contract (#87) yet. The payout account's readiness is
+  // (getExperienceProviderPaymentReadiness, OWNER only), but not its label.
   return {
     today: mode === "mock" ? MOCK_TODAY : todayInJapan(now),
     month: null,

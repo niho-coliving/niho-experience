@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useRef } from "react";
 import { hostBackLink, isHostNavActive } from "@/host/nav";
-import { nihoIdOrNull, providerRoleLabel, selectProvider, type HostProvider } from "@/lib/host/providers";
+import { nihoIdOrNull, providerRoleLabel, selectProvider, type HostProviderChoice } from "@/lib/host/providers";
 import { HOST_HOME_PATH, HOST_LOGOUT_PATH, HOST_NAV, withProvider } from "@/lib/host/routes";
 import { HostIcon, type HostIconName } from "./HostIcon";
 import { AccountAvatar, InitialAvatar, type HostAccount } from "./ui";
@@ -28,7 +28,7 @@ const MENU_LINK = "flex min-h-11 items-center gap-2 rounded-[10px] px-2.5 text-[
 
 export interface HostChromeProps {
   account: HostAccount;
-  providers: readonly HostProvider[];
+  providers: readonly HostProviderChoice[];
   /** NIHO's own app (NEXT_PUBLIC_NIHO_WEB_ORIGIN). */
   nihoAppUrl: string;
 }
@@ -38,7 +38,7 @@ function useProviderId(): string | null {
   return nihoIdOrNull(useSearchParams().get("providerId"));
 }
 
-function ProviderLinks({ providers, currentId, onPick }: { providers: readonly HostProvider[]; currentId: string; onPick: () => void }) {
+function ProviderLinks({ providers, currentId, onPick }: { providers: readonly HostProviderChoice[]; currentId: string; onPick: () => void }) {
   const pathname = usePathname();
   // A page under a section (one experience) may not exist for the other provider: switch to the section itself.
   const base = hostBackLink(pathname)?.href ?? pathname;
@@ -46,7 +46,7 @@ function ProviderLinks({ providers, currentId, onPick }: { providers: readonly H
     <ul className="flex flex-col gap-0.5">
       {providers.map((provider) => {
         const selected = provider.id === currentId;
-        const role = providerRoleLabel(provider.role);
+        const role = providerRoleLabel(provider.memberRole);
         return (
           <li key={provider.id}>
             <Link
@@ -70,7 +70,7 @@ function ProviderLinks({ providers, currentId, onPick }: { providers: readonly H
 }
 
 /** The provider being managed. With one provider it only shows it; with several it opens the list below it. */
-function SidebarProviderSwitcher({ providers }: { providers: readonly HostProvider[] }) {
+function SidebarProviderSwitcher({ providers }: { providers: readonly HostProviderChoice[] }) {
   const providerId = useProviderId();
   const menu = useRef<HTMLDetailsElement>(null);
   const { provider: current } = selectProvider(providers, providerId);

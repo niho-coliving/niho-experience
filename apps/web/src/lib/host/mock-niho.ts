@@ -1,44 +1,57 @@
 import { randomBytes } from "node:crypto";
+import type { MockHostScenario } from "@niho-experience/api-client/host/mock";
 import type { HostMockScenario } from "./session";
 
 /**
- * Synthetic stand-in for NIHO's provider API in mock mode (#86). Invented data
- * only. H2 (#87) replaces it with a mock generated from the agreed contract.
+ * NIHO's host API in mock mode (EXPERIENCE_API_MODE=mock): the synthetic,
+ * contract-checked mock from `@niho-experience/api-client/host/mock` (#87),
+ * loaded only when a mock session calls it. Invented data only.
  */
-export const MOCK_USER = { id: "sample-user", displayName: "サンプル ホスト", handle: "sample-host", iconImage: null } as const;
-
-const MOCK_PROVIDERS = [
-  { id: "sample-provider-kitchen", kind: "INDIVIDUAL", displayName: "サンプルの台所", bio: "合成データの提供者です。", sellerDisclosureUrl: null, reviewStatus: "APPROVED", memberRole: "OWNER" },
-  { id: "sample-provider-studio", kind: "BUSINESS", displayName: "サンプル工房", bio: "合成データの提供者です。", sellerDisclosureUrl: null, reviewStatus: "DRAFT", memberRole: "EDITOR" },
-] as const;
-
 export const MOCK_ID_TOKEN_PREFIX = "mock-id-token.";
 
 export function mockToken(prefix: string): string {
   return `${prefix}${randomBytes(16).toString("base64url")}`;
 }
 
+/** `?mock=` on /host/auth/mock-login → the session's scenario (anything else is the default). */
 export function hostMockScenario(value: unknown): HostMockScenario {
-  return value === "empty" ? "empty" : "default";
+  return value === "empty" || value === "payments-pending" ? value : "default";
 }
 
-const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+/** The console's scenario names → the api-client mock's. `default` is two providers (an OWNER and an EDITOR). */
+export const HOST_MOCK_SCENARIO_MAP: Record<HostMockScenario, MockHostScenario> = {
+  default: "two-providers",
+  empty: "empty",
+  "payments-pending": "payments-pending",
+};
 
-/** A fetch for the mock NIHO origin. Requires the synthetic Bearer token so the relay's header handling is exercised. */
+const loadMock = () => import("@niho-experience/api-client/host/mock");
+
+/** The synthetic signed-in host's display name. */
+export async function mockHostDisplayName(): Promise<string> {
+  return (await loadMock()).MOCK_HOST_USER.displayName;
+}
+
+const unauthorized = () =>
+  new Response(JSON.stringify({ error: { code: "UNAUTHORIZED", message: "mock: UNAUTHORIZED", details: {} } }), { status: 401, headers: { "content-type": "application/json" } });
+
+/**
+ * A fetch for the mock NIHO origin. Requires the synthetic Bearer token so the
+ * relay's header handling is exercised. Each fetch has its own state: writes
+ * (register, update, …) last only as long as this fetch.
+ */
 export function createMockHostFetch(scenario: HostMockScenario): typeof fetch {
-  const providers = scenario === "empty" ? [] : MOCK_PROVIDERS;
+  let mock: Promise<(input: string, init?: RequestInit) => Promise<Response>> | null = null;
   return async (input, init) => {
     const request = new Request(input, init);
-    const path = new URL(request.url).pathname;
-    if (!request.headers.get("authorization")?.startsWith(`Bearer ${MOCK_ID_TOKEN_PREFIX}`)) return json(401, { error: "unauthorized" });
-    if (path === "/api/auth/me" && request.method === "GET") return json(200, { user: MOCK_USER });
-    if (path === "/api/experience-providers" && request.method === "GET") return json(200, { providers, platformAdmin: false });
-    const detail = /^\/api\/experience-providers\/([^/]+)$/.exec(path);
-    if (detail && request.method === "GET") {
-      const provider = providers.find((candidate) => candidate.id === decodeURIComponent(detail[1]!));
-      return provider ? json(200, { provider, platformAdmin: false }) : json(404, { error: "not_found" });
-    }
-    if (path.startsWith("/api/experience-providers/") || path === "/api/experience-providers") return json(501, { error: "mock_not_available" });
-    return json(404, { error: "not_found" });
+    if (!request.headers.get("authorization")?.startsWith(`Bearer ${MOCK_ID_TOKEN_PREFIX}`)) return unauthorized();
+    mock ??= loadMock().then(({ createMockExperienceHostFetch }) => createMockExperienceHostFetch({ scenario: HOST_MOCK_SCENARIO_MAP[scenario] }));
+    const hasBody = request.method !== "GET" && request.method !== "HEAD";
+    return (await mock)(request.url, {
+      method: request.method,
+      headers: request.headers,
+      ...(hasBody ? { body: await request.arrayBuffer() } : {}),
+      signal: request.signal,
+    });
   };
 }

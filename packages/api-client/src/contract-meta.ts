@@ -8,6 +8,15 @@ export const EXPERIENCE_API_CONTRACT = {
   status: "agreed",
 } as const;
 
+/**
+ * ホスト API の契約（contract/experience-host-api.openapi.json）の版と状態。`draft` は NIHO 側（niho-app の contracts/exports）が
+ * 書き出したが、まだ NIHO の main に入っていない・配備されていない段階を表す。ホストの画面は mock で作り、実 API と接続済みとは扱わない。
+ */
+export const EXPERIENCE_HOST_API_CONTRACT = {
+  version: "0.1.0",
+  status: "draft",
+} as const;
+
 /** 予約に関わる時刻の基準。表示も日本時間（Asia/Tokyo）で行う。 */
 export const EXPERIENCE_TIME_ZONE = "Asia/Tokyo";
 

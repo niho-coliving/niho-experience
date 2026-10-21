@@ -153,15 +153,20 @@ export function splitNameTokens(name: string): string[] {
     .map((token) => token.toLowerCase());
 }
 
-function hasForbiddenToken(name: string): string | null {
+/** 名前が禁止の語を含めばその語を返す。3 文字以下の語は語の単位でだけ見る（`ip` が `zip` に当たらないように）。 */
+export function findForbiddenToken(name: string, forbiddenTokens: readonly string[]): string | null {
   const tokens = splitNameTokens(name);
   const joined = tokens.join("");
-  for (const forbidden of fieldPolicy.forbiddenNameTokens) {
+  for (const forbidden of forbiddenTokens) {
     if (forbidden.length <= 3 ? tokens.includes(forbidden) : tokens.includes(forbidden) || joined.includes(forbidden)) {
       return forbidden;
     }
   }
   return null;
+}
+
+function hasForbiddenToken(name: string): string | null {
+  return findForbiddenToken(name, fieldPolicy.forbiddenNameTokens);
 }
 
 /** 契約の文書が公開の規則を満たしているか。違反の説明を返す（空なら OK）。 */

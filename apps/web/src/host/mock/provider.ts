@@ -4,7 +4,8 @@ import { MOCK_KITCHEN_EXPERIENCES, MOCK_STUDIO_EXPERIENCES } from "./experiences
 import { MOCK_KITCHEN_SALES } from "./sales";
 
 /*
- * The console's side of the two synthetic providers in lib/host/mock-niho.ts (same ids).
+ * The console's side of the two synthetic providers of the host contract's mock
+ * (`@niho-experience/api-client/host/mock`, scenario `two-providers`; same ids).
  * Names, URLs and addresses are invented; emails use example.com.
  */
 export interface MockConsoleProvider {

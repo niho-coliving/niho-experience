@@ -128,6 +128,14 @@
 - 更新：ID token は 1 時間。接続の refresh token は更新のたびに取り替わり、古い token を 10 分を過ぎて出すと NIHO が接続を失効させるので、同じブラウザで並行して更新しません。
 - `HOST_CONSOLE_ENABLED` が off の間は、今の紹介ページと問い合わせの案内のままです。
 
+### 9.1 ホスト API の契約（[#87](https://github.com/niho-life/niho-experience/issues/87)）
+
+- 置き場：`packages/api-client/contract/experience-host-api.openapi.json`（＋ `.sha256`）。NIHO が `npm -C contracts run export:experience-host-contract` で書き出したものを、中身を変えずに写す（手順は §12 と同じ）。版は `0.1.0`・状態は draft。NIHO 側に画面の段ごとの operation が揃ったら agreed にする。
+- 範囲：今は提供者の一覧・登録・取得・更新・審査の申請、受取口座（準備・既存口座の再利用・接続）と `GET /api/auth/me`（表示名と顔写真だけ）。体験ページ・写真（#89）、予約（#90）、売上（#91）の operation は NIHO 側が足した段で写す。
+- 監査：`auditHostContractDocument` と `contract/host-field-policy.json`。path は `/api/experience-providers` 以下と `GET /api/auth/me` だけ、認証は Bearer だけ、schema は `x-niho-experience-host-dto` の印つきで閉じた形（閉じない schema はポリシーの `openSchemas` に理由つきで 2 つだけ）、パスワード・メール・電話・Stripe などの項目名は禁止。公開 API の監査とは別に持つ。
+- クライアント：`@niho-experience/api-client/host` の `createExperienceHostApiClient`。サーバー専用で、ブラウザのコードから実行時に import すると lint で止まる（型だけは可）。結果は `{ ok: true, data }` か、`status`・`code`・`reason` を持つエラー。
+- mock：`@niho-experience/api-client/host/mock` の `createMockExperienceHostFetch`。scenario は `empty`（提供者 0 件）・`two-providers`（OWNER で口座準備済みと、EDITOR で下書き）・`payments-pending`（口座未接続・再利用の候補あり）。書き込みは同じ fetch の中だけで変わり、Web は要求ごとに作り直すので次の要求には残らない。
+
 ## 10. mock
 
 ```ts
