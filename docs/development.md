@@ -75,6 +75,8 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 
 - `/preview/states`：空結果と読込などの表示を確認できる（mock時のみ存在）。
 - `?mock=slow`・`?mock=empty`・`?mock=error`：読込中・掲載なし・API障害を再現（mock時のみ有効）。
+- ホストの画面（`HOST_CONSOLE_ENABLED=true`）は、`/host?mock=empty`（提供者 0 件）・`?mock=payments-pending`（口座未接続）から「NIHO でログイン」を押すと、その scenario の合成セッションになる。指定なしは提供者 2 件。
+- `npm -w @niho-experience/api-client run gen:types` は公開とホストの 2 つの契約から型を作る（`--check` も両方）。
 - 選別mockのcheckoutエラーは `createMockExperienceFetch` の scenario で再現できる。メールアドレスをトリガーにしない。
 - 決済は `/preview/checkout` の模擬ページへ進む。カード情報は扱わない。
 
