@@ -1553,6 +1553,7 @@
           "photos",
           "meetingPointDisclosure",
           "meetingPoint",
+          "meetingOverview",
           "hosts",
           "provider",
           "seller",
@@ -1672,6 +1673,12 @@
                 "$ref": "#/components/schemas/PublicExperienceMeetingPoint"
               }
             ]
+          },
+          "meetingOverview": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200,
+            "description": "外部提供者が予約前に公開する集合の概要。住所・アクセス・入口案内・地図URLは含めない。"
           },
           "hosts": {
             "type": "array",

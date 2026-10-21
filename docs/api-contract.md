@@ -2,7 +2,7 @@
 
 作成日：2026-10-19。担当：契約・NIHO連携（[#7](https://github.com/niho-coliving/niho-experience/issues/7)）。
 
-**状態：仕様合意済み（agreed）・v1.2.0、NIHO側PR #19160/#19161 の配備待ち。** 正本は NIHO 共通基盤の `contracts/openapi.yaml` です。NIHO が選別して書き出した `contracts/exports/experience-public-api.openapi.json` を**変更せずに**ここへ置いています（sha256 は `contract/experience-public-api.openapi.json.sha256`。test が一致を確かめる）。フィルターとUTMはこの契約を実APIへ配備し、`verify:live` が通るまで有効化しません。
+**状態：仕様合意済み（agreed）・v1.2.0、NIHO側PR #19160/#19161/#19267 の配備待ち。** 正本は NIHO 共通基盤の `contracts/openapi.yaml` です。このサイトでは NIHO の公開契約から、利用する path と項目だけを選んで `packages/api-client/contract/experience-public-api.openapi.json` に管理します。サイトで扱わない帰属計測項目や NIHO Web 文書APIは含めません。sha256 は選別済み契約ファイルの破損検知に使います。v1.1詳細の `meetingOverview` はNIHOの #19267 が追加した項目で、API配備後に `verify:live` で確認します。
 
 実 API と接続済みかどうかは、NIHO の配備と `verify:live`（§11）の結果で判断します。サイトは `EXPERIENCE_PUBLIC_API_VERSION=1.2` が明示された場合だけフィルターを表示してv1.2一覧を呼びます。仮契約 v0.1.0 からの変更は §14 にまとめています。
 
@@ -34,14 +34,14 @@
 | 詳細 | `GET /api/public/experiences/{experienceSlug}` | SSR | 60 秒まで |
 | 写真alt付き一覧 | `GET /api/public/experiences/v1.1/catalog?region=` | SSR | 60 秒まで |
 | テーマ・開催予定日付き一覧 | `GET /api/public/experiences/v1.2/catalog?region=&theme=&availableOn=` | SSR | 60 秒まで |
-| 写真alt・提供者bio付き詳細 | `GET /api/public/experiences/v1.1/{experienceSlug}` | SSR | 60 秒まで |
+| 写真alt・提供者bio・公開集合概要付き詳細 | `GET /api/public/experiences/v1.1/{experienceSlug}` | SSR | 60 秒まで |
 | 開催回と残席 | `GET /api/public/experiences/{experienceSlug}/availability?offerId=` | ブラウザ | `no-store` |
 | 予約の開始 | `POST /api/public/experiences/{experienceSlug}/checkout` | ブラウザ | `no-store` |
 | 画像 | `GET /api/public/experiences/{experienceSlug}/media/{mediaKey}?v=` | ブラウザ（`<img>`） | 1 時間（`v` が変われば別の URL） |
 
 - 掲載中でない体験（不存在・下書き・審査中・停止・販売者の準備が外れた）は、区別せず本文なしの 404 です。
 - `experienceSlug` は体験サイトでの slug です。NIHO の拠点・ページの slug や内部 ID ではありません。掲載後は変わりません。
-- v1.0 の応答は `additionalProperties: false` なので、v1.1 の `alt` と `bio` は別の読取 path にだけ載せます。画面担当②は `listExperiencesV11` / `getExperienceV11` を使えます。旧 path と旧 client はそのまま使えます。
+- v1.0 の応答は `additionalProperties: false` なので、v1.1 の `alt`、`bio`、`meetingOverview` は別の読取 path にだけ載せます。画面担当②は `listExperiencesV11` / `getExperienceV11` を使えます。旧 path と旧 client はそのまま使えます。
 - v1.2一覧の `themes` は掲載審査で管理者が明示した値だけです。テーマは本文から推定しません。`availableOn` は日本時間の日付に開催予定がある商品だけを返し、残席・予約可否を示しません。実際の予約可否はブラウザから残席を再確認し、checkoutで確定します。
 - 画像の URL は詳細・一覧が返すもの（`PublicExperienceImage.url`）をそのまま使い、組み立てません。`v` は画像の版で、差し替えると URL が変わり、古い `v` は 404 になります。中身は EXIF を除いた WebP の派生だけで、objectKey・署名・期限を URL に含みません。
 
@@ -57,7 +57,7 @@
 | 提供者 | ○（名前・種類・ひとこと・ロゴ） | 公開ページの表示用。外部提供者は `INDIVIDUAL` / `BUSINESS` |
 | 写真の説明 | ○（v1.1 の `alt`） | 原稿の写真と同時に提供者が保存した200字以内の説明。未入力は null |
 | 販売者 | ○（表示名・特定商取引法の表示 URL） | 決済の相手を予約前に示すため |
-| 集合場所 | 条件つき | 公開してよい場所だけ `meetingPoint`。個人宅・非公開住所は `AFTER_BOOKING` で `meetingPoint` を常に `null` にし、予約確定後に NIHO の確認ページとメールだけで伝える（NIHO の公開投影の guard は閉じた object だけを許し、否定の規則を schema に書けないため、この規則は `createContractValidator` が確かめる） |
+| 集合場所 | 条件つき | 公開可能な概要だけ `meetingOverview`（v1.1、200字以内、nullable）で示せる。住所・アクセス・入口案内・地図URLは含めない。公開可能な場所だけ `meetingPoint` を返す。個人宅・非公開住所は `AFTER_BOOKING` で `meetingPoint` を常に `null` にし、詳しい案内は予約確定後に NIHO の確認ページとメールだけで伝える（この規則は `createContractValidator` が確かめる） |
 | 料金・定員・上限人数・最少人数・所要・開始時刻・曜日・取消条件・受付方式・申込時の質問 | ○ | 予約前の確認に必要 |
 | 開催回の残席 | ○（`no-store`） | 表示の目安。確保は checkout |
 | 旅行者の名前・メール・備考・回答 | 送るだけ | checkout の要求にだけ入る。応答・ログ・URL・計測・storage に複製しない |

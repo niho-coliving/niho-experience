@@ -35,7 +35,7 @@ describe("契約の文書", () => {
     expect(auditContractDocument()).toEqual([]);
   });
 
-  it("NIHO が書き出した契約を変更せずに置いている（sha256 が一致する）", async () => {
+  it("選別済み契約の sha256 が一致する", async () => {
     const body = await readFile(new URL("../contract/experience-public-api.openapi.json", import.meta.url));
     const recorded = await readFile(new URL("../contract/experience-public-api.openapi.json.sha256", import.meta.url), "utf8");
     expect(recorded.trim()).toBe(`${createHash("sha256").update(body).digest("hex")}  experience-public-api.openapi.json`);

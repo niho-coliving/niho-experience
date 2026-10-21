@@ -106,6 +106,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
   const children = childParticipationCopy(e.offers);
   const group = groupSizeLabel(e.offers);
   const meeting = e.meetingPointDisclosure === "PUBLIC" ? e.meetingPoint : null;
+  const meetingOverview = "meetingOverview" in e && typeof e.meetingOverview === "string" ? e.meetingOverview : null;
   const exterior = meeting && meeting.exteriorPhotoIndex !== null ? (e.photos[meeting.exteriorPhotoIndex] ?? null) : null;
   const mapUrl = meeting?.mapUrl ? safeHttpsUrl(meeting.mapUrl) : null;
   const paragraphs = e.description.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
@@ -318,6 +319,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
             </Section>
 
             <Section title="Where you'll meet">
+              {meetingOverview ? <p className="mb-4 leading-relaxed text-ink-soft">{meetingOverview}</p> : null}
               {meeting ? (
                 <div className={`grid items-start gap-5 ${exterior ? "sm:grid-cols-[200px_1fr] sm:gap-7" : ""}`}>
                   {exterior ? (
@@ -345,7 +347,9 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
               ) : (
                 <p className="flex items-center gap-2">
                   <HandIcon name="pin" className="size-7 text-moss" />
-                  The meeting point is shared after your booking is confirmed.
+                  {meetingOverview
+                    ? "Your host will share the exact meeting point after your booking is confirmed."
+                    : "The meeting point is shared after your booking is confirmed."}
                 </p>
               )}
             </Section>

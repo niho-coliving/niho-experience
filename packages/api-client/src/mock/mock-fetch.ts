@@ -73,6 +73,10 @@ const MOCK_THEMES: Readonly<Record<string, readonly ExperienceSiteTheme[]>> = {
   "kamakura-ceramic-mending": ["CRAFT", "CULTURE"],
   "kamakura-calligraphy": ["CRAFT", "CULTURE"],
 };
+// Synthetic public copy only; private address and directions stay out of the v1.1 DTO.
+const MOCK_MEETING_OVERVIEWS: Readonly<Record<string, string>> = {
+  "indigo-dyeing-with-an-artisan": "Your host will share the studio location after your booking is confirmed.",
+};
 
 function json(status: number, body: unknown, cacheControl: string, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -136,6 +140,7 @@ function toV11(experience: ExperienceDetail): ExperienceDetailV11 {
     photos: experience.photos.map((image, index) => ({ ...image, alt: `${experience.title} ${index + 1}` })),
     hosts: experience.hosts.map((host) => ({ ...host, avatar: withAlt(host.avatar, null), bio: null })),
     provider: { ...experience.provider, logo: withAlt(experience.provider.logo, null) },
+    meetingOverview: MOCK_MEETING_OVERVIEWS[experience.slug] ?? null,
   };
 }
 
