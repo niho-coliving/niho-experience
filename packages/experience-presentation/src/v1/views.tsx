@@ -302,13 +302,13 @@ export function DetailViewV1({ model, primitives, copy = EN_STATIC_COPY_V1, head
   const { Link } = primitivesV1(primitives);
   const Gallery = primitives?.Gallery;
   const gallery = Gallery ? <Gallery model={model.gallery} /> : <DetailGalleryV1 model={model.gallery} primitives={primitives} copy={copy} />;
-  // DOM order is title → photos → body (the desktop order); phones pull the swipe gallery to the top, full bleed, with `order-first`.
+  // Keep the cancelled-checkout action after gallery controls in the DOM; on phones both move ahead of the heading to keep visual and tab order aligned.
   return <div className="flex flex-col overflow-x-clip"><div className="container-page">
 <nav aria-label={copy.text("detail.breadcrumbNavigation")} className="hidden pt-7 text-sm text-muted lg:block">
 <Link href={model.backHref} className="font-extrabold text-ink hover:underline">{copy.text("detail.breadcrumb")}</Link>
 <span aria-hidden> / </span>
 <span aria-current="page">{model.title}</span>
-</nav>{model.checkoutCancelled}<header className="pt-5 lg:pt-3.5">{model.schedule ? <p className="eyebrow">{model.schedule}</p> : null}<h1 className="mt-1.5 text-[2.125rem] leading-[1.1] lg:max-w-[20ch] lg:text-[3.25rem]">{model.title}</h1>
+</nav><header className="pt-5 lg:pt-3.5">{model.schedule ? <p className="eyebrow">{model.schedule}</p> : null}<h1 className="mt-1.5 text-[2.125rem] leading-[1.1] lg:max-w-[20ch] lg:text-[3.25rem]">{model.title}</h1>
 <div className="mt-4 flex flex-wrap items-center gap-2.5 text-[0.9375rem] text-ink-soft">
 <span className="flex">{model.hosts.map((face, index) => <FaceBadgeV1 key={`${face.name}-${index}`} face={face} primitives={primitives} className={`size-[38px] rounded-full border-2 border-white text-sm ${index ? "-ml-2.5" : ""}`} sizes="38px" />)}</span><span><RichMessageV1 segments={model.hostLine} emphasisClassName="font-extrabold text-ink" /></span></div>
 <ul className="mt-[18px] grid grid-cols-2 gap-x-3 gap-y-4 border-y border-line py-[18px] lg:mt-[22px] lg:flex lg:flex-wrap lg:gap-x-9 lg:border-0 lg:py-0">{model.facts.map((fact) => <li key={fact.label} className="flex items-center gap-2.5 text-[0.9375rem] leading-tight font-extrabold">
@@ -316,7 +316,7 @@ export function DetailViewV1({ model, primitives, copy = EN_STATIC_COPY_V1, head
 <div>
 <span className="sr-only">{fact.label}: </span>{fact.main}{fact.sub ? <small className="block text-[0.78125rem] font-bold text-muted">{fact.sub}</small> : null}</div>
 </li>)}</ul>
-</header></div><div className="order-first lg:order-none lg:mx-auto lg:w-full lg:max-w-[75rem] lg:px-10">{gallery}</div><div className="container-page"><div className={model.booking ? "grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4" : "grid gap-10 pt-6 lg:pt-4"}>
+</header></div><div className="order-first lg:order-none lg:mx-auto lg:w-full lg:max-w-[75rem] lg:px-10">{gallery}</div>{model.checkoutCancelled ? <div className="container-page order-first lg:order-none">{model.checkoutCancelled}</div> : null}<div className="container-page"><div className={model.booking ? "grid gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-[72px] lg:pt-4" : "grid gap-10 pt-6 lg:pt-4"}>
 <div className="min-w-0">
 <section className="pt-6" aria-label={copy.text("detail.overview")}>
 <p className="text-lg leading-relaxed">{model.lead}</p>{model.highlights.length ? <ul className="mt-6 grid gap-3.5">{model.highlights.map((item) => <li key={item.text} className="flex items-center gap-3.5">

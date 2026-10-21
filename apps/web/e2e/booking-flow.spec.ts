@@ -47,7 +47,21 @@ test("cancelled checkout return offers a clear way back to date selection on mob
     await page.goto(`${dinner}?checkout=cancelled`);
     const status = page.getByRole("status").filter({ hasText: "Checkout cancelled" });
     await expect(status).toContainText("Checkout cancelled");
-    await expect(status.getByRole("link", { name: "Choose a date" })).toHaveAttribute("href", `${dinner}/book`);
+    const chooseDate = status.getByRole("link", { name: "Choose a date" });
+    await expect(chooseDate).toHaveAttribute("href", `${dinner}/book`);
+
+    if (viewport.width === 390) {
+      const gallery = page.locator('main [aria-roledescription="carousel"]');
+      const galleryBox = await gallery.boundingBox();
+      const statusBox = await status.boundingBox();
+      expect(galleryBox, "mobile gallery has a layout box").not.toBeNull();
+      expect(statusBox, "checkout notice has a layout box").not.toBeNull();
+      expect(galleryBox!.y).toBeLessThan(statusBox!.y);
+
+      await page.getByRole("button", { name: "Next photo" }).focus();
+      await page.keyboard.press("Tab");
+      await expect(chooseDate).toBeFocused();
+    }
   }
 
   await page.getByRole("link", { name: "Choose a date" }).click();
