@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { HostProvider } from "@/lib/host/providers";
+import type { HostProviderChoice } from "@/lib/host/providers";
 import { HOST_HOME_PATH, HOST_LOGOUT_PATH } from "@/lib/host/routes";
 import { HostNav, ProviderSwitcher } from "./HostNav";
 
@@ -41,7 +41,7 @@ function AccountMenu({ account }: { account: HostAccount }) {
 }
 
 /** Logo, provider switch, account and the five console sections. */
-export function HostHeader({ account, providers }: { account: HostAccount; providers: readonly HostProvider[] }) {
+export function HostHeader({ account, providers }: { account: HostAccount; providers: readonly HostProviderChoice[] }) {
   return (
     <header className="border-b border-line bg-canvas">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-3 sm:px-6">

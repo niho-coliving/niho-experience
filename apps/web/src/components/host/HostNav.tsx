@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useRef } from "react";
-import { nihoIdOrNull, providerRoleLabel, selectProvider, type HostProvider } from "@/lib/host/providers";
+import { nihoIdOrNull, providerRoleLabel, selectProvider, type HostProviderChoice } from "@/lib/host/providers";
 import { HOST_NAV, withProvider } from "@/lib/host/routes";
 
 /** The chosen provider lives in `?providerId=`; every console link carries it. */
@@ -36,7 +36,7 @@ export function HostNav() {
   );
 }
 
-export function ProviderSwitcher({ providers }: { providers: readonly HostProvider[] }) {
+export function ProviderSwitcher({ providers }: { providers: readonly HostProviderChoice[] }) {
   const pathname = usePathname();
   const providerId = useProviderId();
   const menu = useRef<HTMLDetailsElement>(null);
@@ -62,7 +62,7 @@ export function ProviderSwitcher({ providers }: { providers: readonly HostProvid
       <ul className="mt-2 w-full rounded-2xl border border-line bg-canvas p-2 sm:absolute sm:left-0 sm:z-20 sm:min-w-64 sm:shadow-[var(--shadow-card)]">
         {providers.map((provider) => {
           const selected = provider.id === current.id;
-          const role = providerRoleLabel(provider.role);
+          const role = providerRoleLabel(provider.memberRole);
           return (
             <li key={provider.id}>
               <Link

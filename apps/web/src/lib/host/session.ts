@@ -18,8 +18,9 @@ export const COOKIE_BYTES_LIMIT = 4096;
 const DISPLAY_NAME_MAX = 80;
 const ICON_URL_MAX = 1024;
 
-export type HostMockScenario = "default" | "empty";
-export const HOST_MOCK_SCENARIOS: readonly HostMockScenario[] = ["default", "empty"];
+/** Mock sessions only (`?mock=` on /host/auth/mock-login); mock-niho.ts maps them to the api-client mock's scenarios. */
+export type HostMockScenario = "default" | "empty" | "payments-pending";
+export const HOST_MOCK_SCENARIOS: readonly HostMockScenario[] = ["default", "empty", "payments-pending"];
 
 export interface HostSession {
   refreshToken: string;

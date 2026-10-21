@@ -41,7 +41,7 @@ export default async function HostHomePage({ searchParams }: { searchParams: Pro
   const requested = typeof query.providerId === "string" ? query.providerId : null;
   const { provider, requestedMissing } = selectProvider(load.providers, nihoIdOrNull(requested));
   if (!provider) return null;
-  const role = providerRoleLabel(provider.role);
+  const role = providerRoleLabel(provider.memberRole);
   const notFound = requested !== null && (requestedMissing || !nihoIdOrNull(requested));
 
   return (

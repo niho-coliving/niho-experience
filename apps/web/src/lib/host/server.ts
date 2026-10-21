@@ -3,11 +3,12 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { NextResponse } from "next/server";
+import { createExperienceHostApiClient, type ExperienceHostApiClient } from "@niho-experience/api-client/host";
 import { config } from "@/lib/config";
 import { cookieSealer } from "./cookie-seal";
 import { createMockHostFetch, MOCK_ID_TOKEN_PREFIX, mockToken } from "./mock-niho";
 import { refreshConnection, signInWithCustomToken, type NihoAuthDeps } from "./niho-auth";
-import { parseProviderList, type HostProvider } from "./providers";
+import { usableProviders, type HostProvider } from "./providers";
 import {
   decodeSession,
   encodeLoginState,
@@ -60,23 +61,26 @@ export type ProvidersLoad =
   | { status: "rejected" }
   | { status: "error" };
 
+/**
+ * NIHO's host API for this session, typed by the host contract (#87). Server
+ * only: it sends the session's ID token. Browser code calls /host/api/* instead.
+ */
+export function hostApiClient(session: HostSession): ExperienceHostApiClient {
+  return createExperienceHostApiClient({ nihoWebOrigin: config.nihoWebOrigin, idToken: session.idToken, fetch: nihoApiFetch(session) });
+}
+
 /** The signed-in host's providers, fetched once per request for the frame and the page. */
 export const loadHostProviders = cache(async (): Promise<ProvidersLoad> => {
   const session = await readHostSession();
   if (!session) return { status: "signed-out" };
   if (!idTokenUsable(session, Date.now())) return { status: "refresh" };
   try {
-    const response = await nihoApiFetch(session)(new URL("/api/experience-providers", config.nihoWebOrigin).href, {
-      headers: { authorization: `Bearer ${session.idToken}`, accept: "application/json" },
-      cache: "no-store",
-      redirect: "manual",
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (response.status === 401) return { status: "rejected" };
-    if (!response.ok) return { status: "error" };
-    const providers = parseProviderList(await response.json());
-    return providers ? { status: "ok", providers } : { status: "error" };
+    const result = await hostApiClient(session).listExperienceProviders();
+    if (result.ok) return { status: "ok", providers: usableProviders(result.data.providers) };
+    if (result.kind !== "network_error" && result.status === 401) return { status: "rejected" };
+    return { status: "error" };
   } catch {
+    // A misconfigured origin or an unusable token: show the error state, never the token.
     return { status: "error" };
   }
 });
