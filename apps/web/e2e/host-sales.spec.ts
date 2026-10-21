@@ -50,20 +50,23 @@ test("売上 shows the month's numbers and lines, and moves a month at a time", 
 
   const rows = lines(page, "2026年10月").getByRole("listitem");
   await expect(rows).toHaveCount(11);
-  for (const text of ["10/20", "口座入金", "Stripe · 10月10日〜16日分", "−¥54,000", "保留"]) await expect(rows.nth(0)).toContainText(text);
+  for (const text of ["10/20", "口座入金", "Stripe · 10月10日〜16日分", "¥54,000", "送金中"]) await expect(rows.nth(0)).toContainText(text);
   // The bookings 予約 lists have their payments here.
   for (const text of ["Kamakura Community Dinner · Sofia Rossi", "NIHO · Dinner 3名", "¥90,000", "計上済み"]) await expect(rows.filter({ hasText: "Sofia Rossi" })).toContainText(text);
   await expect(rows.filter({ hasText: "Mateo García" })).toContainText("体験サイト · tea time 2名");
-  // Money going out (返金・出金) is red, with a minus.
+  // Only a refund is red, with a minus. A payout (口座入金) is money the host receives: unsigned, in ink.
   const refund = rows.filter({ hasText: "返金 · Hannah Kim" });
   await expect(refund).toContainText("体験サイト · 取消");
   await expect(refund.getByText("−¥60,000")).toHaveCSS("color", DANGER);
-  await expect(rows.filter({ hasText: "10月1日〜9日分" }).getByText("−¥171,000")).toHaveCSS("color", DANGER);
+  const payout = rows.filter({ hasText: "10月1日〜9日分" });
+  await expect(payout).toContainText("入金済み");
+  await expect(payout.getByText("¥171,000", { exact: true })).not.toHaveCSS("color", DANGER);
+  await expect(payout).not.toContainText("−");
   await expect(rows.filter({ hasText: "Sofia Rossi" }).getByText("¥90,000")).not.toHaveCSS("color", DANGER);
   // PC: the state is a pill on the right. Phones: it follows 補足.
   const pending = rows.nth(0);
-  const pill = pending.getByText("保留", { exact: true });
-  const inline = pending.getByText("· 保留", { exact: true });
+  const pill = pending.getByText("送金中", { exact: true });
+  const inline = pending.getByText("· 送金中", { exact: true });
   if (isDesktop(testInfo.project.name)) {
     await expect(pill).toBeVisible();
     await expect(inline).toBeHidden();
@@ -296,7 +299,7 @@ test.describe("320px narrow phone", () => {
     await inside(monthNav(page).getByRole("link", { name: "前の月" }), "sales: 前の月");
     await inside(monthNav(page).getByRole("link", { name: "次の月" }), "sales: 次の月");
     await inside(summary(page, "2026年10月").getByRole("link", { name: /Stripe で入金の明細を見る/ }), "sales: Stripe");
-    await inside(lines(page, "2026年10月").getByText("−¥171,000"), "sales: an amount");
+    await inside(lines(page, "2026年10月").getByText("¥171,000", { exact: true }), "sales: an amount");
 
     await signIn(page, "?mock=payments-pending");
     await page.goto("/host/sales");

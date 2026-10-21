@@ -89,7 +89,10 @@ export function SalesSummaryPanel({ page }: { page: SalesPage }) {
   );
 }
 
-/** 明細: date, what it was, where it came from, the amount (money going out in red with a minus) and its state. Phones put the state after 補足. */
+/**
+ * 明細: date, what it was, where it came from, the amount and its state. Only a refund is red with
+ * a minus: a payout (口座入金) is money the host receives. Phones put the state after 補足.
+ */
 export function SalesLines({ page }: { page: SalesPage }) {
   return (
     <section aria-labelledby="sales-lines" className={`${HOST_SURFACE} mt-3.5`}>
@@ -111,7 +114,7 @@ export function SalesLines({ page }: { page: SalesPage }) {
                   <span className="md:hidden"> · {row.status.label}</span>
                 </p>
               </div>
-              <p className={`shrink-0 text-right font-extrabold whitespace-nowrap tabular-nums md:min-w-[88px] ${row.outflow ? "text-danger" : ""}`}>{row.amount}</p>
+              <p className={`shrink-0 text-right font-extrabold whitespace-nowrap tabular-nums md:min-w-[88px] ${row.negative ? "text-danger" : ""}`}>{row.amount}</p>
               <span className="shrink-0 max-md:hidden">
                 <StatusPill status={row.status} />
               </span>

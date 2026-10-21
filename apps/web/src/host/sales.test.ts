@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MOCK_KITCHEN_BOOKINGS } from "./mock/bookings";
 import { MOCK_FEE_RATE, MOCK_KITCHEN_SALES, MOCK_SALES_PERIOD } from "./mock/sales";
-import { addMonths, monthKey, monthLabelJa, parseMonthKey, salesMonthNav, salesMonthOf, salesPage, salesRows, salesSummary, type SalesPeriod } from "./sales";
+import { addMonths, monthKey, monthLabelJa, parseMonthKey, saleStatus, salesMonthNav, salesMonthOf, salesPage, salesRows, salesSummary, type SalesPeriod } from "./sales";
 import type { HostSale } from "./types";
 
 const OCTOBER = { year: 2026, month: 10 };
@@ -46,7 +46,7 @@ describe("sales summary", () => {
       feeYen: 19500,
       refundsYen: 60000,
       paidOutYen: 171000,
-      // 390,000 − 19,500 − 60,000 − 171,000: the payout on its way (¥54,000, 保留) is still to come.
+      // 390,000 − 19,500 − 60,000 − 171,000: the payout on its way (¥54,000, 送金中) is still to come.
       expectedYen: 139500,
       bookings: 8,
     });
@@ -97,16 +97,16 @@ describe("sales summary", () => {
 });
 
 describe("sales rows", () => {
-  it("lists the month newest first, with money going out written with a minus", () => {
+  it("lists the month newest first: only a refund is written with a minus, a payout is money received", () => {
     const rows = salesRows(MOCK_KITCHEN_SALES, OCTOBER);
-    expect(rows.map((row) => [row.shortDate, row.title, row.detail, row.amount, row.outflow, row.status.label])).toEqual([
-      ["10/20", "口座入金", "Stripe · 10月10日〜16日分", "−¥54,000", true, "保留"],
+    expect(rows.map((row) => [row.shortDate, row.title, row.detail, row.amount, row.negative, row.status.label])).toEqual([
+      ["10/20", "口座入金", "Stripe · 10月10日〜16日分", "¥54,000", false, "送金中"],
       ["10/18", "Kamakura Community Dinner · Emma Larsson", "体験サイト · Dinner 2名", "¥60,000", false, "計上済み"],
       ["10/18", "Kamakura Community Dinner · Noah Williams", "体験サイト · Dinner 1名", "¥30,000", false, "計上済み"],
       ["10/16", "Kamakura Community Dinner · Mateo García", "体験サイト · tea time 2名", "¥30,000", false, "計上済み"],
       ["10/15", "Kamakura Community Dinner · Sofia Rossi", "NIHO · Dinner 3名", "¥90,000", false, "計上済み"],
       ["10/12", "返金 · Hannah Kim", "体験サイト · 取消", "−¥60,000", true, "計上済み"],
-      ["10/10", "口座入金", "Stripe · 10月1日〜9日分", "−¥171,000", true, "入金済み"],
+      ["10/10", "口座入金", "Stripe · 10月1日〜9日分", "¥171,000", false, "入金済み"],
       ["10/09", "Kamakura Community Dinner · Oliver Brown", "体験サイト · Dinner 2名", "¥60,000", false, "計上済み"],
       ["10/05", "Kamakura Community Dinner · Hannah Kim", "体験サイト · Dinner 2名", "¥60,000", false, "計上済み"],
       ["10/04", "Kamakura Community Dinner · Liam Walker", "NIHO · Dinner 1名", "¥30,000", false, "計上済み"],
@@ -114,6 +114,13 @@ describe("sales rows", () => {
     ]);
     expect(rows[0]).toMatchObject({ date: "2026-10-20", dateLabel: "10月20日", status: { tone: "wait" } });
     expect(rows.find((row) => row.status.label === "入金済み")!.status.tone).toBe("draft");
+  });
+
+  it("calls a payout on its way 送金中, and any other line not settled yet 保留", () => {
+    expect(saleStatus({ kind: "payout", status: "pending" })).toEqual({ label: "送金中", tone: "wait" });
+    expect(saleStatus({ kind: "payout", status: "paid" })).toEqual({ label: "入金済み", tone: "draft" });
+    expect(saleStatus({ kind: "sale", status: "pending" })).toEqual({ label: "保留", tone: "wait" });
+    expect(saleStatus({ kind: "refund", status: "posted" })).toEqual({ label: "計上済み", tone: "draft" });
   });
 
   it("names a payout's days across two months, and has nothing for an empty month", () => {

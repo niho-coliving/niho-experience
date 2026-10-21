@@ -199,7 +199,8 @@ export interface HostBooking {
 
 /**
  * A ledger line's state, in the words of NIHO's provider sales: 計上済み (in the ledger),
- * 入金済み (a payout that reached the bank) and 保留 (not settled yet, such as a payout on its way).
+ * 入金済み (a payout that reached the bank) and 保留 (not settled yet; a payout on its way
+ * reads 送金中).
  */
 export type HostSaleStatus = "posted" | "paid" | "pending";
 

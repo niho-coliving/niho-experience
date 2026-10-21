@@ -100,12 +100,17 @@ export function salesSummary(sales: readonly HostSale[], month: SalesMonth): Sal
   return summary;
 }
 
-/** Ledger states as pills: quiet once settled, amber while 保留. */
-export const SALE_STATUS: Record<HostSaleStatus, StatusLabel> = {
+/** Ledger states as pills: quiet once settled, amber while 保留 (a payout on its way is 送金中). */
+const SALE_STATUS: Record<HostSaleStatus, StatusLabel> = {
   posted: { label: "計上済み", tone: "draft" },
   paid: { label: "入金済み", tone: "draft" },
   pending: { label: "保留", tone: "wait" },
 };
+const PAYOUT_ON_ITS_WAY: StatusLabel = { label: "送金中", tone: "wait" };
+
+export function saleStatus(line: Pick<HostSale, "kind" | "status">): StatusLabel {
+  return line.kind === "payout" && line.status === "pending" ? PAYOUT_ON_ITS_WAY : SALE_STATUS[line.status];
+}
 
 /** One row of 明細. */
 export interface SalesRow {
@@ -120,9 +125,13 @@ export interface SalesRow {
   title: string;
   /** 補足: "体験サイト · Dinner 2名", "体験サイト · 取消", "Stripe · 10月1日〜9日分". */
   detail: string;
-  /** "¥60,000", or "−¥60,000" for money going out (返金・出金). */
+  /**
+   * "¥60,000"; "−¥60,000" (in red) only for a refund. A payout is money the host receives, so
+   * it stays unsigned ("¥171,000") like a sale.
+   */
   amount: string;
-  outflow: boolean;
+  /** A refund: written with a minus, in red. */
+  negative: boolean;
   status: StatusLabel;
 }
 
@@ -138,10 +147,10 @@ function daysCovered(from: string, to: string): string {
   return `${start.month}月${start.day}日〜${end.month === start.month ? "" : `${end.month}月`}${end.day}日`;
 }
 
-function rowOf(line: HostSale): Pick<SalesRow, "title" | "detail" | "outflow"> {
-  if (line.kind === "sale") return { title: `${line.experience} · ${line.guest}`, detail: `${line.channel} · ${line.offer} ${line.guests}名`, outflow: false };
-  if (line.kind === "refund") return { title: `返金 · ${line.guest}`, detail: `${line.channel} · 取消`, outflow: true };
-  return { title: "口座入金", detail: `Stripe · ${daysCovered(line.from, line.to)}分`, outflow: true };
+function rowOf(line: HostSale): Pick<SalesRow, "title" | "detail" | "negative"> {
+  if (line.kind === "sale") return { title: `${line.experience} · ${line.guest}`, detail: `${line.channel} · ${line.offer} ${line.guests}名`, negative: false };
+  if (line.kind === "refund") return { title: `返金 · ${line.guest}`, detail: `${line.channel} · 取消`, negative: true };
+  return { title: "口座入金", detail: `Stripe · ${daysCovered(line.from, line.to)}分`, negative: false };
 }
 
 /** 明細: the month's lines, newest first (lines of one day keep their order). */
@@ -152,7 +161,7 @@ export function salesRows(sales: readonly HostSale[], month: SalesMonth): SalesR
     .sort((a, b) => b.line.date.localeCompare(a.line.date) || a.order - b.order)
     .map(({ line }) => {
       const { month: m, day } = dateParts(line.date);
-      const { title, detail, outflow } = rowOf(line);
+      const { title, detail, negative } = rowOf(line);
       return {
         key: line.id,
         date: line.date,
@@ -160,9 +169,9 @@ export function salesRows(sales: readonly HostSale[], month: SalesMonth): SalesR
         dateLabel: `${m}月${day}日`,
         title,
         detail,
-        amount: yen(outflow ? -line.amountYen : line.amountYen),
-        outflow,
-        status: SALE_STATUS[line.status],
+        amount: yen(negative ? -line.amountYen : line.amountYen),
+        negative,
+        status: saleStatus(line),
       };
     });
 }
