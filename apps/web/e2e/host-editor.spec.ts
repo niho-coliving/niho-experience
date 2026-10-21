@@ -28,8 +28,17 @@ async function openEditor(page: Page, path: string) {
 }
 
 async function logHistoryGuardState(page: Page) {
-  const state = await page.evaluate(() => (window as Window & { __hostHistoryGuardDebug?: unknown }).__hostHistoryGuardDebug ?? null);
-  console.log("[host-history-guard:e2e-state]", JSON.stringify(state));
+  const diagnostics = await page.evaluate(() => {
+    const target = window as Window & {
+      __hostHistoryGuardDebug?: unknown;
+      __hostHistoryGuardRegistrations?: Array<{ name: string; capture: boolean }>;
+    };
+    return {
+      guard: target.__hostHistoryGuardDebug ?? null,
+      registrations: target.__hostHistoryGuardRegistrations ?? [],
+    };
+  });
+  console.log("[host-history-guard:e2e-state]", JSON.stringify(diagnostics));
 }
 
 async function collectHistoryGuardDiagnostics(page: Page) {
@@ -37,6 +46,21 @@ async function collectHistoryGuardDiagnostics(page: Page) {
     if (message.text().startsWith("[host-history-guard:")) console.log(message.text());
   });
   await page.addInitScript(() => {
+    const target = window as Window & {
+      __hostHistoryGuardRegistrations?: Array<{ name: string; capture: boolean }>;
+    };
+    const registrations: Array<{ name: string; capture: boolean }> = [];
+    target.__hostHistoryGuardRegistrations = registrations;
+    const original = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function (type, listener, options) {
+      if (this === window && type === "popstate") {
+        registrations.push({
+          name: typeof listener === "function" ? listener.name || "anonymous" : listener ? "object" : "null",
+          capture: typeof options === "boolean" ? options : Boolean(options?.capture),
+        });
+      }
+      return original.call(this, type, listener, options);
+    };
     window.addEventListener("popstate", (event) => {
       console.info("[host-history-guard:test-popstate]", {
         pathname: window.location.pathname,
