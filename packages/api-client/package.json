@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "NIHO 共通基盤の公開 API（体験の一覧・詳細・残席・ゲスト予約の開始）の選別された契約・型・クライアント・合成 mock。",
+  "description": "NIHO 共通基盤の公開 API（体験の一覧・詳細・残席・ゲスト予約の開始）とホスト API（提供者の本人向け）の選別された契約・型・クライアント・合成 mock。",
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -18,7 +18,16 @@
       "types": "./src/testing/index.ts",
       "default": "./src/testing/index.ts"
     },
-    "./contract/experience-public-api.openapi.json": "./contract/experience-public-api.openapi.json"
+    "./host": {
+      "types": "./src/host/index.ts",
+      "default": "./src/host/index.ts"
+    },
+    "./host/mock": {
+      "types": "./src/host/mock.ts",
+      "default": "./src/host/mock.ts"
+    },
+    "./contract/experience-public-api.openapi.json": "./contract/experience-public-api.openapi.json",
+    "./contract/experience-host-api.openapi.json": "./contract/experience-host-api.openapi.json"
   },
   "scripts": {
     "gen:types": "node ./scripts/gen-types.ts",

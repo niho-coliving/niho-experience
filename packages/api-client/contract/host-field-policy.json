@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "description": "ホスト API の契約（experience-host-api.openapi.json）に入れてよい項目の規則。ホスト本人の ID token（Bearer）で読む API なので、公開契約と違い提供者・拠点・利用者の ID と役割は入るが、秘密・連絡先・決済口座・本人確認の項目は入れない。object は閉じた形（additionalProperties: false）で、閉じない schema は openSchemas に理由と一緒に書いたものだけ。",
+  "pathPrefixes": ["/api/experience-providers"],
+  "exactPaths": {
+    "/api/auth/me": ["get"]
+  },
+  "securityScheme": "FirebaseIdToken",
+  "openSchemas": {
+    "ExperienceHostAuthMe": "GET /api/auth/me の応答（AuthMeResponse）のうち、ホストの画面が読む部分だけを書いた schema。実際の応答にはほかの項目も入るので閉じない。クライアントはこの schema の項目だけを取り出して使う。",
+    "ErrorResponse": "NIHO 全体で共通のエラーの封筒。理由は error.details.reason に入り、details は NIHO 側で閉じていない。"
+  },
+  "forbiddenPropertyNames": [
+    "stripeAccountId",
+    "connectedAccountId",
+    "accountId",
+    "paymentEntityId",
+    "customerId",
+    "checkoutSessionId",
+    "paymentIntentId",
+    "sessionId",
+    "refreshToken",
+    "idToken",
+    "customToken",
+    "firebaseUid",
+    "uid",
+    "orgId"
+  ],
+  "forbiddenNameTokens": [
+    "password",
+    "secret",
+    "token",
+    "email",
+    "phone",
+    "mobile",
+    "stripe",
+    "payout",
+    "bank",
+    "card",
+    "iban",
+    "account",
+    "customer",
+    "billing",
+    "kyc",
+    "identity",
+    "birth",
+    "passport",
+    "address",
+    "ip",
+    "firebase",
+    "internal",
+    "objectkey",
+    "prisma"
+  ]
+}

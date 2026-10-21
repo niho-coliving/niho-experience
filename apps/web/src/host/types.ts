@@ -1,9 +1,11 @@
+import type { ExperienceProviderPaymentReadinessReason } from "@niho-experience/api-client/host";
 import type { HostProviderKind, HostProviderReviewStatus } from "@/lib/host/providers";
 
 /*
- * What the host console screens show (#84). Hand-written from the screens' needs
- * and what is known of NIHO's provider API; #87 replaces them with the types
- * generated from the agreed contract, and the screens keep reading these shapes.
+ * What the host console screens show (#84). The provider's own values (kind, review
+ * status, payout readiness) are the host contract's types (#87). Experiences, bookings,
+ * sales and the meeting and notification defaults are not in the contract yet, so they
+ * stay hand-written from the screens' needs; the screens keep reading these shapes.
  */
 
 /** One listing state per experience page: draft → review → live (or paused). */
@@ -53,7 +55,7 @@ export interface HostSale {
   amountYen: number;
 }
 
-export type PaymentReadinessReason = "NOT_CONNECTED" | "VERIFICATION_REQUIRED" | "CHARGES_DISABLED" | "PAYOUTS_DISABLED" | "RESTRICTED" | "READY";
+export type PaymentReadinessReason = ExperienceProviderPaymentReadinessReason;
 
 export interface HostPayoutAccount {
   reason: PaymentReadinessReason;

@@ -166,8 +166,9 @@ test("設定 has five panels, and 保存 checks the fields without sending them"
   await expect(provider).toContainText("審査済み");
   await expect(provider.getByRole("textbox", { name: "掲載名" })).toHaveValue("サンプルの台所");
   await expect(provider.getByRole("radio", { name: "個人" })).toBeChecked();
-  await expect(provider.getByRole("textbox", { name: "紹介" })).toHaveValue("合成データの提供者です。");
-  await expect(provider.getByRole("textbox", { name: "特商法表示 URL" })).toHaveValue("");
+  // The provider's own values come from the host contract's mock (@niho-experience/api-client/host/mock).
+  await expect(provider.getByRole("textbox", { name: "紹介" })).toHaveValue("家庭料理を一緒に作る体験の、合成データの提供者です（sample）。");
+  await expect(provider.getByRole("textbox", { name: "特商法表示 URL" })).toHaveValue("https://example.com/sample-kitchen/legal");
   const payout = page.getByRole("region", { name: "売上受取口座" });
   await expect(payout).toContainText("準備済み");
   await expect(payout).toContainText("サンプルの台所の口座");

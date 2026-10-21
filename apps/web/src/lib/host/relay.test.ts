@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createMockHostFetch, MOCK_ID_TOKEN_PREFIX } from "./mock-niho";
+import { createMockHostFetch, hostMockScenario, MOCK_ID_TOKEN_PREFIX } from "./mock-niho";
 import { mutationFromSameOrigin, relayRequestHeaders, relayResponseHeaders, relayUpstreamPath } from "./relay";
+import { HOST_MOCK_SCENARIOS, type HostMockScenario } from "./session";
 
 const SITE = "https://experience.example.test";
 
@@ -99,5 +100,25 @@ describe("synthetic provider API", () => {
     expect(two.providers).toHaveLength(2);
     expect(none.providers).toEqual([]);
     expect((await createMockHostFetch("default")("https://niho.example.test/api/auth/me", auth)).status).toBe(200);
+  });
+
+  it("maps the console's scenarios to the contract mock's", async () => {
+    const ids = async (scenario: HostMockScenario) =>
+      ((await (await createMockHostFetch(scenario)("https://niho.example.test/api/experience-providers", auth)).json()) as { providers: { id: string; memberRole: string }[] }).providers.map(({ id, memberRole }) => `${id}:${memberRole}`);
+    expect(await ids("default")).toEqual(["sample-provider-kitchen:OWNER", "sample-provider-studio:EDITOR"]);
+    expect(await ids("payments-pending")).toEqual(["sample-provider-garden:OWNER"]);
+    expect(HOST_MOCK_SCENARIOS.map(hostMockScenario)).toEqual(HOST_MOCK_SCENARIOS);
+    expect(hostMockScenario("two-providers")).toBe("default");
+  });
+
+  it("keeps writes within one fetch, and answers in the contract's error shape", async () => {
+    const mock = createMockHostFetch("empty");
+    const post = (body: unknown) => mock("https://niho.example.test/api/experience-providers", { method: "POST", headers: { ...auth.headers, "content-type": "application/json" }, body: new TextEncoder().encode(JSON.stringify(body)).buffer as ArrayBuffer });
+    const invalid = await post({});
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ error: { code: "VALIDATION_ERROR", details: {} } });
+    const created = await post({ kind: "INDIVIDUAL", displayName: "合成の台所", bio: "", sellerDisclosureUrl: null, consentVersion: "sample-provider-consent-1" });
+    expect(created.status).toBe(201);
+    expect(((await (await mock("https://niho.example.test/api/experience-providers", auth)).json()) as { providers: unknown[] }).providers).toHaveLength(1);
   });
 });

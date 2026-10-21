@@ -53,7 +53,8 @@ export type CheckoutResult =
 const DEFAULT_TIMEOUT_MS = 10_000;
 const STRIPE_CHECKOUT_ORIGIN = "https://checkout.stripe.com";
 
-function normalizeOrigin(value: string): string {
+/** NIHO の Web origin を確かめて正規化する（https・path なし。開発の localhost だけ http を許す）。ホスト API のクライアントも同じ規則。 */
+export function normalizeOrigin(value: string): string {
   const url = new URL(value);
   if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
     throw new Error("nihoWebOrigin must be https");

@@ -4,6 +4,7 @@ import { HostShell } from "@/components/host/HostShell";
 import { hostButtonClass, HOST_HEADING, HOST_PAGE } from "@/components/host/host-ui";
 import { HostPageBody } from "@/components/host/ui";
 import { config } from "@/lib/config";
+import { toProviderChoice } from "@/lib/host/providers";
 import { HOST_HOME_PATH, HOST_INTRO_PATH, HOST_LOGIN_PATH, HOST_LOGOUT_PATH } from "@/lib/host/routes";
 import { isHostMock, loadHostProviders, readHostSession, requireHostConsole, type ProvidersLoad } from "@/lib/host/server";
 
@@ -55,7 +56,8 @@ export default async function HostConsoleLayout({ children }: { children: React.
   return (
     <>
       <HostSessionKeeper idTokenExpiresAt={session.idTokenExpiresAt} />
-      <HostShell account={account} providers={load.status === "ok" ? load.providers : []} nihoAppUrl={config.nihoWebOrigin} preview={isHostMock()}>
+      {/* The sidebar and the phone menus are client components: they get the id, name and role, not NIHO's internal ids. */}
+      <HostShell account={account} providers={load.status === "ok" ? load.providers.map(toProviderChoice) : []} nihoAppUrl={config.nihoWebOrigin} preview={isHostMock()}>
         {load.status === "ok" ? (
           children
         ) : (

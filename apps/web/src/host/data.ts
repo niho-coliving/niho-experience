@@ -1,7 +1,6 @@
 import "server-only";
-import { config } from "@/lib/config";
-import { nihoIdOrNull, parseProviderDetail, selectProvider, type HostProvider } from "@/lib/host/providers";
-import { isHostMock, loadHostProviders, nihoApiFetch, readHostSession } from "@/lib/host/server";
+import { nihoIdOrNull, selectProvider, type HostProvider } from "@/lib/host/providers";
+import { hostApiClient, isHostMock, loadHostProviders, readHostSession } from "@/lib/host/server";
 import { idTokenUsable, type HostSession } from "@/lib/host/session";
 import { hostConsoleSnapshot, hostHome, type HostHomeData } from "./console-data";
 import type { HostExperience, HostSettings } from "./types";
@@ -38,20 +37,16 @@ export interface HostConsoleData {
   settings: HostSettings;
 }
 
-/** `GET /api/experience-providers/:id` through the session's NIHO (the synthetic one in mock mode). */
+/**
+ * `GET /api/experience-providers/:id` through the typed host client (#87): NIHO in http
+ * mode, the contract mock in mock mode. Null when it cannot be read or names another provider.
+ */
 async function loadProviderDetail(providerId: string): Promise<HostProvider | null> {
   const session = await readHostSession();
   if (!session || !idTokenUsable(session, Date.now())) return null;
   try {
-    const url = new URL(`/api/experience-providers/${encodeURIComponent(providerId)}`, config.nihoWebOrigin);
-    const response = await nihoApiFetch(session)(url.href, {
-      headers: { authorization: `Bearer ${session.idToken}`, accept: "application/json" },
-      cache: "no-store",
-      redirect: "manual",
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) return null;
-    const detail = parseProviderDetail(await response.json());
+    const result = await hostApiClient(session).getExperienceProvider(providerId);
+    const detail = result.ok ? result.data.provider : null;
     return detail?.id === providerId ? detail : null;
   } catch {
     return null;
@@ -61,8 +56,9 @@ async function loadProviderDetail(providerId: string): Promise<HostProvider | nu
 /**
  * Everything the console pages show for one provider: the home rows and numbers,
  * the experiences and the settings' starting values. Mock mode returns the synthetic
- * sets; http mode is empty until #87 (see console-data.ts). The provider's own
- * fields come from NIHO's provider detail in both modes, falling back to the list.
+ * sets; http mode is empty while the host contract has no such API (see console-data.ts).
+ * The provider's own fields come from NIHO's provider detail in both modes, falling back
+ * to the list. Only display fields reach the (client) settings form, never NIHO's internal ids.
  */
 export async function loadHostConsoleData(provider: HostProvider): Promise<HostConsoleData> {
   const snapshot = hostConsoleSnapshot(provider.id, isHostMock() ? "mock" : "http", Date.now());
@@ -72,10 +68,10 @@ export async function loadHostConsoleData(provider: HostProvider): Promise<HostC
     experiences: snapshot.experiences,
     settings: {
       displayName: known.displayName,
-      kind: known.kind ?? null,
-      bio: known.bio ?? "",
+      kind: known.kind,
+      bio: known.bio,
       sellerDisclosureUrl: known.sellerDisclosureUrl ?? "",
-      reviewStatus: known.reviewStatus ?? null,
+      reviewStatus: known.reviewStatus,
       payout: snapshot.payout,
       meetingPoint: snapshot.meetingPoint,
       notificationEmail: snapshot.notificationEmail,
