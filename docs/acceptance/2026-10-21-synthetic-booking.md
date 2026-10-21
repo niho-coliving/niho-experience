@@ -13,12 +13,12 @@
 - 公開詳細の `booking.checkoutAvailable=true`、開催枠に `bookable=true / seatsLeft=2` を確認。availabilityは `no-store`。
 - 実APIと公開Booking文書を使う予約停止画面で、PC幅1600pxとモバイル幅320pxの横はみ出しなし、入力欄0、`noindex,nofollow`を確認。モバイルで「Back to the experience」から詳細へ復帰できた。
 - 合成掲載を管理画面で停止した後、詳細・availabilityの両方が404／`no-store`に切り替わることを確認。
+- 同じslugで掲載を再開し、一覧・詳細・開催枠・未掲載404のv1.0契約検証が再び成功。合成掲載は予約受入を続けられる状態で保持している。
 
 ## 接続待ち・未完了
 
 - stg Webの `EXPERIENCE_SITE_ALLOWED_ORIGINS` は未設定。候補originからのOPTIONSは204だが許可ヘッダーがなく、ブラウザからの送信は未接続。
 - 専用候補の配備はこのCORS設定を前提とする。設定不足のまま受入済みとせず、preflightで停止する。
-- 検証後の合成掲載は停止中。ブラウザ操作接続が応答せず、再開の実行・読み戻しは未完了。次回は同じslugを再開し、価格・枠・CORSのpreflightを通してから進める。
 - 実APIのゲスト入力→Checkout→テスト決済→webhook確定→取消、計測ブロック・満席・停止・失敗時復帰は未完了。
 - このfixtureは既存の公開集合場所を使う。非公開集合案内の受入には使わず、v1.1/v1.2のprivate-meeting gateとは分ける。
 - 合成表紙は機能確認用。実商品の写真・原稿・多言語・GA4/GSC接続の受入を代替しない。
