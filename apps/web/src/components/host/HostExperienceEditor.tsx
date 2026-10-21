@@ -15,8 +15,12 @@ import { HostPageBody } from "./ui";
 const SAVE_DELAY_MS = 500;
 const SAVED_NOTICE_MS = 2500;
 
+type LeaveDestination =
+  | { kind: "link"; anchor: HTMLAnchorElement }
+  | { kind: "history"; href: string };
+
 interface LeaveGuard {
-  /** A link was clicked with unsaved changes: LeaveDialog asks before following it. */
+  /** A link or browser history entry was requested with unsaved changes. */
   asking: boolean;
   stay: () => void;
   leave: () => void;
@@ -24,15 +28,16 @@ interface LeaveGuard {
 
 /**
  * With unsaved changes, leaving asks first. A reload, a closed tab or a typed address get
- * the browser's own prompt (beforeunload). A link on the page is stopped before the
- * console's own link handling (capture on window runs first) and asked about on the page,
- * never with a browser dialog; 保存せずに移動 then follows that same link without asking again.
+ * the browser's own prompt (beforeunload). Links and browser back/forward are stopped and
+ * asked about on the page, never with a browser dialog.
  */
 function useLeaveGuard(dirty: boolean): LeaveGuard {
-  const [link, setLink] = useState<HTMLAnchorElement | null>(null);
+  const [destination, setDestination] = useState<LeaveDestination | null>(null);
   const leaving = useRef(false);
+  const historyEntry = useRef<{ href: string; state: unknown }>({ href: "", state: null });
   useEffect(() => {
     if (!dirty) return;
+    historyEntry.current = { href: window.location.href, state: window.history.state };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (leaving.current) return;
       event.preventDefault();
@@ -47,25 +52,54 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       if (to.pathname === window.location.pathname && to.search === window.location.search) return;
       event.preventDefault();
       event.stopPropagation();
-      setLink(anchor);
+      setDestination({ kind: "link", anchor });
+    };
+    const onPopState = (event: PopStateEvent) => {
+      if (leaving.current) {
+        leaving.current = false;
+        historyEntry.current = { href: window.location.href, state: event.state };
+        return;
+      }
+      const current = historyEntry.current;
+      const targetHref = window.location.href;
+      const currentUrl = new URL(current.href);
+      const targetUrl = new URL(targetHref);
+      // Hash-only history entries stay in this editor and do not risk losing its contents.
+      if (targetUrl.pathname === currentUrl.pathname && targetUrl.search === currentUrl.search) {
+        historyEntry.current = { href: targetHref, state: event.state };
+        return;
+      }
+      // Next.js listens for popstate in the bubble phase. Restore this entry before its
+      // router can navigate, keeping the editor mounted while the user decides.
+      event.stopImmediatePropagation();
+      window.history.pushState(current.state, "", current.href);
+      setDestination({ kind: "history", href: targetHref });
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("click", onClick, true);
+    window.addEventListener("popstate", onPopState, true);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("click", onClick, true);
+      window.removeEventListener("popstate", onPopState, true);
     };
   }, [dirty]);
   return {
-    asking: link !== null,
-    stay: () => setLink(null),
+    asking: destination !== null,
+    stay: () => setDestination(null),
     leave: () => {
-      if (!link) return;
+      if (!destination) return;
       leaving.current = true;
-      setLink(null);
-      // The same link leads on as it would have: the console's links move inside it, the others load their page.
-      if (link.isConnected) link.click();
-      else window.location.assign(link.href);
+      setDestination(null);
+      if (destination.kind === "link") {
+        // The same link leads on as it would have: console links move inside it, others load their page.
+        if (destination.anchor.isConnected) destination.anchor.click();
+        else window.location.assign(destination.anchor.href);
+      } else {
+        // The browser already moved to this history entry; a full navigation honors it after
+        // restoring the editor entry above and avoids guessing whether it was back or forward.
+        window.location.assign(destination.href);
+      }
     },
   };
 }
