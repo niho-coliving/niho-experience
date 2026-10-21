@@ -12,7 +12,7 @@ import {
   BookingCheckoutViewV1, BookingPageViewV1, BookingPreviewV1, CatalogueViewV1, COPY_REGISTRY_V1, DetailViewV1, EN_COPY_V1, EN_STATIC_COPY_V1, HelpViewV1,
   HomeViewV1, HostViewV1, MobileGalleryViewV1, PRESENTATION_MANIFEST_V1, PresentationRootV1, SiteFooterV1, SiteHeaderV1, DetailBookingDatesV1,
   RichMessageV1, STATIC_COPY_REGISTRY_V1, assertAssetBindingsV1, assertPresentationIdentityV1, createCopyV1, createStaticCopyV1,
-  defaultAssetBindingsV1, defaultStaticCopyValuesV1, type BookingPreviewModelV1, type HomeViewModelV1,
+  defaultAssetBindingsV1, defaultStaticCopyValuesV1, type BookingPreviewModelV1, type DetailViewModelV1, type HomeViewModelV1,
 } from "../src/v1/index";
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -54,6 +54,8 @@ const bookingPreview: BookingPreviewModelV1 = {
   },
 };
 
+const detailModel: DetailViewModelV1 = { title: card.title, backHref: "/experiences", gallery: { title: card.title, backHref: "/experiences", photos: [{ image, alt: "Synthetic gallery image" }, { image: { ...image, src: "/synthetic/image-2.svg" }, alt: "Second synthetic gallery image" }] }, hosts: [card.face], hostLine: EN_STATIC_COPY_V1.rich("detail.hostedByRich", { hosts: "Sample Host" }), facts: [{ icon: "clock", label: "Duration", main: "2 hours" }], lead: card.lead, highlights: [{ text: "Synthetic highlight", icon: "check" }], paragraphs: ["First paragraph.", "Second paragraph."], timeline: [{ title: "Make", text: "Synthetic step.", icon: "mend" }], provider: { name: "Synthetic Studio", hosts: [card.face], photo: image }, included: ["Materials"], notIncluded: ["Transport"], emptyListLabel: "None listed.", meeting: { kind: "after-booking" }, know: ["Synthetic note"], showAllKnowLabel: "Show all 1", notSuitable: [], cancellation: { policy: { title: "Synthetic cancellation terms", acceptanceNote: "Applies to this option." }, sellerName: "Synthetic Studio" }, booking: { price: "¥4,000", priceIsFrom: false, canBook: true, bookingHref: "/experiences/synthetic-workshop/book", actionLabel: "Check dates and book", assurances: [{ icon: "check", text: "Synthetic assurance" }], dates: <span>Synthetic dates controller</span> } };
+
 describe("v1 portable presentation", () => {
   it("keeps the header host link visible when a caller supplies an empty label", () => {
     const html = renderToStaticMarkup(<SiteHeaderV1 labels={{ host: "" }} />);
@@ -87,8 +89,35 @@ describe("v1 portable presentation", () => {
     expect(html).toMatch(/id="booking-consent"[^>]*aria-describedby="booking-problem"/);
   });
 
+  it("renders a public overview as text while keeping after-booking directions private", () => {
+    const meeting = {
+      kind: "after-booking" as const,
+      overview: "Around Kamakura <studio>",
+      name: "Private studio",
+      address: "Private address",
+      accessNote: "Private access",
+      entranceNote: "Private entrance",
+      mapUrl: "https://example.invalid/private-map",
+      exterior: { src: "/synthetic/private-exterior.svg", alt: "Private exterior" },
+    };
+    const html = renderToStaticMarkup(<DetailViewV1 model={{ ...detailModel, meeting }} />);
+    expect(html).toContain("Around Kamakura &lt;studio&gt;");
+    expect(html).toContain(EN_STATIC_COPY_V1.text("detail.meetingAfterBooking"));
+    for (const secret of ["Private studio", "Private address", "Private access", "Private entrance", "private-map", "private-exterior"]) expect(html).not.toContain(secret);
+  });
+
+  it("retains published meeting directions and the overview for a public location", () => {
+    const html = renderToStaticMarkup(<DetailViewV1 model={{ ...detailModel, meeting: {
+      kind: "location", overview: "Near Kamakura station", name: "Public studio", address: "Public address", mapUrl: "https://example.invalid/public-map",
+    } }} />);
+    expect(html).toContain("Near Kamakura station");
+    expect(html).toContain("Public address");
+    expect(html).toContain('href="https://example.invalid/public-map"');
+    expect(html).not.toContain(EN_STATIC_COPY_V1.text("detail.meetingAfterBooking"));
+  });
+
   it("renders the complete route structures through React SSR", () => {
-    const detail = <DetailViewV1 model={{ title: card.title, backHref: "/experiences", gallery: { title: card.title, backHref: "/experiences", photos: [{ image, alt: "Synthetic gallery image" }, { image: { ...image, src: "/synthetic/image-2.svg" }, alt: "Second synthetic gallery image" }] }, hosts: [card.face], hostLine: EN_STATIC_COPY_V1.rich("detail.hostedByRich", { hosts: "Sample Host" }), facts: [{ icon: "clock", label: "Duration", main: "2 hours" }], lead: card.lead, highlights: [{ text: "Synthetic highlight", icon: "check" }], paragraphs: ["First paragraph.", "Second paragraph."], timeline: [{ title: "Make", text: "Synthetic step.", icon: "mend" }], provider: { name: "Synthetic Studio", hosts: [card.face], photo: image }, included: ["Materials"], notIncluded: ["Transport"], emptyListLabel: "None listed.", meeting: { kind: "after-booking" }, know: ["Synthetic note"], showAllKnowLabel: "Show all 1", notSuitable: [], cancellation: { policy: { title: "Synthetic cancellation terms", acceptanceNote: "Applies to this option." }, sellerName: "Synthetic Studio" }, booking: { price: "¥4,000", priceIsFrom: false, canBook: true, bookingHref: "/experiences/synthetic-workshop/book", actionLabel: "Check dates and book", assurances: [{ icon: "check", text: "Synthetic assurance" }], dates: <span>Synthetic dates controller</span> } }} />;
+    const detail = <DetailViewV1 model={detailModel} />;
     const booking = <BookingPageViewV1 backHref={card.href} backLabel={card.title} panel={<BookingPreviewV1 model={bookingPreview} />} />;
     const routes = renderToStaticMarkup(<PresentationRootV1><SiteHeaderV1 /><HomeViewV1 model={home} /><CatalogueViewV1 content={<div>Catalogue controller</div>} />{detail}{booking}<HelpViewV1 model={{ primaryHref: "mailto:test@example.invalid", primaryLabelKey: "help.email", emailHref: "mailto:test@example.invalid", emailLabel: "test@example.invalid" }} /><HostViewV1 model={{ video, steps: [{ title: "Plan", body: "Synthetic step" }], you: ["Host"], niho: ["Help"], signup: <div>Signup controller</div>, signupOpen: false }} /><SiteFooterV1 /></PresentationRootV1>);
     for (const marker of ["Meet the people who make Kamakura", "Experiences hosted by", "Slow down", "Small on purpose", "Simple, in yen", "Kamakura is small", "Experiences in Kamakura", "What you&#x27;ll do", "Show all 2 photos", "data-booking-screen=\"selection\"", "data-booking-screen=\"checkout\"", "What name should the host use?", "Select accessibility preferences", "Booking terms:", "Synthetic dates controller", "Booking help", "Share what you love with travelers", "NIHO Experience"]) expect(routes).toContain(marker);

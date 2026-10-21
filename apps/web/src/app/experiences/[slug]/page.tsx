@@ -350,9 +350,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
               ) : (
                 <p className="flex items-center gap-2">
                   <HandIcon name="pin" className="size-7 text-moss" />
-                  {meetingOverview
-                    ? "Your host will share the exact meeting point after your booking is confirmed."
-                    : "The meeting point is shared after your booking is confirmed."}
+                  The meeting point is shared after your booking is confirmed.
                 </p>
               )}
             </Section>
@@ -446,7 +444,7 @@ export default async function ExperiencePage({ params, searchParams }: Props) {
       included: e.included,
       notIncluded: e.notIncluded,
       emptyListLabel: EN_STATIC_COPY_V1.text("detail.noneListed"),
-      meeting: meeting ? { kind: "location", name: meeting.name, address: meeting.address ?? undefined, accessNote: meeting.accessNote ?? undefined, entranceNote: meeting.entranceNote ?? undefined, mapUrl: mapUrl ?? undefined, exterior: toImage(exterior, `${meeting.name} from outside`) } : { kind: "after-booking" },
+      meeting: meeting ? { kind: "location", overview: meetingOverview ?? undefined, name: meeting.name, address: meeting.address ?? undefined, accessNote: meeting.accessNote ?? undefined, entranceNote: meeting.entranceNote ?? undefined, mapUrl: mapUrl ?? undefined, exterior: toImage(exterior, `${meeting.name} from outside`) } : { kind: "after-booking", overview: meetingOverview ?? undefined },
       know: e.knowBeforeYouGo,
       showAllKnowLabel: EN_STATIC_COPY_V1.text("detail.showAllCount", { count: e.knowBeforeYouGo.length }),
       notSuitable: e.notSuitableFor,
