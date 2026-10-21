@@ -27,6 +27,21 @@ async function openEditor(page: Page, path: string) {
   await expect(page.getByRole("textbox", { name: "題名" })).toBeVisible();
 }
 
+async function collectHistoryGuardDiagnostics(page: Page) {
+  page.on("console", (message) => {
+    if (message.text().startsWith("[host-history-guard:")) console.log(message.text());
+  });
+  await page.addInitScript(() => {
+    window.addEventListener("popstate", (event) => {
+      console.info("[host-history-guard:test-popstate]", {
+        pathname: window.location.pathname,
+        hasState: Boolean(event.state),
+      });
+    }, true);
+  });
+}
+
+
 async function audit(page: Page, label: string) {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   expect(results.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`), label).toEqual([]);
@@ -321,6 +336,7 @@ test("申込の設定: an offer's dialog, 並び替え and この商品を削除
 });
 
 test("browser back keeps unsaved edits behind the leave dialog", async ({ page }) => {
+  await collectHistoryGuardDiagnostics(page);
   await signIn(page);
   await page.goto("/host/experiences");
   await page.getByRole("region", { name: "体験の一覧" }).getByRole("link").first().click();
@@ -340,6 +356,7 @@ test("browser back keeps unsaved edits behind the leave dialog", async ({ page }
 });
 
 test("browser forward keeps unsaved edits behind the leave dialog", async ({ page }) => {
+  await collectHistoryGuardDiagnostics(page);
   await signIn(page);
   await page.goto("/host/experiences");
   await page.getByRole("region", { name: "体験の一覧" }).getByRole("link").first().click();
