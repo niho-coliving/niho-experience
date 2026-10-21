@@ -1,8 +1,12 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { HostIcon } from "./HostIcon";
 
-/** Phones, on a page under a section: "‹ 体験" and the page's title instead of the brand header. PC keeps the sidebar. */
-export function HostSubHeader({ backHref, backLabel, title }: { backHref: string; backLabel: string; title: string }) {
+/**
+ * Phones, on a page under a section: "‹ 体験", the page's title and (optionally) one small
+ * action instead of the brand header. PC keeps the sidebar.
+ */
+export function HostSubHeader({ backHref, backLabel, title, action }: { backHref: string; backLabel: string; title: string; action?: ReactNode }) {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-canvas md:hidden">
       <div className="flex h-[52px] items-center gap-2.5 pr-3.5 pl-4">
@@ -11,6 +15,7 @@ export function HostSubHeader({ backHref, backLabel, title }: { backHref: string
           {backLabel}
         </Link>
         <p className="min-w-0 flex-1 truncate text-[0.9375rem] font-extrabold">{title}</p>
+        {action}
       </div>
     </header>
   );

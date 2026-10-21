@@ -25,6 +25,12 @@ export function monthDayJa(date: string): string {
   return `${month}月${day}日`;
 }
 
+/** "2026年10月12日" */
+export function fullDateJa(date: string): string {
+  const { year, month, day } = parts(date);
+  return `${year}年${month}月${day}日`;
+}
+
 export function dayOfMonth(date: string): number {
   return parts(date).day;
 }
