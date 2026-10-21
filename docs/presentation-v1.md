@@ -6,7 +6,7 @@ NIHO staff preview は公開サイトと同じ view component を利用する設
 
 ## package と version identity
 
-固定 SHA からの root package install を前提に、次を公開する。
+固定SHAのraw URLにある `dist/experience-presentation-v1.tgz` を通常のnpm依存として導入し、次を公開する。
 
 - `@niho/experience-presentation/v1`: React view、型、manifest、copy／asset helper
 - `@niho/experience-presentation/v1/styles.css`: `.nexp-v1` に scope した CSS と固定 font
@@ -44,3 +44,7 @@ schema 2 は home の2見出しを whole rich message として持つ。`{em}...
 ## 実ブラウザでの最終補修
 
 公開Server Componentからclient moduleの関数を直接実行しないよう、booking cardの純粋なmodel変換を中立moduleへ分離した。availabilityはclient componentとして渡し、価格・在庫の権限は従来のcontrollerに残す。日付読込後の価格はrich messageとして描画し、装飾markerを持つkeyをtext()へ渡す誤用を型でも拒否する。既存ENのhero見出しは原文どおり維持する。
+
+## 依存配布の分離
+
+workspaceとbuild scriptを持つサイトrepository自体をGit依存にすると、npmの準備処理がサイト全体の依存導入を起動する（[npm公式仕様](https://docs.npmjs.com/cli/v10/configuring-npm/package-json/#git-urls-as-dependencies)）。サイトの通常workflowを維持し、固定SHAで参照する生成済みtgzを配布する。中身は版固定distとREADMEと最小manifestのみで、scripts・workspaces・devDependenciesを含めない。生成器は全ファイルとtgzを決定的に比較し、通常のReact18 consumer installで不要runtimeが入らないことを確認する。

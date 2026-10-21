@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { copyFile, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -124,3 +124,27 @@ if (check) {
   await mkdir(resolve(distDir, "fonts"), { recursive: true });
   for (const [family, file] of fontFiles) await copyFile(resolve(repoDir, "node_modules", fontPackages[family], "files", file), resolve(distDir, "fonts", file));
 }
+
+// Git dependencies with workspaces/build scripts trigger npm's repository preparation.
+// Ship a deterministic, scripts-free package pinned by its source commit URL instead.
+const packing = await mkdtemp(resolve(tmpdir(), "niho-presentation-pack-"));
+try {
+  const staging = resolve(packing, "package");
+  await mkdir(staging, { recursive: true });
+  const workspace = JSON.parse(await readFile(resolve(packageDir, "package.json"), "utf8"));
+  const manifest = {
+    name: workspace.name, version: workspace.version, type: workspace.type, license: "UNLICENSED",
+    files: ["dist/v1", "README.md"], exports: workspace.exports, types: workspace.types,
+    sideEffects: workspace.sideEffects, peerDependencies: workspace.peerDependencies,
+  };
+  await writeFile(resolve(staging, "package.json"), stable(manifest));
+  await cp(distDir, resolve(staging, "dist/v1"), { recursive: true });
+  await copyFile(resolve(packageDir, "README.md"), resolve(staging, "README.md"));
+  const [packed] = JSON.parse(execFileSync("npm", ["pack", "--ignore-scripts", "--json", "--loglevel", "error", "--pack-destination", packing], { cwd: staging, encoding: "utf8" }));
+  const bytes = await readFile(resolve(packing, packed.filename));
+  const target = resolve(packageDir, "dist/experience-presentation-v1.tgz");
+  if (check) {
+    const actual = await readFile(target).catch(() => Buffer.alloc(0));
+    if (!bytes.equals(actual)) throw new Error("Generated portable package is stale");
+  } else await writeFile(target, bytes);
+} finally { await rm(packing, { recursive: true, force: true }); }

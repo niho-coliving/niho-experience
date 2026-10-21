@@ -11,9 +11,9 @@ React 非依存の copy 定義は `/v1/metadata`、同一内容の JSON は `/v1
 ```json
 {
   "dependencies": {
-    "@niho/experience-presentation": "git+https://github.com/niho-coliving/niho-experience.git#<reviewed-sha>"
+    "@niho/experience-presentation": "https://raw.githubusercontent.com/niho-coliving/niho-experience/<reviewed-sha>/packages/experience-presentation/dist/experience-presentation-v1.tgz"
   }
 }
 ```
 
-root package の配布物は committed `packages/experience-presentation/dist` とこの README のみに限定されます。
+配布するtgzには生成済みdist/v1、README、scripts/workspaces/devDependenciesを持たないpackage.jsonだけを含めます。通常のnpm installでもNextやサイト本体の依存を準備・ビルドしません。build.mjs --checkで全配布ファイルとtgzの再生成結果を比較します。

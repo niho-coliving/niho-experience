@@ -179,13 +179,20 @@ describe("v1 portable presentation", () => {
 
   it("has no Next dependency or copied listing/host media and declares React 18/19 peers", async () => {
     const manifest = JSON.parse(await readFile(resolve(packageDir, "package.json"), "utf8"));
-    const rootManifest = JSON.parse(await readFile(resolve(repoDir, "package.json"), "utf8"));
+    const archive = resolve(packageDir, "dist/experience-presentation-v1.tgz");
+    const packedManifest = JSON.parse(execFileSync("tar", ["-xOf", archive, "package/package.json"], { encoding: "utf8" }));
     expect(manifest.peerDependencies.react).toBe("^18.2.0 || ^19.0.0");
-    expect(rootManifest.peerDependencies.react).toBe("^18.2.0 || ^19.0.0");
+    expect(packedManifest.peerDependencies.react).toBe("^18.2.0 || ^19.0.0");
     expect(manifest.dependencies).toBeUndefined();
-    expect(rootManifest.dependencies).toBeUndefined();
+    expect(packedManifest.dependencies).toBeUndefined();
+    expect(packedManifest.devDependencies).toBeUndefined();
+    expect(packedManifest.scripts).toBeUndefined();
+    expect(packedManifest.workspaces).toBeUndefined();
     expect({ ...manifest.dependencies, ...manifest.peerDependencies }).not.toHaveProperty("next");
-    expect(rootManifest.files).toEqual(["packages/experience-presentation/dist", "packages/experience-presentation/README.md"]);
+    expect(packedManifest.files).toEqual(["dist/v1", "README.md"]);
+    expect(packedManifest.exports).toEqual(manifest.exports);
+    const packedFiles = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split("\n");
+    expect(packedFiles.every((path) => path === "package/package.json" || path === "package/README.md" || path.startsWith("package/dist/v1/"))).toBe(true);
     expect(manifest.exports["./v1"].import).toBe("./dist/v1/index.js");
     expect(manifest.exports["./v1/styles.css"]).toBe("./dist/v1/styles.css");
     expect(manifest.exports["./v1/metadata"].import).toBe("./dist/v1/metadata.js");

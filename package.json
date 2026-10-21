@@ -1,34 +1,8 @@
 {
-  "name": "@niho/experience-presentation",
-  "version": "0.1.0",
+  "name": "niho-experience",
+  "private": true,
   "description": "NIHO Experience public site (Kamakura first). Synthetic data only in this repo.",
   "license": "UNLICENSED",
-  "type": "module",
-  "files": [
-    "packages/experience-presentation/dist",
-    "packages/experience-presentation/README.md"
-  ],
-  "exports": {
-    "./v1": {
-      "types": "./packages/experience-presentation/dist/v1/index.d.ts",
-      "import": "./packages/experience-presentation/dist/v1/index.js"
-    },
-    "./v1/metadata": {
-      "types": "./packages/experience-presentation/dist/v1/metadata.d.ts",
-      "import": "./packages/experience-presentation/dist/v1/metadata.js"
-    },
-    "./v1/metadata.json": "./packages/experience-presentation/dist/v1/static-copy-registry.json",
-    "./v1/styles.css": "./packages/experience-presentation/dist/v1/styles.css",
-    "./package.json": "./package.json"
-  },
-  "types": "./packages/experience-presentation/dist/v1/index.d.ts",
-  "sideEffects": [
-    "**/styles.css"
-  ],
-  "peerDependencies": {
-    "react": "^18.2.0 || ^19.0.0",
-    "react-dom": "^18.2.0 || ^19.0.0"
-  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -44,9 +18,9 @@
     "typecheck": "npm -ws --if-present run typecheck",
     "test": "npm -ws --if-present run test",
     "test:e2e": "npm -w @niho-experience/web run test:e2e",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "build:presentation": "npm -w @niho/experience-presentation run build",
-    "check:presentation": "npm -w @niho/experience-presentation run check:generated && npm -w @niho/experience-presentation run typecheck && npm -w @niho/experience-presentation run test",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "check:presentation": "npm -w @niho/experience-presentation run check:generated && npm -w @niho/experience-presentation run typecheck && npm -w @niho/experience-presentation run test"
   },
   "overrides": {
     "playwright-core": "1.56.1"
