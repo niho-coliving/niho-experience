@@ -89,6 +89,24 @@ CSPの接続許可はビルド時に固定されるため、候補だけ `NIHO_W
 
 通常のpushと、`stg_documents`を無効にした手動起動は、従来どおりmockプレビューを更新する。
 
+### 合成商品の予約受入候補
+
+実APIの予約受入では `stg_documents=true` に加えて `stg_bookings=true` を指定する。固定候補URLは
+`https://stg-booking---niho-experience-preview-aotuusf7xq-an.a.run.app`。
+`SITE_URL` もこのURLに固定し、`BOOKINGS_ENABLED=true` にする。候補の配信割合は0%のまま、通常プレビューの配分・IAM・ingress・検索除外を維持する。
+
+起動前にNIHO側の公式設定経路で、stg Webの `EXPERIENCE_SITE_ALLOWED_ORIGINS` にこのexact originだけを追加する。
+本番設定・`EXPERIENCE_SITE_PUBLIC_ORIGIN` は変更しない。共通基盤側の設定変更は連携担当へ集約する。
+配備資格情報を持たないbuild jobが `scripts/stg_booking_preflight.py` で以下を確認し、不足があればイメージ作成前に停止する。
+
+- `stg-synthetic-booking-acceptance` が公開中の英語合成商品で、Checkout受付中。
+- 商品は `Synthetic test session` 1件、JPY 100円、定員・1組上限2名。予約可能で残席2の開催枠がある。
+- availabilityは `no-store`。GETとcheckoutのOPTIONSが候補のexact originを許し、資格情報付きCORSを許可しない。
+
+NIHO stgのStripeキーがテスト用であることを公式のstg preflightで先に確認する。ブラウザで生成したCheckoutも `livemode=false` を確認してから、Stripe公式テスト値だけを入力する。実カード・実顧客情報は使用しない。
+このworkflowは予約作成・決済・取消を自動実行しない。配備成功は受入完了を意味しない。
+PC/スマホで日時・人数・入力・Checkout・失敗からの復帰・計測ブロック時の予約・満席・掲載停止を確認し、テスト予約・仮押さえの取消と合成掲載の停止まで別途記録する。
+
 `--no-traffic` は以後のLATESTへの自動配分も止めるため、通常のmock配備では、同じcommitかつmock設定のrevisionを再検証し、そのrevision名へ100%を明示配分します。候補配備ではこの操作を実行しません（[Cloud Runの仕様](https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy)）。
 
 ## うまくいかない時
