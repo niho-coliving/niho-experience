@@ -123,8 +123,12 @@ jobs:
           image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${CANDIDATE_SHA}"
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
           docker tag "web:${GITHUB_SHA}" "$image"
-          docker push "$image"
-          digest="$(gcloud artifacts docker images describe "$image" --project "$PROJECT_ID" --format='value(image_summary.digest)')"
+          push_output="$(docker push "$image" 2>&1)" || {
+            printf '%s\n' "$push_output"
+            exit 1
+          }
+          printf '%s\n' "$push_output"
+          digest="$(sed -nE 's/.*digest: (sha256:[0-9a-f]{64}).*/\1/p' <<< "$push_output" | tail -n1)"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: Deploy candidate with sales and indexing disabled
