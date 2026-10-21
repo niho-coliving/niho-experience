@@ -161,8 +161,15 @@ function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "private, no-store" } });
 }
 
+let supportIds = 0;
+
+/** 契約の ExperienceHostErrorResponse。400 は supportId が null で details は空、ほかは合成の問い合わせ用の ID を持つ。 */
 function errorResponse(status: number, code: string, reason?: ExperienceHostErrorReason): Response {
-  return json(status, { error: { code, message: `mock: ${reason ?? code}`, details: reason ? { reason } : {} } });
+  if (status === 400) return json(status, { error: { code, message: `mock: ${code}`, supportId: null, details: {} } });
+  supportIds += 1;
+  const supportId = `sample-support-${supportIds}`;
+  const requestId = `sample-request-${supportIds}`;
+  return json(status, { error: { code, message: `mock: ${reason ?? code}`, supportId, details: reason ? { reason, supportId, requestId } : { supportId, requestId } } });
 }
 
 const unauthorized = () => errorResponse(401, "UNAUTHORIZED");
