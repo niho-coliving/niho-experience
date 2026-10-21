@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "assets": {
+    "home.hero": { "kind": "image", "src": "/sample/photos/niho-cd-table-02.jpg", "alt": "Neighbors around the long table at NIHO", "position": "62% 45%" },
+    "home.feature.kitchen": { "kind": "image", "src": "/sample/photos/niho-cd-kitchen-together.jpg", "alt": "", "position": "60% 40%" },
+    "home.feature.salad": { "kind": "image", "src": "/sample/photos/niho-cd-hands-salad.jpg", "alt": "" },
+    "home.feature.table": { "kind": "image", "src": "/sample/photos/niho-cd-table-01.jpg", "alt": "", "position": "40% 50%" },
+    "home.feature.trays": { "kind": "image", "src": "/sample/photos/niho-cd-food-trays.jpg", "alt": "" },
+    "home.feature.dessert": { "kind": "image", "src": "/sample/photos/niho-cd-strawberry-daifuku.jpg", "alt": "" },
+    "home.banner": { "kind": "video", "src": "/sample/video/banner-roast.mp4", "poster": "/sample/video/banner-roast.jpg" },
+    "home.strip.cook": { "kind": "video", "src": "/sample/video/strip-cook.mp4", "poster": "/sample/video/strip-cook.jpg" },
+    "home.strip.roast": { "kind": "video", "src": "/sample/video/strip-roast.mp4", "poster": "/sample/video/strip-roast.jpg" },
+    "home.strip.sit": { "kind": "video", "src": "/sample/video/strip-sit.mp4", "poster": "/sample/video/strip-sit.jpg" },
+    "home.strip.mend": { "kind": "video", "src": "/sample/video/strip-mend.mp4", "poster": "/sample/video/strip-mend.jpg" },
+    "home.strip.write": { "kind": "video", "src": "/sample/video/strip-write.mp4", "poster": "/sample/video/strip-write.jpg" },
+    "home.strip.calligraphy": { "kind": "video", "src": "/sample/video/strip-calligraphy.mp4", "poster": "/sample/video/strip-calligraphy.jpg" },
+    "home.postcard.crossing": { "kind": "image", "src": "/sample/photos/kamakura-crossing.jpg", "alt": "", "position": "30% 50%" },
+    "home.postcard.enoden": { "kind": "image", "src": "/sample/photos/enoden-crossing.jpg", "alt": "" },
+    "home.postcard.buddha": { "kind": "image", "src": "/sample/photos/daibutsu.jpg", "alt": "", "position": "40% 50%" },
+    "home.postcard.fuji": { "kind": "image", "src": "/sample/photos/shichirigahama-fuji.jpg", "alt": "", "position": "55% 50%" },
+    "home.postcard.bamboo": { "kind": "image", "src": "/sample/photos/bamboo.jpg", "alt": "" },
+    "home.hostBand": { "kind": "video", "src": "/sample/video/coast-tram.mp4", "poster": "/sample/video/coast-tram.jpg" }
+  }
+}

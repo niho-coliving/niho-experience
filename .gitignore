@@ -15,3 +15,7 @@ test-results/
 # One lockfile at the repo root (npm workspaces). Packages must not have their own.
 apps/*/package-lock.json
 packages/*/package-lock.json
+
+# 固定SHAのGit依存へ配布する版固定presentationのみ、生成済みdistを含める。
+!/packages/experience-presentation/dist/
+!/packages/experience-presentation/dist/**

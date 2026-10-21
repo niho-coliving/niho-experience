@@ -1,0 +1,191 @@
+@import "tailwindcss" source(none);
+@source "./**/*.{ts,tsx}";
+
+@font-face { font-family: "Nunito Variable"; font-style: normal; font-display: swap; font-weight: 200 1000; src: url("./fonts/nunito-latin-wght-normal.woff2") format("woff2-variations"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Nunito Variable"; font-style: normal; font-display: swap; font-weight: 200 1000; src: url("./fonts/nunito-latin-ext-wght-normal.woff2") format("woff2-variations"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Fraunces Variable"; font-style: normal; font-display: swap; font-weight: 100 900; src: url("./fonts/fraunces-latin-wght-normal.woff2") format("woff2-variations"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Fraunces Variable"; font-style: normal; font-display: swap; font-weight: 100 900; src: url("./fonts/fraunces-latin-ext-wght-normal.woff2") format("woff2-variations"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Caveat Variable"; font-style: normal; font-display: swap; font-weight: 400 700; src: url("./fonts/caveat-latin-wght-normal.woff2") format("woff2-variations"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Caveat Variable"; font-style: normal; font-display: swap; font-weight: 400 700; src: url("./fonts/caveat-latin-ext-wght-normal.woff2") format("woff2-variations"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+
+/*
+ * NIHO Experience tokens (see docs/design-system.md).
+ * White, neutral pages so photos and people lead. NIHO leaf green fills the
+ * main button (with ink text); deep moss is for links, focus and the
+ * hand-written accents. Text colours keep >= 4.5:1 on canvas and sand.
+ */
+@theme {
+  --color-canvas: #ffffff;
+  --color-surface: #ffffff;
+  --color-sand: #f5f5f2;
+  --color-ink: #1c1c1a;
+  --color-ink-soft: #4b4b47;
+  --color-muted: #6c6c67;
+  --color-line: #e8e8e4;
+  --color-line-strong: #d4d4cf;
+  --color-moss: #355e1f;
+  --color-leaf: #b2d67c;
+  --color-leaf-hover: #a3c86b;
+  --color-leaf-pale: #eef5e3;
+  --color-danger: #a8321e;
+  --color-danger-pale: #fcece8;
+  --color-warn: #7a4b00;
+  --color-warn-pale: #fff3dc;
+  --color-info: #1e4ea8;
+  --color-info-pale: #eaf2ff;
+
+  --font-sans: "Nunito Variable", "Hiragino Sans", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces Variable", Georgia, "Hiragino Mincho ProN", serif;
+  /* Short accents only (a line above a heading, times, host names, units). Never body text or controls. */
+  --font-hand: "Caveat Variable", "Bradley Hand", cursive;
+
+  --radius-card: 1.375rem;
+  --shadow-card: 0 1px 2px rgb(28 28 26 / 0.04), 0 10px 30px rgb(28 28 26 / 0.08);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1.03125rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 400;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-moss);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 75rem;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+  @media (min-width: 40rem) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+  @media (min-width: 64rem) {
+    .container-page {
+      padding-inline: 2.5rem;
+    }
+  }
+
+  /* Hand-written accent (Caveat). */
+  .hand {
+    font-family: var(--font-hand);
+    font-weight: 600;
+    color: var(--color-moss);
+    letter-spacing: 0;
+    line-height: 1;
+  }
+  /* The short line above a heading. Replaces the old uppercase eyebrow. */
+  .eyebrow {
+    display: block;
+    font-family: var(--font-hand);
+    font-size: 1.625rem;
+    font-weight: 600;
+    line-height: 1.05;
+    color: var(--color-moss);
+  }
+
+  /* Wavy leaf underline under one word of a heading. */
+  .squig {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 6c12-4 22-4 34 0s22 4 34 0 22-4 34 0 10 2 14 1' fill='none' stroke='%23b2d67c' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E")
+      left 100% / 100% 0.28em no-repeat;
+    padding-bottom: 0.1em;
+  }
+
+  /* Underlined text link with a thick leaf line. */
+  .link-leaf {
+    font-weight: 800;
+    text-decoration: underline;
+    text-decoration-color: var(--color-leaf);
+    text-decoration-thickness: 3px;
+    text-underline-offset: 5px;
+  }
+
+  /* Hand-drawn icon (components/HandIcon.tsx). */
+  .ico {
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    overflow: visible;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Postage-stamp edge: a white paper with perforated borders around a photo. */
+  .postage {
+    --r: 7px;
+    position: relative;
+    filter: drop-shadow(0 14px 28px rgb(0 0 0 / 0.14));
+  }
+  .postage-sm {
+    --r: 5px;
+    --pad: 9px;
+    filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.12));
+  }
+  .postage-paper {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    padding: var(--pad, 14px);
+    -webkit-mask:
+      radial-gradient(var(--r), #0000 98%, #000) round calc(-1.5 * var(--r)) calc(-1.5 * var(--r)) / calc(3 * var(--r)) calc(3 * var(--r)),
+      linear-gradient(#000 0 0) no-repeat 50% / calc(100% - 3 * var(--r)) calc(100% - 3 * var(--r));
+    mask:
+      radial-gradient(var(--r), #0000 98%, #000) round calc(-1.5 * var(--r)) calc(-1.5 * var(--r)) / calc(3 * var(--r)) calc(3 * var(--r)),
+      linear-gradient(#000 0 0) no-repeat 50% / calc(100% - 3 * var(--r)) calc(100% - 3 * var(--r));
+  }
+
+  /* Arch-shaped crop. */
+  .arch {
+    overflow: hidden;
+    border-radius: 999px 999px 1.625rem 1.625rem;
+  }
+}
+
+/* Phones: the detail page's bottom bar sits right on top of the footer. Unlayered so it wins over the footer's margin utility. */
+@media (max-width: 63.98rem) {
+  main:has(> [data-sticky-bar]:last-child) + footer {
+    margin-top: 0;
+  }
+}
