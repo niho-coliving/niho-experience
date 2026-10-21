@@ -1,13 +1,25 @@
 """Read-only gates for the dedicated synthetic staging booking candidate."""
 
 import argparse
+from datetime import date
 import json
+import re
 import sys
 from urllib.request import Request, urlopen
 
 API_ORIGIN = "https://app-stg.niho.life"
 FIXTURE_SLUG = "stg-synthetic-booking-acceptance"
 CANDIDATE_ORIGIN = "https://stg-booking---niho-experience-preview-aotuusf7xq-an.a.run.app"
+
+
+def valid_date(value) -> bool:
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return False
+    try:
+        date.fromisoformat(value)
+        return True
+    except ValueError:
+        return False
 
 
 def check_fixture(detail: dict, availability: dict) -> None:
@@ -35,6 +47,7 @@ def check_fixture(detail: dict, availability: dict) -> None:
         occurrence.get("offerId") == offer.get("id")
         and occurrence.get("bookable") is True
         and occurrence.get("seatsLeft") == 2
+        and valid_date(occurrence.get("date"))
         for occurrence in availability.get("occurrences", [])
     ):
         raise ValueError("the synthetic fixture needs available dates")
@@ -59,6 +72,11 @@ def check_cors(headers) -> None:
         raise ValueError("NIHO staging must allow only the exact booking candidate origin without credentials")
 
 
+def check_no_store(headers) -> None:
+    if "no-store" not in {part.strip().lower() for part in headers.get("Cache-Control", "").split(",")}:
+        raise ValueError("availability must not be cached")
+
+
 def preflight() -> dict:
     endpoint = f"{API_ORIGIN}/api/public/experiences/{FIXTURE_SLUG}"
     with urlopen(endpoint, timeout=20) as response:
@@ -66,8 +84,7 @@ def preflight() -> dict:
     with urlopen(Request(f"{endpoint}/availability", headers={"Origin": CANDIDATE_ORIGIN}), timeout=20) as response:
         availability = json.load(response)
         check_origin(response.headers)
-        if "no-store" not in response.headers.get("Cache-Control", ""):
-            raise ValueError("availability must not be cached")
+        check_no_store(response.headers)
     check_fixture(detail, availability)
     request = Request(
         f"{endpoint}/checkout",

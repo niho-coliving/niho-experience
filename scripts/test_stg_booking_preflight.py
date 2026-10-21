@@ -3,7 +3,7 @@
 import copy
 import unittest
 
-from stg_booking_preflight import CANDIDATE_ORIGIN, FIXTURE_SLUG, check_cors, check_fixture, check_origin
+from stg_booking_preflight import CANDIDATE_ORIGIN, FIXTURE_SLUG, check_cors, check_fixture, check_no_store, check_origin
 
 
 class StgBookingPreflightTest(unittest.TestCase):
@@ -16,7 +16,7 @@ class StgBookingPreflightTest(unittest.TestCase):
             "offers": [{"id": "synthetic-offer", "name": "Synthetic test session",
                         "pricing": {"currency": "JPY", "adultPriceYen": 100}, "capacity": 2, "maxPartySize": 2}],
         }}
-        self.availability = {"occurrences": [{"offerId": "synthetic-offer", "bookable": True, "seatsLeft": 2}]}
+        self.availability = {"occurrences": [{"offerId": "synthetic-offer", "date": "2050-11-03", "bookable": True, "seatsLeft": 2}]}
         self.headers = {
             "Access-Control-Allow-Origin": CANDIDATE_ORIGIN,
             "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -62,6 +62,22 @@ class StgBookingPreflightTest(unittest.TestCase):
             with self.subTest(changes=changes):
                 with self.assertRaises(ValueError):
                     check_origin(self.headers | changes)
+
+    def test_missing_malformed_and_impossible_dates_are_rejected(self):
+        for value in (None, "", "20501103", "2050-1-3", "2050-02-30", "2050-11-03T00:00:00Z"):
+            with self.subTest(value=value):
+                availability = copy.deepcopy(self.availability)
+                availability["occurrences"][0]["date"] = value
+                with self.assertRaises(ValueError):
+                    check_fixture(self.detail, availability)
+
+    def test_cache_control_requires_exact_case_insensitive_directive(self):
+        for value in ("no-store", "private, NO-STORE, max-age=0"):
+            check_no_store({"Cache-Control": value})
+        for value in ("", "public, max-age=600, x-no-store", "no-store=false"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    check_no_store({"Cache-Control": value})
 
     def test_post_and_content_type_must_be_allowed(self):
         for changes in ({"Access-Control-Allow-Methods": "GET"}, {"Access-Control-Allow-Headers": ""}):

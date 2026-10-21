@@ -29,7 +29,7 @@ on:
         type: string
         default: ""
       stg_bookings:
-        description: Enable only the dedicated synthetic stg booking acceptance candidate
+        description: Enable bookings on the dedicated synthetic stg acceptance candidate
         required: true
         type: boolean
         default: false
