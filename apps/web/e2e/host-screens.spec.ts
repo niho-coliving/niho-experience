@@ -42,7 +42,7 @@ test("ホーム shows what to do next, the sessions coming up and the month", as
   await expect(upcoming.getByRole("link", { name: "予約を見る" })).toHaveAttribute("href", "/host/bookings");
 
   const month = page.getByRole("region", { name: "10月" });
-  for (const value of ["¥270,000", "−¥60,000", "6件"]) await expect(month).toContainText(value);
+  for (const value of ["¥390,000", "−¥60,000", "¥139,500", "8件"]) await expect(month).toContainText(value);
   await expect(month.getByRole("link", { name: "売上を見る" })).toHaveAttribute("href", "/host/sales");
 
   // PC: これからの開催 and the month side by side (1.6 : 1). Phones: one column.
@@ -72,7 +72,8 @@ test("console links carry ?providerId=, and each provider has its own data", asy
   await expect(provider.getByRole("textbox", { name: "掲載名" })).toHaveValue("サンプル工房");
   await expect(provider.getByRole("radio", { name: "店舗・事業者" })).toBeChecked();
   await expect(provider).toContainText("未申請");
-  await expect(page.getByRole("region", { name: "売上受取口座" })).toContainText("未接続");
+  // The payout account is the owner's to read (NIHO answers the owner only); the studio's host is an editor.
+  await expect(page.getByRole("region", { name: "売上受取口座" })).toContainText("口座の状態はオーナーが確認できます");
 });
 
 test("the menu is a sidebar on PC and five bottom tabs on phones", async ({ page }, testInfo) => {
@@ -156,7 +157,7 @@ test("体験: the list, one experience, and back", async ({ page }, testInfo) =>
   await expect(page.getByRole("heading", { name: "ページが見つかりません" })).toBeVisible();
 });
 
-test("設定 has five panels, and 保存 checks the fields without sending them", async ({ page }, testInfo) => {
+test("設定 has five panels, and 保存 checks the fields and keeps what NIHO has no API for on screen", async ({ page }, testInfo) => {
   await signIn(page);
   await menu(page).getByRole("link", { name: "設定" }).click();
   await page.waitForURL(/\/host\/settings$/);
@@ -173,7 +174,7 @@ test("設定 has five panels, and 保存 checks the fields without sending them"
   const payout = page.getByRole("region", { name: "売上受取口座" });
   await expect(payout).toContainText("準備済み");
   await expect(payout).toContainText("サンプルの台所の口座");
-  await expect(payout.getByRole("button", { name: "Stripe で確認" })).toBeVisible();
+  await expect(payout.getByRole("link", { name: /Stripe で確認/ })).toBeVisible();
   const meeting = page.getByRole("region", { name: "既定の集合案内" });
   await expect(meeting.getByRole("textbox", { name: "公開する集合エリア" })).toHaveValue("Near Kamakura Station, 5-minute walk");
   await expect(meeting.getByRole("textbox", { name: "地図 URL" })).toHaveValue("https://maps.example.com/sample-kitchen");
@@ -189,7 +190,8 @@ test("設定 has five panels, and 保存 checks the fields without sending them"
   page.on("request", (request) => sent.push(`${request.method()} ${request.url()} ${request.postData() ?? ""}`));
   const save = page.getByRole("button", { name: "保存", exact: true });
   const saved = page.getByRole("status").filter({ hasText: "保存しました" });
-  await provider.getByRole("radio", { name: "店舗・事業者" }).check();
+  // The kind comes from the registration: shown, not changed here.
+  await expect(provider.getByRole("radio", { name: "店舗・事業者" })).toBeDisabled();
   await email.fill("not-an-email");
   await save.click();
   await expect(saved).toHaveCount(0);
@@ -197,6 +199,7 @@ test("設定 has five panels, and 保存 checks the fields without sending them"
   await save.click();
   await expect(saved).toBeVisible();
   await expect(page).toHaveURL(/\/host\/settings$/);
+  // 通知 is not in NIHO's API yet: nothing is sent (提供者情報 is, see host-sales.spec.ts).
   expect(sent.filter((line) => line.includes("kitchen-desk") || !line.startsWith("GET "))).toEqual([]);
 
   // PC: a leaf pill floating at the bottom right. Phones: a full-width 48px band above the tabs.
@@ -238,10 +241,11 @@ test("an account without a provider is led to registration, and registering open
   page.on("request", (request) => sent.push(decodeURIComponent(request.url())));
   await page.getByRole("checkbox", { name: /提供者規約に同意します/ }).check();
   await page.getByRole("button", { name: "登録する" }).click();
+  // Registered through NIHO's provider API (the contract mock); the preview then opens a provider in the state a new one starts in.
   await page.waitForURL(/\/host\/home$/);
   await expect(page.getByRole("heading", { name: "次にすること" })).toBeVisible();
   await expect(menu(page)).toHaveCount(1);
-  // What was typed stays in the browser.
+  // What was typed goes to NIHO in a request body, never in a URL.
   expect(sent.filter((url) => url.includes("合成スタジオ") || url.includes("合成の紹介文"))).toEqual([]);
 });
 

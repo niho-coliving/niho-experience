@@ -12,7 +12,7 @@ import { getPublishedPageDocument } from "@/lib/page-documents";
 import { HOST_BAND_VIDEO } from "@/lib/site-media";
 import { publicMetadata } from "@/lib/public-metadata";
 import { nihoIdOrNull } from "@/lib/host/providers";
-import { HOST_HOME_PATH, HOST_LOGIN_PATH, withProvider } from "@/lib/host/routes";
+import { HOST_LOGIN_PATH, hostLandingPath } from "@/lib/host/routes";
 import { isHostMock, readHostSession } from "@/lib/host/server";
 
 function hostStartUrl(value: string, nihoOrigin: string): string | null {
@@ -46,13 +46,14 @@ const NIHO = ["Help write and edit your page in English", "Advise on photos, pri
 type SearchParams = Record<string, string | string[] | undefined>;
 
 /**
- * With HOST_CONSOLE_ENABLED, signed-in hosts go straight to the console and others
- * get "NIHO でログイン". Only a well-formed `providerId` is carried over.
+ * With HOST_CONSOLE_ENABLED, signed-in hosts go straight to the console (設定, when Stripe
+ * sends them back here with `?connect=`) and others get "NIHO でログイン". Only a well-formed
+ * `providerId` is carried over.
  */
 async function hostConsoleEntry(query: SearchParams): Promise<{ loginHref: string } | null> {
   if (!config.hostConsoleEnabled) return null;
   const providerId = nihoIdOrNull(query.providerId);
-  if (await readHostSession()) redirect(withProvider(HOST_HOME_PATH, providerId));
+  if (await readHostSession()) redirect(hostLandingPath(providerId, query.connect));
   const params = new URLSearchParams();
   if (providerId) params.set("providerId", providerId);
   // Preview only: `?mock=empty` signs in as a synthetic host with no providers.

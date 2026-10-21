@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { FieldRow, FieldSection } from "@/components/host/fields";
 import { HostIcon } from "@/components/host/HostIcon";
 import { HostRegisterPrompt } from "@/components/host/HostRegisterPrompt";
 import { HostSettingsForm } from "@/components/host/HostSettingsForm";
 import { consoleButtonClass } from "@/components/host/host-ui";
 import { AccountAvatar, HostPageBody, PageHead } from "@/components/host/ui";
-import { hostPageContext, loadHostConsoleData } from "@/host/data";
+import { hostPageContext, loadHostConsoleData, loadHostPayout } from "@/host/data";
 import { config } from "@/lib/config";
 import { HOST_LOGOUT_PATH } from "@/lib/host/routes";
 import { isHostMock } from "@/lib/host/server";
@@ -14,13 +15,26 @@ export const metadata: Metadata = { title: "設定" };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** 設定 (mock v2): provider, payout account, default meeting point, notifications and the NIHO account. */
+/** Stripe's way back to this page (`?connect=`), as NIHO sets it for the account page's return and refresh URLs. */
+function connectStep(value: string | string[] | undefined): "return" | "refresh" | null {
+  return value === "return" || value === "refresh" ? value : null;
+}
+
+/**
+ * 設定 (mock v2): provider (and its review), payout account, default meeting point, notifications
+ * and the NIHO account. `?connect=return` (back from Stripe's page) reads the account from Stripe
+ * again first; `?connect=refresh` (its link expired) sends the host back to Stripe with a new one.
+ */
 export default async function HostSettingsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const context = await hostPageContext(await searchParams);
+  const query = await searchParams;
+  const context = await hostPageContext(query);
   if (!context) return null;
-  const { session, provider } = context;
+  const { session, provider, providerNotFound } = context;
   if (!provider) return <HostRegisterPrompt title="設定" />;
-  const { settings } = await loadHostConsoleData(provider);
+  // Stripe's way back belongs to the provider it names, never to the one shown in its place.
+  const connect = providerNotFound ? null : connectStep(query.connect);
+  const [{ settings }, payout] = await Promise.all([loadHostConsoleData(provider), loadHostPayout(provider, { connect })]);
+  if (payout.redirectTo) redirect(payout.redirectTo);
   const account = { displayName: session.displayName, iconUrl: session.iconUrl };
 
   const accountPanel = (
@@ -49,7 +63,16 @@ export default async function HostSettingsPage({ searchParams }: { searchParams:
     <HostPageBody>
       <PageHead title="設定" />
       {/* Keyed by provider: switching providers starts from that provider's values. */}
-      <HostSettingsForm key={provider.id} settings={settings} preview={isHostMock()} account={accountPanel} />
+      <HostSettingsForm
+        key={provider.id}
+        providerId={provider.id}
+        role={provider.memberRole}
+        settings={settings}
+        payout={payout.load}
+        connectNotice={payout.notice}
+        preview={isHostMock()}
+        account={accountPanel}
+      />
     </HostPageBody>
   );
 }

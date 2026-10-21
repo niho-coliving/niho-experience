@@ -3,7 +3,7 @@ import { dateWithWeekdayJa, durationJa, experienceMeta, todayInJapan, yen } from
 import { homeMonth, homeTodos, homeUpcoming } from "./home";
 import { MOCK_KITCHEN_BOOKINGS, MOCK_TODAY } from "./mock/bookings";
 import { MOCK_KITCHEN_EXPERIENCES } from "./mock/experiences";
-import { MOCK_KITCHEN_SALES, MOCK_SALES_MONTH } from "./mock/sales";
+import { MOCK_KITCHEN_SALES, MOCK_SALES_PERIOD } from "./mock/sales";
 import type { HostBooking } from "./types";
 
 describe("host formatting", () => {
@@ -81,8 +81,9 @@ describe("host home", () => {
     expect(rows([tea])).toEqual([["10月25日（日）", "日", 25, "13:00 開始 · 2時間", "2 / 8名", "1件"]]);
   });
 
-  it("sums the month's sales and refunds without counting payouts as sales", () => {
-    expect(homeMonth(MOCK_KITCHEN_SALES, MOCK_SALES_MONTH)).toEqual({ label: "10月", sales: "¥270,000", refunds: "−¥60,000", confirmed: "6件" });
-    expect(homeMonth(MOCK_KITCHEN_SALES, { year: 2026, month: 9 })).toEqual({ label: "9月", sales: "¥0", refunds: "¥0", confirmed: "0件" });
+  it("sums the month as 売上 does: sales, refunds and what is still to be paid out, without counting payouts as sales", () => {
+    expect(homeMonth(MOCK_KITCHEN_SALES, MOCK_SALES_PERIOD.current)).toEqual({ label: "10月", sales: "¥390,000", refunds: "−¥60,000", expected: "¥139,500", confirmed: "8件" });
+    expect(homeMonth(MOCK_KITCHEN_SALES, { year: 2026, month: 9 })).toEqual({ label: "9月", sales: "¥225,000", refunds: "¥0", expected: "¥0", confirmed: "4件" });
+    expect(homeMonth(MOCK_KITCHEN_SALES, { year: 2026, month: 11 })).toEqual({ label: "11月", sales: "¥0", refunds: "¥0", expected: "¥0", confirmed: "0件" });
   });
 });

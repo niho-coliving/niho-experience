@@ -1,39 +1,40 @@
 import { describe, expect, it } from "vitest";
 import { createMockHostFetch, MOCK_ID_TOKEN_PREFIX } from "@/lib/host/mock-niho";
-import { bookingClock, bookingList, bookingOf, editorExperience, hostConsoleSnapshot, hostHome } from "./console-data";
+import { bookingClock, bookingList, bookingOf, editorExperience, hostConsoleSnapshot, hostHome, salesList } from "./console-data";
 import { MOCK_CONSOLE_PROVIDERS } from "./mock/provider";
+import { MOCK_KITCHEN_SALES, MOCK_SALES_PERIOD } from "./mock/sales";
 
 const NOW = Date.UTC(2026, 11, 1, 3, 0);
 
 describe("console data per provider", () => {
-  it("gives the sample kitchen its listings, bookings, sales and payout account", () => {
+  it("gives the sample kitchen its listings, bookings and sales", () => {
     const snapshot = hostConsoleSnapshot("sample-provider-kitchen", "mock", NOW);
     expect(snapshot.experiences.map((experience) => [experience.id, experience.status])).toEqual([
       ["community-dinner", "live"],
       ["kintsugi", "review"],
       ["coffee", "draft"],
     ]);
-    expect(snapshot.payout).toEqual({ reason: "READY", label: "サンプルの台所の口座" });
+    expect(snapshot.salesPeriod).toEqual(MOCK_SALES_PERIOD);
     expect(snapshot.notificationEmail).toBe("kitchen@example.com");
     const home = hostHome(snapshot);
     expect(home.todos.map((todo) => todo.status.label)).toEqual(["承認待ち", "下書き", "審査待ち"]);
     expect(home.upcoming).toHaveLength(3);
     // The preview keeps its own "today": the synthetic dates stay upcoming whenever it is opened.
-    expect(home.month).toEqual({ label: "10月", sales: "¥270,000", refunds: "−¥60,000", confirmed: "6件" });
+    expect(home.month).toEqual({ label: "10月", sales: "¥390,000", refunds: "−¥60,000", expected: "¥139,500", confirmed: "8件" });
   });
 
   it("gives the sample studio one draft and nothing booked", () => {
     const snapshot = hostConsoleSnapshot("sample-provider-studio", "mock", NOW);
     expect(snapshot.experiences.map((experience) => [experience.title, experience.status])).toEqual([["Write Your Own Kanji with a Kamakura Calligrapher", "draft"]]);
     expect(snapshot.bookings).toEqual([]);
-    expect(snapshot.payout).toEqual({ reason: "NOT_CONNECTED", label: null });
+    expect(snapshot.sales).toEqual([]);
     const home = hostHome(snapshot);
     expect(home.todos.map((todo) => [todo.title, todo.detail, todo.action?.href])).toEqual([
       // Derived from the page (no photo, no offer yet), as the editor's 掲載までに必要 shows it.
       ["Write Your Own Kanji with a Kamakura Calligrapher の原稿を仕上げる", "表紙写真と料金が未入力", "/host/experiences/calligraphy"],
     ]);
     expect(home.upcoming).toEqual([]);
-    expect(home.month).toEqual({ label: "10月", sales: "¥0", refunds: "¥0", confirmed: "0件" });
+    expect(home.month).toEqual({ label: "10月", sales: "¥0", refunds: "¥0", expected: "¥0", confirmed: "0件" });
   });
 
   it("covers every provider the synthetic NIHO returns", async () => {
@@ -42,11 +43,18 @@ describe("console data per provider", () => {
     expect(providers.map((provider) => provider.id).sort()).toEqual([...MOCK_CONSOLE_PROVIDERS.keys()].sort());
   });
 
-  it("shows nothing invented for providers outside the preview set", () => {
-    for (const id of ["someone-else", "constructor", "__proto__"]) {
+  it("shows nothing invented for providers outside the preview set: the preview's sales months, empty", () => {
+    for (const id of ["someone-else", "constructor", "__proto__", "sample-provider-garden"]) {
       const snapshot = hostConsoleSnapshot(id, "mock", NOW);
-      expect(snapshot, id).toMatchObject({ experiences: [], bookings: [], sales: [], payout: null, month: null });
+      expect(snapshot, id).toMatchObject({ experiences: [], bookings: [], sales: [], salesPeriod: MOCK_SALES_PERIOD, notificationEmail: "" });
+      expect(hostHome(snapshot).month, id).toEqual({ label: "10月", sales: "¥0", refunds: "¥0", expected: "¥0", confirmed: "0件" });
     }
+  });
+
+  it("gives 売上 the provider's ledger and months in mock mode, and nothing to read in http mode yet", () => {
+    expect(salesList(hostConsoleSnapshot("sample-provider-kitchen", "mock", NOW))).toEqual({ status: "ready", period: MOCK_SALES_PERIOD, sales: MOCK_KITCHEN_SALES });
+    expect(salesList(hostConsoleSnapshot("sample-provider-studio", "mock", NOW))).toEqual({ status: "ready", period: MOCK_SALES_PERIOD, sales: [] });
+    expect(salesList(hostConsoleSnapshot("sample-provider-kitchen", "http", NOW))).toEqual({ status: "unavailable" });
   });
 
   it("opens the provider's own experience in the editor, and nothing in http mode yet (#87)", () => {
@@ -76,7 +84,7 @@ describe("console data per provider", () => {
 
   it("is empty in http mode until the provider API is connected (#87)", () => {
     const snapshot = hostConsoleSnapshot("sample-provider-kitchen", "http", NOW);
-    expect(snapshot).toEqual({ today: "2026-12-01", month: null, experiences: [], bookings: [], sales: [], payout: null, meetingPoint: { area: "", mapUrl: "", entrance: "" }, notificationEmail: "" });
+    expect(snapshot).toEqual({ today: "2026-12-01", salesPeriod: null, experiences: [], bookings: [], sales: [], meetingPoint: { area: "", mapUrl: "", entrance: "" }, notificationEmail: "" });
     expect(hostHome(snapshot)).toEqual({ todos: [], upcoming: [], month: null });
   });
 });

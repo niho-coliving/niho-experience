@@ -197,25 +197,58 @@ export interface HostBooking {
   messages: readonly HostBookingMessage[];
 }
 
-export type HostSaleKind = "sale" | "refund" | "payout";
+/**
+ * A ledger line's state, in the words of NIHO's provider sales: 計上済み (in the ledger),
+ * 入金済み (a payout that reached the bank) and 保留 (not settled yet; a payout on its way
+ * reads 送金中).
+ */
+export type HostSaleStatus = "posted" | "paid" | "pending";
 
-export interface HostSale {
+interface HostSaleLine {
   id: string;
-  /** YYYY-MM-DD (JST). */
+  /** YYYY-MM-DD (JST): the day the money moved (the charge, the refund, the payout). */
   date: string;
-  kind: HostSaleKind;
-  title: string;
-  detail: string;
+  status: HostSaleStatus;
+  /** Yen, tax included, always positive: `kind` says which way it goes. */
   amountYen: number;
 }
 
-export type PaymentReadinessReason = ExperienceProviderPaymentReadinessReason;
-
-export interface HostPayoutAccount {
-  reason: PaymentReadinessReason;
-  /** How the account is named on screen ("サンプルの台所の口座"); null when there is none yet. */
-  label: string | null;
+/** A guest's payment for a booking (売上). */
+export interface HostSaleCharge extends HostSaleLine {
+  kind: "sale";
+  /** The experience as the ledger names it. */
+  experience: string;
+  guest: string;
+  /** 申込経路: NIHO, NIHO 埋め込み or 体験サイト. */
+  channel: string;
+  offer: string;
+  guests: number;
+  /** What NIHO and Stripe keep of the payment (手数料). */
+  feeYen: number;
+  /** The booking it pays for, when 予約 lists it. */
+  bookingId?: string;
 }
+
+/** Money given back to a guest (返金). */
+export interface HostSaleRefund extends HostSaleLine {
+  kind: "refund";
+  guest: string;
+  channel: string;
+  bookingId?: string;
+}
+
+/** Money sent from the sales to the host's bank account (口座入金). */
+export interface HostSalePayout extends HostSaleLine {
+  kind: "payout";
+  /** The days of sales it covers (YYYY-MM-DD, JST). */
+  from: string;
+  to: string;
+}
+
+export type HostSale = HostSaleCharge | HostSaleRefund | HostSalePayout;
+export type HostSaleKind = HostSale["kind"];
+
+export type PaymentReadinessReason = ExperienceProviderPaymentReadinessReason;
 
 /** Where guests meet, used by every experience unless it says otherwise. */
 export interface HostMeetingDefaults {
@@ -233,8 +266,8 @@ export interface HostSettings {
   bio: string;
   sellerDisclosureUrl: string;
   reviewStatus: HostProviderReviewStatus | null;
-  /** null until the console can read the payout account (#87). */
-  payout: HostPayoutAccount | null;
+  /** The provider agreed to the version of NIHO's provider terms in force (審査を申請 needs it). */
+  consentCurrent: boolean;
   meetingPoint: HostMeetingDefaults;
   notificationEmail: string;
 }

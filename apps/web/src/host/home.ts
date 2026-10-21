@@ -1,6 +1,7 @@
 import { HOST_EXPERIENCES_PATH } from "@/lib/host/routes";
 import { bookingSessions, bookingsHref, respondByLabel, seatsLabel, type BookingExperience } from "./bookings";
 import { dateWithWeekdayJa, dayOfMonth, durationJa, listJa, monthDayJa, weekdayJa, yen } from "./format";
+import { salesSummary, type SalesMonth } from "./sales";
 import { BOOKING_STATUS, LISTING_STATUS, type StatusLabel } from "./status";
 import type { HostBooking, HostExperience, HostSale } from "./types";
 
@@ -32,6 +33,8 @@ export interface HomeMonth {
   label: string;
   sales: string;
   refunds: string;
+  /** 入金予定, as 売上 counts it. */
+  expected: string;
   confirmed: string;
 }
 
@@ -121,16 +124,14 @@ export function homeUpcoming(experiences: readonly BookingExperience[], bookings
     }));
 }
 
-/** The month card: sales and refunds from the ledger lines (payouts are not sales), and how many bookings were charged. */
-export function homeMonth(sales: readonly HostSale[], month: { year: number; month: number }): HomeMonth {
-  const prefix = `${month.year}-${String(month.month).padStart(2, "0")}-`;
-  const inMonth = sales.filter((line) => line.date.startsWith(prefix));
-  const charged = inMonth.filter((line) => line.kind === "sale");
-  const refunds = inMonth.filter((line) => line.kind === "refund");
+/** The month card: 売上, 返金 and 入金予定 as 売上 (#91) sums them (payouts are not sales), and how many bookings were charged. */
+export function homeMonth(sales: readonly HostSale[], month: SalesMonth): HomeMonth {
+  const summary = salesSummary(sales, month);
   return {
     label: `${month.month}月`,
-    sales: yen(charged.reduce((sum, line) => sum + line.amountYen, 0)),
-    refunds: yen(refunds.reduce((sum, line) => sum + line.amountYen, 0)),
-    confirmed: `${charged.length}件`,
+    sales: yen(summary.salesYen),
+    refunds: yen(-summary.refundsYen),
+    expected: yen(summary.expectedYen),
+    confirmed: `${summary.bookings}件`,
   };
 }
