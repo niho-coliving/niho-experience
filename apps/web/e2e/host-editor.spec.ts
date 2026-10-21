@@ -327,6 +327,7 @@ test("browser back keeps unsaved edits behind the leave dialog", async ({ page }
   await page.waitForURL((url) => url.pathname === "/host/experiences/community-dinner");
   const highlight = panel(page, "見どころ").getByRole("textbox", { name: "見どころ 1" });
   await highlight.fill("Unsaved browser history edit.");
+  await expect(saveButton(page)).toBeVisible();
 
   await page.goBack();
   const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
@@ -350,6 +351,7 @@ test("browser forward keeps unsaved edits behind the leave dialog", async ({ pag
 
   const highlight = panel(page, "見どころ").getByRole("textbox", { name: "見どころ 1" });
   await highlight.fill("Unsaved browser history edit.");
+  await expect(saveButton(page)).toBeVisible();
   await page.goForward();
   const ask = page.getByRole("dialog", { name: "保存していない変更があります" });
   await expect(ask).toBeVisible();
