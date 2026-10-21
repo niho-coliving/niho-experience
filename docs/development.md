@@ -43,7 +43,7 @@ sh scripts/container-smoke.sh niho-experience       # 表示と、設定によ�
 
 ```text
 apps/web/                 Next.js 16（App Router）。画面・SSR・SEO・予約入力
-  src/app/                ページ（/, /experiences, /experiences/[slug], /book, /booking/return, /host, /preview/*）
+  src/app/                ページ（/, /experiences, /experiences/[slug], /book, /booking/return, /host, /preview/*）とホストの画面（/host/*。#84）
   src/components/         表示部品
   src/lib/                SSR公開API・ブラウザ用API・表示用の整形
   e2e/                    Playwright（360px・320px・デスクトップ、axe）
@@ -54,7 +54,7 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 
 ## 環境変数
 
-すべて任意。既定値で新規cloneから動く。一覧と説明は `apps/web/.env.example`。秘密情報は置かない。
+すべて任意。既定値で新規cloneから動く。一覧と説明は `apps/web/.env.example`。秘密情報は置かない（`HOST_SESSION_SECRET` は配備の Secret Manager から渡し、リポ・`.env.example` に値を書かない）。
 
 | 変数 | 既定 | 用途 |
 | --- | --- | --- |
@@ -67,6 +67,9 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 | `BOOKINGS_ENABLED` | `true` | `false` で新規予約を止める（障害時。#15の手順） |
 | `HOST_SIGNUP_MODE` | `pilot` | `open` はNIHO側のセルフ登録（連携B）が使えるようになってから |
 | `NIHO_HOST_START_URL` / `HOST_PILOT_CONTACT_URL` / `NIHO_BOOKING_HELP_URL` | なし | NIHO側の遷移先。固定URLのみ。利用者入力で戻り先を変えない |
+| `HOST_CONSOLE_ENABLED` | `false` | `true` でホストの画面（`/host/*`）とログインを開く（#84）。off の間は今の紹介ページのまま |
+| `HOST_SESSION_SECRET` | なし（mock は開発用の固定値） | ホストのセッション cookie の暗号化の鍵。http mode で `HOST_CONSOLE_ENABLED=true` なら必須 |
+| `NIHO_FIREBASE_WEB_API_KEY` | なし | NIHO の custom token を ID token に替えるための公開 Web API key。http mode で `HOST_CONSOLE_ENABLED=true` なら必須 |
 
 ## プレビューで状態を確認する
 

@@ -21,7 +21,7 @@
 ## 2. 接続方式
 
 - 接続先は NIHO の公開 Web origin の `/api/public/experiences`（本番 `https://niho.life`、stg `https://app-stg.niho.life`。値は配備設定で渡す）。API サーバーへ直接つながない。
-- 認証は使いません。Cookie・Authorization を送らず、NIHO のログイン状態をこのサイトへ持ち込みません。
+- 認証は使いません。Cookie・Authorization を送らず、NIHO のログイン状態をこのサイトへ持ち込みません（この節は旅行者向けの公開 API。ホストの画面の API は §9）。
 - 一覧・詳細はサーバー（SSR）から読んでよい。応答の `Cache-Control`（最長 `public, max-age=60, stale-while-revalidate=300`）より長く保持しません。
 - 残席と checkout は**旅行者のブラウザから**送ります。checkout をサイトのサーバーから代理送信しません（NIHO の IP ごとの申込制限が旅行者単位で効くこと、旅行者の入力がこのサイトのサーバー・ログを通らないことのため）。
 - ブラウザからの要求は `credentials: "omit"`・`Referrer-Policy: no-referrer`。NIHO は**登録された体験サイトの origin だけ**に、この path の `GET`（残席）と `POST`（checkout）の CORS を返します。CORS は認可ではないため、価格・在庫・掲載の判定は NIHO が毎回行います。
@@ -120,7 +120,13 @@
 
 ## 9. 提供者の入口
 
-「体験を提供する」は NIHO の `/experiences/provider` へ遷移します。未ログインなら NIHO ログインへ誘導され、同じ画面へ戻ります。ここで個人事業主・小規模店舗が登録し、原稿、Stripe、掲載申請、予約・売上を管理します。体験サイト側にログイン状態を持ち込みません。NIHO 側の配備と受入が終わるまでは、画面担当②は問い合わせの案内を維持してください。
+ホスト（提供者）の画面はこのサイトの `/host` で作ります（オーナー決定 2026-10-21・[#84](https://github.com/niho-life/niho-experience/issues/84)）。個人事業主・小規模店舗が登録し、原稿、Stripe、掲載申請、予約・売上を扱います。
+
+- ログイン：NIHO の確認画面（`/connect/niho-experience`）で「接続する」を押すと、一度きりのコードで `/host/auth/callback` へ戻ります。このサイトのサーバーがコードを交換し、接続の refresh token と ID token を HttpOnly cookie に暗号化して持ちます。ブラウザの JavaScript・storage・URL にトークンを出しません。NIHO のログイン cookie は共有しません（[#86](https://github.com/niho-life/niho-experience/issues/86)）。
+- API：画面は `/host/api/*` を呼び、サーバーが NIHO の `/api/experience-providers/**` と `GET /api/auth/me` を Bearer で呼びます。この接続のトークンで呼べるのはこれと自分の接続の解除だけで、ほかは NIHO が 403 を返します。権限（OWNER / EDITOR）の判断は NIHO の応答に従います。
+- 契約：公開 API とは別に、NIHO が書き出したホスト API の契約を写し、別の監査・型・モックを持ちます（[#87](https://github.com/niho-life/niho-experience/issues/87)）。
+- 更新：ID token は 1 時間。接続の refresh token は更新のたびに取り替わり、古い token を 10 分を過ぎて出すと NIHO が接続を失効させるので、同じブラウザで並行して更新しません。
+- `HOST_CONSOLE_ENABLED` が off の間は、今の紹介ページと問い合わせの案内のままです。
 
 ## 10. mock
 
@@ -160,7 +166,7 @@ const client = createExperienceApiClient({
 | --- | --- | --- |
 | 体験サイトの公開ドメイン | 本番公開前 | `canonicalUrl`、CORS の許可 origin、決済取りやめの戻り先 |
 | 地域の key の一覧 | 最初の掲載時（v1 は `kamakura`） | `region` |
-| 提供者入口の公開可否 | NIHO 側の配備後 | §9 |
+| ホストの画面の公開 | NIHO 側の接続の配備と、#92 の受入の後 | §9 |
 | 販売条件・キャンセル基準・サポート分担 | 有料で公開する前 | 文言と `seller` の表示 |
 
 ## 14. 仮契約 v0.1.0 からの変更（v1.0.0）
