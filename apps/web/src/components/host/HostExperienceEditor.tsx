@@ -64,6 +64,13 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
         targetUrl: window.location.href,
         leaving: leaving.current,
       });
+      (window as Window & { __hostHistoryGuardDebug?: unknown }).__hostHistoryGuardDebug = {
+        phase: "popstate",
+        dirty: dirtyRef.current,
+        savedUrl: historyEntry.current.href,
+        targetUrl: window.location.href,
+        leaving: leaving.current,
+      };
       if (leaving.current) {
         leaving.current = false;
         historyEntry.current = { href: window.location.href, state: event.state };
