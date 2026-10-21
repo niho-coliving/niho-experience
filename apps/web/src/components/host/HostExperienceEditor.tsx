@@ -92,6 +92,12 @@ function useLeaveGuard(dirty: boolean): LeaveGuard {
       console.info("[host-history-guard:blocked]", { current: current.href, target: targetHref });
       setDestination({ kind: "history", href: targetHref });
     };
+    (window as Window & { __hostHistoryGuardDebug?: unknown }).__hostHistoryGuardDebug = {
+      phase: "registered",
+      dirty,
+      savedUrl: historyEntry.current.href,
+      targetUrl: window.location.href,
+    };
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("click", onClick, true);
     window.addEventListener("popstate", onPopState, true);
