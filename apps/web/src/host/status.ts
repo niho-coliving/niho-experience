@@ -22,8 +22,14 @@ export const LISTING_STATUS: Record<ListingStatus, StatusLabel> = {
 export const BOOKING_STATUS: Record<HostBookingStatus, StatusLabel> = {
   pending: { label: "承認待ち", tone: "wait" },
   confirmed: { label: "確定", tone: "ok" },
+  refund_needed: { label: "要返金", tone: "wait" },
   cancelled: { label: "取消済み", tone: "stop" },
+  declined: { label: "お断り", tone: "draft" },
+  expired: { label: "期限切れ", tone: "draft" },
 };
+
+/** A booking whose day has passed stays 確定, in the quiet tone (mock v2). */
+export const PAST_CONFIRMED_BOOKING: StatusLabel = { label: "確定", tone: "draft" };
 
 /** The provider's own review, shown beside 設定 › 提供者情報. */
 export const PROVIDER_REVIEW_STATUS: Record<HostProviderReviewStatus, StatusLabel> = {

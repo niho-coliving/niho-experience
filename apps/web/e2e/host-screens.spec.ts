@@ -25,12 +25,13 @@ test("ホーム shows what to do next, the sessions coming up and the month", as
   const todo = page.getByRole("region", { name: "次にすること" });
   const todos = todo.getByRole("listitem");
   await expect(todos).toHaveCount(3);
+  // Two requests wait for an answer: one row that opens 承認待ち (host-bookings.spec.ts follows it).
   await expect(todos.nth(0)).toContainText("承認待ち");
-  await expect(todos.nth(0)).toContainText("Lucas & Mia Chen の申込を確認する");
-  await expect(todos.nth(0)).toContainText("10月22日（木）18:00 · Kamakura Community Dinner with Locals · 2名 · ¥60,000 · 承認期限 今日 22:00");
+  await expect(todos.nth(0)).toContainText("承認待ちの申込が 2 件");
+  await expect(todos.nth(0)).toContainText("最も早い承認期限 今日 22:00");
   await expect(todos.nth(1)).toContainText("下書き");
   await expect(todos.nth(2)).toContainText("審査待ち");
-  await expect(todo.getByRole("link", { name: "確認する" })).toHaveAttribute("href", "/host/bookings");
+  await expect(todo.getByRole("link", { name: "確認する" })).toHaveAttribute("href", "/host/bookings?filter=pending");
   await expect(todo.getByRole("link", { name: "編集する" })).toHaveAttribute("href", "/host/experiences/coffee");
   // Listings under review wait for NIHO: no button.
   await expect(todos.nth(2).getByRole("link")).toHaveCount(0);

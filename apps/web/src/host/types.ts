@@ -103,23 +103,98 @@ export interface HostExperience extends HostExperienceContent, HostListing {
   missing: readonly string[];
 }
 
-export type HostBookingStatus = "pending" | "confirmed" | "cancelled";
+/**
+ * A booking's one state (#90), in the words of NIHO's provider bookings: a request waiting
+ * for the host (承認待ち), a booking (確定), one the traveler asked to cancel (要返金), and
+ * the ends: 取消済み, お断り (declined by the host) and 期限切れ (not answered in time).
+ */
+export type HostBookingStatus = "pending" | "confirmed" | "refund_needed" | "cancelled" | "declined" | "expired";
+
+/** The language the guest booked in; the cancellation message starts in it. */
+export type HostGuestLanguage = "en" | "ja";
+
+/** 取消理由: 運営者の都合 / 旅行者からの依頼 / その他. */
+export type HostCancelReason = "host" | "guest" | "other";
+
+/** 返金: the whole payment, half of it, or nothing. */
+export type HostRefundChoice = "full" | "half" | "none";
+
+/** An answer to one of the offer's questions (申込時の質問), as the guest wrote it. */
+export interface HostBookingAnswer {
+  question: string;
+  answer: string;
+}
+
+/** One line of 時系列. */
+export interface HostBookingEvent {
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  at: string;
+  text: string;
+}
+
+export type HostMessageStatus = "sent" | "failed";
+
+/** A message the host sent the guest through NIHO (連絡の履歴). */
+export interface HostBookingMessage {
+  id: string;
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  at: string;
+  subject: string;
+  body: string;
+  status: HostMessageStatus;
+}
+
+/** The version of the meeting guide (集合案内) the guest has: NIHO sends it with the confirmation. */
+export interface HostMeetingGuideCopy {
+  version: number;
+  /** YYYY-MM-DDTHH:MM in Japan; null until the booking is confirmed. */
+  sentAt: string | null;
+}
 
 export interface HostBooking {
   id: string;
   experienceId: string;
+  offerId: string;
+  /** The offer's name when it was booked. */
+  offer: string;
   guest: string;
+  email: string;
+  language: HostGuestLanguage;
   /** Local date and times in Japan (YYYY-MM-DD, HH:MM). */
   date: string;
   start: string;
   end: string;
-  offer: string;
+  adults: number;
+  children: number;
+  /** adults + children. */
   guests: number;
+  /** The prices when it was booked (yen, tax included). */
+  adultPriceYen: number;
+  childPriceYen: number | null;
+  /** adults × the adult price + children × the child price. */
   amountYen: number;
   status: HostBookingStatus;
   channel: string;
-  /** Pending requests only: when the host must answer (YYYY-MM-DDTHH:MM, JST). */
-  respondBy?: string;
+  /** 申込メモ; empty when the guest wrote none. */
+  note: string;
+  answers: readonly HostBookingAnswer[];
+  /** null when no guide goes with it (a request that was declined or expired). */
+  meetingGuide: HostMeetingGuideCopy | null;
+  // The times below are YYYY-MM-DDTHH:MM in Japan, null until they happen.
+  /** 与信: the card hold when the guest booked. */
+  authorizedAt: string | null;
+  paidAt: string | null;
+  /** Requests: by when the host must answer. */
+  respondBy: string | null;
+  cancelRequestedAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: HostCancelReason | null;
+  /** 取消連絡: what the guest was told when it was cancelled. */
+  cancelMessage: string | null;
+  /** 累計返金. */
+  refundedYen: number;
+  timeline: readonly HostBookingEvent[];
+  messages: readonly HostBookingMessage[];
 }
 
 export type HostSaleKind = "sale" | "refund" | "payout";

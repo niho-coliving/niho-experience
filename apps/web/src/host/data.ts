@@ -2,7 +2,8 @@ import "server-only";
 import { nihoIdOrNull, selectProvider, type HostProvider } from "@/lib/host/providers";
 import { hostApiClient, isHostMock, loadHostProviders, readHostSession } from "@/lib/host/server";
 import { idTokenUsable, type HostSession } from "@/lib/host/session";
-import { editorExperience, hostConsoleSnapshot, hostHome, type HostEditorExperience, type HostHomeData } from "./console-data";
+import type { BookingExperience } from "./bookings";
+import { bookingClock, bookingList, bookingOf, editorExperience, hostConsoleSnapshot, hostHome, type HostBookingList, type HostBookingLookup, type HostEditorExperience, type HostHomeData } from "./console-data";
 import type { HostExperience, HostSettings } from "./types";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -97,5 +98,34 @@ export async function loadHostExperienceEditor(provider: HostProvider, id: strin
     editor: editorExperience(data, isHostMock() ? "mock" : "http", id),
     host: { name: data.settings.displayName, bio: data.settings.bio },
     today: data.today,
+  };
+}
+
+export interface HostBookingsData {
+  /** The day the list counts from (the preview's fixed day in mock mode). */
+  today: string;
+  /** The moment actions are dated with (the preview's fixed one in mock mode); null takes the clock. */
+  now: string | null;
+  list: HostBookingList;
+  /** The booking `?booking=` names; null when it names none. */
+  requested: HostBookingLookup | null;
+  /** The provider's experiences, for the list's select, its headings and its seat counts. */
+  experiences: BookingExperience[];
+}
+
+/**
+ * 予約 (#90): the provider's bookings and the one `?booking=` names: synthetic in mock mode,
+ * nothing yet in http mode (the page says 準備中). The client screen gets the experiences'
+ * titles and the offers' capacity and length, not their pages.
+ */
+export async function loadHostBookings(provider: HostProvider, requestedId: string | null): Promise<HostBookingsData> {
+  const mode = isHostMock() ? "mock" : "http";
+  const snapshot = hostConsoleSnapshot(provider.id, mode, Date.now());
+  return {
+    today: snapshot.today,
+    now: bookingClock(mode),
+    list: bookingList(snapshot, mode),
+    requested: requestedId ? bookingOf(snapshot, mode, requestedId) : null,
+    experiences: snapshot.experiences.map(({ id, title, offers }) => ({ id, title, offers: offers.map(({ id: offerId, capacity, durationMinutes }) => ({ id: offerId, capacity, durationMinutes })) })),
   };
 }

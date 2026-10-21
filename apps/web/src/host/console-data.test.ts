@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMockHostFetch, MOCK_ID_TOKEN_PREFIX } from "@/lib/host/mock-niho";
-import { editorExperience, hostConsoleSnapshot, hostHome } from "./console-data";
+import { bookingClock, bookingList, bookingOf, editorExperience, hostConsoleSnapshot, hostHome } from "./console-data";
 import { MOCK_CONSOLE_PROVIDERS } from "./mock/provider";
 
 const NOW = Date.UTC(2026, 11, 1, 3, 0);
@@ -57,6 +57,21 @@ describe("console data per provider", () => {
     expect(editorExperience(hostConsoleSnapshot("sample-provider-studio", "mock", NOW), "mock", "community-dinner")).toEqual({ status: "missing" });
     expect(editorExperience(kitchen, "mock", "no-such-experience")).toEqual({ status: "missing" });
     expect(editorExperience(kitchen, "http", "community-dinner")).toEqual({ status: "unavailable" });
+  });
+
+  it("lists the provider's own bookings and opens one of them, and has none to read in http mode yet (#87)", () => {
+    const kitchen = hostConsoleSnapshot("sample-provider-kitchen", "mock", NOW);
+    const list = bookingList(kitchen, "mock");
+    expect(list.status === "ready" && list.bookings.map((booking) => booking.status)).toEqual(["pending", "confirmed", "confirmed", "confirmed", "confirmed", "cancelled", "refund_needed", "pending", "declined", "expired"]);
+    expect(bookingOf(kitchen, "mock", "bk-2041")).toMatchObject({ status: "ready", booking: { guest: "Lucas & Mia Chen" } });
+    expect(bookingOf(kitchen, "mock", "no-such-booking")).toEqual({ status: "missing" });
+    // Another provider's booking is not this provider's to open.
+    expect(bookingOf(hostConsoleSnapshot("sample-provider-studio", "mock", NOW), "mock", "bk-2041")).toEqual({ status: "missing" });
+    // The preview dates actions with its own fixed moment, after the synthetic timeline.
+    expect(bookingClock("mock")).toBe("2026-10-21T15:30");
+    expect(bookingClock("http")).toBeNull();
+    expect(bookingList(kitchen, "http")).toEqual({ status: "unavailable" });
+    expect(bookingOf(kitchen, "http", "bk-2041")).toEqual({ status: "unavailable" });
   });
 
   it("is empty in http mode until the provider API is connected (#87)", () => {
