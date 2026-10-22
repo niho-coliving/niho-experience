@@ -42,6 +42,8 @@ test("admin searches across hosts and reads ON and OFF booking details", async (
   await expect(page.getByRole("region", { name: "予約一覧" })).toContainText("Amelia Jones");
   await expect(page.getByRole("region", { name: "予約一覧" })).not.toContainText("Lucas");
   await search.fill("");
+  const filterToggle = page.getByRole("button", { name: /詳細条件/ });
+  if (await filterToggle.isVisible()) await filterToggle.click();
   await page.getByRole("combobox", { name: "サポート" }).selectOption("off");
   await expect(page.getByRole("region", { name: "予約一覧" })).toContainText("支援OFF");
   await page.getByRole("button", { name: /Amelia Jones/ }).click();
@@ -56,14 +58,14 @@ test("browser history keeps the selected booking in sync with the URL", async ({
   await page.getByRole("button", { name: /Lucas & Mia Chen/ }).click();
   await expect(page).toHaveURL(/booking=bk-2041/);
   await expect(page.getByRole("article")).toContainText("Lucas & Mia Chen");
-  await page.getByRole("button", { name: /Amelia Jones/ }).click();
-  await expect(page).toHaveURL(/booking=bk-studio-101/);
-  await expect(page.getByRole("article")).toContainText("Amelia Jones");
-
   await page.goBack();
+  await expect(page).toHaveURL(/\/admin\/bookings$/);
+  await expect(page.getByRole("region", { name: "予約一覧" })).toBeVisible();
+  await page.goForward();
   await expect(page).toHaveURL(/booking=bk-2041/);
   await expect(page.getByRole("article")).toContainText("Lucas & Mia Chen");
-  await page.goForward();
+  await page.goBack();
+  await page.getByRole("button", { name: /Amelia Jones/ }).click();
   await expect(page).toHaveURL(/booking=bk-studio-101/);
   await expect(page.getByRole("article")).toContainText("Amelia Jones");
 });
@@ -161,6 +163,7 @@ test.describe("admin accessibility and responsive layout", () => {
   test("keyboard, desktop and WCAG checks", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "host-desktop");
     await adminSignIn(page);
+    await expect(page.getByRole("button", { name: /Lucas & Mia Chen/ })).toBeInViewport();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "本文へ移動" })).toBeFocused();
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();
@@ -172,6 +175,11 @@ test.describe("admin accessibility and responsive layout", () => {
     test.skip(testInfo.project.name !== "host-mobile-360");
     await page.setViewportSize({ width: 320, height: 640 });
     await adminSignIn(page);
+    await expect(page.getByRole("button", { name: /Lucas & Mia Chen/ })).toBeInViewport();
+    await page.getByRole("button", { name: /詳細条件/ }).click();
+    await expect(page.getByRole("combobox", { name: "サポート" })).toBeVisible();
+    expect(await overflowX(page)).toBeLessThanOrEqual(0);
+    await page.getByRole("button", { name: /詳細条件/ }).click();
     expect(await overflowX(page)).toBeLessThanOrEqual(0);
     await page.getByRole("button", { name: /Lucas & Mia Chen/ }).click();
     await expect(page.getByRole("button", { name: "予約支援へ戻る" })).toBeVisible();
