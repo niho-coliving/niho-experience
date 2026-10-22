@@ -80,6 +80,7 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 - `npm -w @niho-experience/api-client run gen:types` は公開とホストの 2 つの契約から型を作る（`--check` も両方）。
 - 選別mockのcheckoutエラーは `createMockExperienceFetch` の scenario で再現できる。メールアドレスをトリガーにしない。
 - `?mock=ask-rate-limited`・`ask-unavailable`・`ask-send-failed`：詳細の "Ask {host} a question" の失敗を再現（mock時のみ。仮契約：[api-contract.md](api-contract.md) §15）。参加の条件・質問・携帯電話の入力も mock のときだけ出る（`EXPERIENCE_API_MODE=http` では出ない）。
+- `?mock=reviews-error`（レビューの節が読めない）・`reviews-more-error`（"Show all" だけ失敗）：レビューの失敗を再現（mock時のみ）。合成のレビューは indigo＝12 件・pottery＝2 件・cycling＝1 件・dinner＝0 件。
 - `/preview/checkout` から、決済後のページ `/booking/return` の 3 通り（`?type=instant`・`?type=approval`・種別なし）へ進める。
 - 決済は `/preview/checkout` の模擬ページへ進む。カード情報は扱わない。
 - ホストの画面：`HOST_CONSOLE_ENABLED=true` で `/host` の「NIHO でログイン」から合成のアカウントで入る（mock 時は NIHO へ行かない）。提供者の一覧と詳細はホスト契約の mock（`@niho-experience/api-client/host/mock`）で、指定なしは「サンプルの台所」と「サンプル工房」。`/host?mock=empty`（提供者 0 件。登録の流れを試せる）・`?mock=payments-pending`（口座未接続の提供者 1 件）から入ると、その scenario の合成セッションになる。体験・予約・売上の表示は架空（`apps/web/src/host/mock/`）で、体験の編集・予約の操作・売上は画面内の状態だけ（保存しても次の要求には残らない）。提供者情報の保存・審査の申請・受取口座（共有・接続・再確認）・登録はホスト契約の mock を server action から呼ぶ。契約 mock は要求ごとに作り直されるので、書き込みの結果はその応答にだけ残り、mock の登録は `?mock=payments-pending` のログインに置き換わる。

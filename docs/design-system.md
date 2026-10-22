@@ -77,7 +77,7 @@
 | 写真 | `Photo.tsx` | 比率固定でレイアウトのずれを防ぐ。`sizes` 指定。仮の写真にもタグを付けない（プレビューであることはフッターの1行で伝える） |
 | プレビュー表記 | `SiteChrome.tsx` `PreviewNote` | プレビュー（mock）だけ、フッター最下部に小さな1行（`role="note"`）。pilot は「real hosts; dates, prices and photos are provisional · nothing can be booked」、合成は「hosts, dates and prices are invented · nothing can be booked」、どちらも契約版を添える。公開文書の共通枠（chrome）を使うときも同じ |
 | 顔 | `Face.tsx` | ホストの顔写真。無ければ頭文字の丸（leaf-pale 地＋moss 文字）。名前は必ず隣に書くので `aria-hidden` |
-| 体験カード | `ExperienceCard.tsx` `CardDates.tsx` | 表紙（4:5。一覧のスマホは 4:3）→ 左上に定員チップ（"Up to 8 guests" / 全商品が 2 人以上なら "Private · 2–4 guests"）→ 右下にはみ出すホストの顔（写真、無ければ頭文字）→ "with ホスト名"（いなければ提供者名。`lib/themes.ts` の上書きがあればその語）→ 題名 →（一覧だけ）2行のリード → 所要時間・言語の略記 → "Next" と次の開催日3つのピル（"Thu 22"）→ "¥X / adult"。開催日はブラウザで読んだ availability から作る（一覧は一覧の読み取り結果を共有、トップはカードが読む）。読めるまで・読めないときは開催曜日と時刻（JST）の要約を同じ1行の高さで出し、レイアウトを跳ねさせない。日付を選んだ一覧では "Sat 24 Oct · 6:00 PM" を強調。カード全体が1つのリンク。人気・残りわずか・レビュー・残席は出さない |
+| 体験カード | `ExperienceCard.tsx` `CardDates.tsx` | 表紙（4:5。一覧のスマホは 4:3）→ 左上に定員チップ（"Up to 8 guests" / 全商品が 2 人以上なら "Private · 2–4 guests"）→ 右下にはみ出すホストの顔（写真、無ければ頭文字）→ "with ホスト名"（いなければ提供者名。`lib/themes.ts` の上書きがあればその語）→ 題名 →（一覧だけ）2行のリード → 所要時間・言語の略記（レビューがあれば同じ行の末尾に "★ 4.9 · 12"。3 件未満は "2 reviews"。無ければ何も出さない）→ "Next" と次の開催日3つのピル（"Thu 22"）→ "¥X / adult"。開催日はブラウザで読んだ availability から作る（一覧は一覧の読み取り結果を共有、トップはカードが読む）。読めるまで・読めないときは開催曜日と時刻（JST）の要約を同じ1行の高さで出し、レイアウトを跳ねさせない。日付を選んだ一覧では "Sat 24 Oct · 6:00 PM" を強調。カード全体が1つのリンク。人気・残りわずか・レビュー・残席は出さない |
 | 動画 | `AmbientVideo.tsx` | muted・loop・playsInline・poster・`preload="metadata"`、`aria-hidden`。画面に入っている間だけ再生し、`prefers-reduced-motion: reduce` では再生しない（poster のまま）。LCP はヒーローの画像で、動画に依存しない |
 | 日時・人数選択 | `SlotPicker.tsx` | 画面1。サマリーカード → （商品が複数のときだけ）商品の選択 → 手書き "step 1" と "Choose a date"：2列の日付カード（ラジオは見えないが focus・読み上げ・キーボードで操作できる。満席・締切は理由付きで無効化。最初の6件＋"Show N more dates"）→ "step 2" と "Who's coming"：大人・子どもの行に −/+（中身は数値入力なので直接入力もできる）→ 下端の固定バーに合計・日付と Continue。詳細ページから渡された日付（`?date=&offer=`）は予約可能なときだけ選択済みにする |
 | 予約フォーム | `BookingForm.tsx` | 画面2。同じサマリーカード → "step 3" と "Your details"（`.fld` の見た目の入力欄、申込時の質問）→ "step 4" と "Check and pay"（承認制は "Check and send"）：日付・人数・内訳・合計の行カード、取消・受付方式・Stripe と販売者の注記（アイコン付き）、規約リンクと同意 → 下端の固定バーに合計と送信ボタン。ラベル・説明・エラーを近接。失敗しても入力を保持 |
@@ -85,6 +85,7 @@
 | 取消条件 | `Policy.tsx` | 取消条件の見出し（"Free cancellation until 48 hours before the start" / "Non-refundable"） |
 | 参加の条件 | presentation `views.tsx` `DetailConditionsV1`・`lib/journey-ui.ts` | 「Good to know」の先頭に並べる行（Epic #103・仮契約）。種類ごとの手描きアイコン（AGE=people・PHYSICAL=clock・HOST_LANGUAGE=chat・FOOD=bowl・ACCESS=house・WEATHER=umbrella）＋太字の要点＋その下に小さな補足、行の間は細い線。文言は NIHO が用意した英語をそのまま出し、画面は文を組み立てない。提供者が書いた従来の一覧（`knowBeforeYouGo`）はその下に残す。条件が無い体験は従来の一覧だけ |
 | 予約前の質問 | `AskHost.tsx` | 「Ask {host} a question」は枠の副ボタン（アイコン＋文）。押すとスマホは下から出るシート、PC は中央のダイアログ（`<dialog>`。Esc・閉じるボタン・背景のクリックで閉じ、閉じると押したボタンへ focus が戻る）。話題のチップ（Children / Food & allergies / Access / Language / Other。ラジオ・既定は Other・高さ 44px）→ 質問 → 名前 → メール。状態：送信中（ボタンが "Sending…"）・受付後（"Question sent"・返事が届くメールの宛先を出す・Done へ focus）・入力の誤り（その欄へ focus）・回数の上限（待つ秒数を出してボタンを止める）・受付停止・通信失敗（入力は残し、同じ内容は同じ key で再送）。入力は URL・storage・計測・ログに入れず、受け付けたら消す |
+| レビュー | `ReviewsSection.tsx`・presentation `DetailViewModelV1.reviewHeadline` / `reviews` | Epic #103・仮契約。題名の下の 1 行（"★ 4.9 · 12 reviews"＝節への内部リンク／"2 reviews"／"New" のバッジ）と、取消の前の "Reviews" の節（`#reviews`）。**平均とスターは 3 件から**（owner 決定 2026-10-22）。3 件以上：大きな平均（Fraunces）・スター・"12 reviews from guests who booked"・よかった点のチップ（"Beautiful results · 5"）・新しい順の 3 件・"Show all 12 reviews"（写真と同じ `<dialog>`。開いたときに NIHO から全件を読む）。1〜2 件：件数と本文だけ（平均・スター・チップなし）。0 件："New" と、破線の箱に手書きの "be one of the first" と短い一文。読めなかった：節に "Reviews can't be loaded right now" と Try again（題名の下には何も出さない。「0 件」とは別）。1 件は 名前（名＋国・地域）・月・"Booked on NIHO" の印・本文・提供者の返信（あれば 1 つ）。表示名は NIHO が決めた「名＋国・地域」で、姓・メールは出さない |
 
 カードの表示モデルは `lib/card-model.ts`。一覧の要約（契約の `ExperienceSummary`）にはホスト・曜日・定員が無いので、SSR で各体験の詳細を並列に読み（HTTP では 60 秒の共有キャッシュ）合成する。詳細を読めなかった体験は要約だけでカードを描き、落とさない。
 
@@ -121,8 +122,8 @@
 ### 詳細（`/experiences/[slug]`）
 
 - スマホ：先頭に横スワイプのギャラリー（"1 / N"、一覧へ戻る丸ボタン）。PC：パンくず → タイトル → 表紙＋4枚のモザイク（ページの幅の中・角丸）、"Show all N photos"（`<dialog>`。Esc・閉じるボタン、読み上げ見出し付き）。文書の順はタイトルが先で、スマホではギャラリーを見た目だけ先頭に出す。
-- タイトル部：手書きの開催曜日と時刻、h1（題名の下にピルは出さない）、ホストの行（顔写真／頭文字の重なり＋"Hosted by …"＋提供者名）、手描きアイコン付きの事実（所要時間と時刻 JST、言語、人数と子どもの条件、集合を公開している場合は accessNote の要約）。
-- 本文：リード、highlights（語でアイコンを選ぶ）、What you'll do（3段落目以降は畳む）、行程（写真付き、時刻は手書きの12時間表記、写真なしはアイコンのタイル）、ホスト（見出しは Your host(s)、ホストがいなければ Who runs it。切手の縁の写真＝photos[1] か表紙（オーナー判断 2026-10-20）、丸スタンプ、`provider.tagline` を手書きの引用、顔写真付きのホストのチップ）、含む／含まない（手描きの ✓ / ×）、集合場所、Good to know（参加の条件の行 → 提供者の一覧 3件＋"Show all N"）、Not suitable for、"Ask {host} a question"、取消（全商品共通の条件のときだけ要約。補足は全商品が承認制なら "Your hosts confirm each request. You are only charged if they accept."、即時確定なら "Your booking is confirmed as soon as you pay."、混在なら "This policy applies to the option and date you select."）、販売者と Seller information。決済取消からの戻りは案内を出す。
+- タイトル部：手書きの開催曜日と時刻、h1、レビューの 1 行（§3 レビュー。無い配備では出さない）、ホストの行（顔写真／頭文字の重なり＋"Hosted by …"＋提供者名）、手描きアイコン付きの事実（所要時間と時刻 JST、言語、人数と子どもの条件、集合を公開している場合は accessNote の要約）。
+- 本文：リード、highlights（語でアイコンを選ぶ）、What you'll do（3段落目以降は畳む）、行程（写真付き、時刻は手書きの12時間表記、写真なしはアイコンのタイル）、ホスト（見出しは Your host(s)、ホストがいなければ Who runs it。切手の縁の写真＝photos[1] か表紙（オーナー判断 2026-10-20）、丸スタンプ、`provider.tagline` を手書きの引用、顔写真付きのホストのチップ）、含む／含まない（手描きの ✓ / ×）、集合場所、Good to know（参加の条件の行 → 提供者の一覧 3件＋"Show all N"）、Not suitable for、"Ask {host} a question"、Reviews（§3）、取消（全商品共通の条件のときだけ要約。補足は全商品が承認制なら "Your hosts confirm each request. You are only charged if they accept."、即時確定なら "Your booking is confirmed as soon as you pay."、混在なら "This policy applies to the option and date you select."）、販売者と Seller information。決済取消からの戻りは案内を出す。
 - Good to know と質問（Epic #103・仮契約。`EXPERIENCE_API_MODE=mock` のときだけ出し、実 API の配備では出さない）：条件は種類ごとの行（§3 参加の条件）。質問のボタンは Good to know の下（Good to know が無い体験は、取消の前にボタンだけ）。予約を受けていない体験には出さない。条件が空の体験は従来の一覧だけで、崩れない。
 - 集合場所：PUBLIC なら名前・住所・アクセス・入口の案内・"Open in Maps"（https のみ）と、`exteriorPhotoIndex` の写真をアーチ形で。AFTER_BOOKING は「予約確定後に案内」。
 - 予約：PC は右の固定カード（"¥X / adult"、子ども料金、税込、開催曜日と時刻、ブラウザで読んだ次の開催日を最大3つ＝押すと `/book?date=&offer=` でその日を選んだ状態から、"Check dates and book"、取消の時間、承認制なら "Your hosts confirm each request — you're only charged if they accept"、"No account needed"、"Secure payment by Stripe"）。人数・合計は置かない（予約入力の役割）。スマホは下端の固定バー（価格＋次回日 or 曜日の要約＋"Check dates"。次回日は商品が1つなら "Next: Thu 22 Oct · 6:00 PM" と商品名を付けない）。予約停止中（`BOOKINGS_ENABLED=false` か `checkoutAvailable=false`）は停止の案内だけで、予約の入口を出さない。
@@ -189,6 +190,7 @@
 | 価格・条件変更 | — | — | 日付・合計・同意の再確認へ |
 | 通信失敗 | 再試行ボタン | 再試行ボタン | 入力保持のまま再送 |
 | 決済取消 / 確認中 | — | 取消の案内と日付選択への導線 | NIHO の予約確認画面 |
+| レビュー | カードの行（あれば）。無ければ何も出さない | 0 件＝New／1〜2 件＝件数と本文／3 件〜＝平均／読めない＝節の案内 | — |
 
 ## 6. 仮素材（撮影前）
 
@@ -214,5 +216,5 @@
 - 英語は短く、具体的に、次に何が起こるかを書く。CTA は結果を表す動詞（Check dates and book、Find experiences、Continue to secure payment）。
 - 価格は「¥6,800 / adult」（商品で違えば「From」）。子ども料金があれば別に示す。総額には「Japanese yen, tax included」。時刻は「6:00 PM – 8:30 PM JST」、日付は「Sat 24 Oct」。
 - 開催曜日は契約上「表示の要約用」。実際の日付はブラウザで読んだ availability だけで示す。
-- レビュー、人気、残席わずか、販売実績は実データがあるまで表示しない。プレビュー（合成例・pilot）であることはフッター最下部の1行で示す。
+- 人気、残席わずか、販売実績は実データがあるまで表示しない。レビューは、予約者だけが書き NIHO が確認して公開したものだけ（owner 決定 2026-10-22）。平均とスターは 3 件から。プレビューの合成のレビューは名前に "(sample)" を付け、構造化データには出さない。プレビュー（合成例・pilot）であることはフッター最下部の1行で示す。
 - 現在の英語文言・提供者の人物像は合成例か推奨値。実商品の原稿は担当3（#13）が事実確認したものに差し替える。
