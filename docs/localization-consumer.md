@@ -19,6 +19,8 @@ localized page/sidecar応答には日本語の公開presentation asset document�
 
 英語source-displayのdecorative assetは、固定registryの動画と、content hashで不変参照を検証できる企業画像だけをconsumerへbindする。`business-public` のasset versionは16桁のCURRENT identityで、凍結rendererの `sha256` asset契約へ正しく写せるcontent digestが公開応答にないため、該当する装飾画像を採用したsource envelopeはfail closedとする（体験DTO自身の公開写真とは別の制約）。
 
+現時点の固定registryは `/sample/` の参照を含み、consumerが要求する `/experience-presentation/v1/assets/<digest>.<ext>` と一致しない。registryの由来を保ちながら公開不変参照へ接続する契約も、有効化前の受入で解決する。業務DTOの検証成功だけではsource envelope全体の受入成功を意味しない。
+
 また、公開catalog/detailには英語URLと日本語URLを結ぶ不変なcanonical page mapping（listing identityを含む）がない。slug一致を推測しないため、動的な体験詳細の言語切替、相互hreflang、sitemap掲載は閉じている。静的4ページ（home、experiences、host、help）はlocalized route契約の `sourcePath` / `path` が完全一致した場合だけ公開する。backend source hooksと実配備受入は次段階で行う。
 
 ## 固定配布物の受入
@@ -47,4 +49,5 @@ CSS・copy registryが一致しても、archive全体の同一性は成立して
 - Web変更79ファイルのESLintと `git diff --check` が成功。最後のRSC境界修正後にWeb型検査（Next route typegen、web/e2eのTypeScript）と対象15ファイル79テストが成功。API clientの型検査と対象20テストも成功。
 - Chromeのローカル合成mockで、英語のhome・一覧・詳細から日付選択、予約の連絡先・同意フォーム表示まで確認。存在しない英語slugの404、320pxでの主要画面の横overflowなし、日本語未公開時の案内と `lang=ja` / noindex、英語予約のnoindexを確認。個人情報入力や決済送信は行っていない。
 - 日本語成功応答はHTTP fixtureのloaderテストで確認。実際の承認済み日本語releaseのブラウザ受入は未実施。
+- 公開OpenAPIのschema検証をNode/SSR用に共通化し、必須フィールド欠落・入れ子の不正DTO・不完全な開催回を拒否する。5 MiBのchunked応答の読込中断と、日本語予約の再読込でshell/copy/termsを一緒に更新する回帰テストを追加。
 - production build・全E2Eは公開CIの `web`、API client全契約検証は `api-client` に委譲する。ローカルでは変更範囲の検証を実施し、CIと重複する全件検証は起動していない。

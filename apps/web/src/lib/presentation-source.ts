@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import type { PageDocument } from "@niho/web/core";
 import type { ExperienceDetailV11, ExperienceSummaryV11, Occurrence } from "@niho-experience/api-client";
+import { createPublicSchemaValidator } from "@niho-experience/api-client/server-validation";
 import {
   createAssetBindingsV1,
   createStaticCopyV1,
@@ -16,6 +17,7 @@ import {
 import { config } from "./config";
 import { EXPERIENCE_PRESENTATION_IDENTITY, parsePresentationProvenance, type PresentationProvenance } from "./presentation-identity";
 import { PAGE_IDS, validatePublishedDocument, type PageId } from "./page-document-contract";
+import { readBoundedJson } from "./read-bounded-json";
 
 export type PresentationSourcePage = Readonly<{ pageId: PageId; title: string; meta: { description?: string }; document: PageDocument; provenance: PresentationProvenance }>;
 export type PresentationSourceExperience = Readonly<{ listingId: string; campaignPageId: string; summary: ExperienceSummaryV11; detail: ExperienceDetailV11; occurrences: Occurrence[] }>;
@@ -34,14 +36,18 @@ const same = (left: unknown, right: unknown): boolean => {
   const a = Object.keys(left).sort(), b = Object.keys(right).sort();
   return a.length === b.length && a.every((key, index) => key === b[index] && same(left[key], right[key]));
 };
-const image = (value: unknown) => value === null || (isObject(value) && typeof value.url === "string" && (value.alt === null || typeof value.alt === "string"));
-const summary = (value: unknown): value is ExperienceSummaryV11 => isObject(value) && typeof value.slug === "string" && typeof value.title === "string" && isObject(value.provider) && image(value.cover);
+const validatePublicSchema = createPublicSchemaValidator();
+const summary = (value: unknown): value is ExperienceSummaryV11 => validatePublicSchema("PublicExperienceSummaryV11", value).ok;
 const detail = (value: unknown): value is ExperienceDetailV11 => {
-  if (!summary(value)) return false;
-  const record = value as unknown as Record<string, unknown>;
-  return Array.isArray(record.photos) && record.photos.every(image) && Array.isArray(record.hosts) && Array.isArray(record.offers) && isObject(record.booking);
+  if (!validatePublicSchema("PublicExperienceDetailV11", value).ok || !isObject(value)) return false;
+  return value.meetingPointDisclosure !== "AFTER_BOOKING" || value.meetingPoint === null;
 };
-const occurrence = (value: unknown): value is Occurrence => isObject(value) && typeof value.offerId === "string" && typeof value.date === "string" && typeof value.bookable === "boolean" && Number.isInteger(value.seatsLeft);
+const occurrence = (value: unknown): value is Occurrence => validatePublicSchema("PublicExperienceOccurrence", value).ok;
+
+export function parsePresentationSourceExperience(raw: unknown): PresentationSourceExperience {
+  if (!isObject(raw) || typeof raw.listingId !== "string" || typeof raw.campaignPageId !== "string" || !summary(raw.summary) || !detail(raw.detail) || raw.summary.slug !== raw.detail.slug || !Array.isArray(raw.occurrences) || !raw.occurrences.every(occurrence)) throw new Error("Invalid presentation experience");
+  return { listingId: raw.listingId, campaignPageId: raw.campaignPageId, summary: raw.summary, detail: raw.detail, occurrences: raw.occurrences };
+}
 
 function publishedAssetBindings(value: unknown, registry: unknown): AssetBindingsV1 {
   if (!isObject(value) || value.schemaVersion !== 1 || value.siteId !== "experience" || value.locale !== "en" || !isObject(value.bindings)) throw new Error("Invalid presentation asset document");
@@ -101,9 +107,10 @@ export function parsePresentationSource(value: unknown): PresentationSource {
   const experiences: PresentationSourceExperience[] = [];
   const slugs = new Set<string>();
   for (const raw of value.experiences) {
-    if (!isObject(raw) || typeof raw.listingId !== "string" || typeof raw.campaignPageId !== "string" || !summary(raw.summary) || !detail(raw.detail) || raw.summary.slug !== raw.detail.slug || slugs.has(raw.detail.slug) || !Array.isArray(raw.occurrences) || !raw.occurrences.every(occurrence)) throw new Error("Invalid presentation experience");
-    slugs.add(raw.detail.slug);
-    experiences.push({ listingId: raw.listingId, campaignPageId: raw.campaignPageId, summary: raw.summary, detail: raw.detail, occurrences: raw.occurrences });
+    const experience = parsePresentationSourceExperience(raw);
+    if (slugs.has(experience.detail.slug)) throw new Error("Duplicate presentation experience");
+    slugs.add(experience.detail.slug);
+    experiences.push(experience);
   }
   return { pages, copy, copyValues, assets, experiences };
 }
@@ -115,9 +122,7 @@ export const getPresentationSource = cache(async (): Promise<PresentationSource>
   if (response.status !== 200 || !/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type") ?? "")) throw new Error("Presentation source unavailable");
   const size = Number(response.headers.get("content-length"));
   if (Number.isFinite(size) && size > 5 * 1024 * 1024) throw new Error("Presentation source oversized");
-  const text = await response.text();
-  if (new TextEncoder().encode(text).byteLength > 5 * 1024 * 1024) throw new Error("Presentation source oversized");
-  return parsePresentationSource(JSON.parse(text));
+  return parsePresentationSource(await readBoundedJson(response, 5 * 1024 * 1024));
 });
 
 export async function getPresentationPage(pageId: PageId): Promise<PresentationSourcePage> {

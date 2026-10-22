@@ -155,16 +155,19 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   }
 
   async function refreshLatestDetails() {
+    if (locale === "ja") {
+      // Copy, terms, and the layout must advance to the new release together.
+      window.location.reload();
+      return;
+    }
     if (!api || refreshing) return;
     setRefreshing(true);
     setProblem("");
     setInvalidField("");
     try {
-      const latest = locale === "ja"
-        ? await api.getJapaneseExperience(experience.slug).then((result) => result.ok && result.data.releaseId === releaseId ? result.data.experience : null)
-        : publicApiVersion === "1.0"
-          ? await api.getExperience(experience.slug).then((result) => result.ok ? result.data.experience : null)
-          : await api.getExperienceV11(experience.slug).then((result) => result.ok ? result.data.experience : null);
+      const latest = publicApiVersion === "1.0"
+        ? await api.getExperience(experience.slug).then((result) => result.ok ? result.data.experience : null)
+        : await api.getExperienceV11(experience.slug).then((result) => result.ok ? result.data.experience : null);
       if (!latest || latest.slug !== experience.slug) {
         setProblem(copy.text("booking.latestLoadError"));
         return;
