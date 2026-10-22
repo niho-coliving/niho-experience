@@ -6,7 +6,9 @@
 
 `/admin/bookings` は、複数ホストの申込一覧、絞り込み、予約詳細、支援条件、相談、担当、運営メモ、連絡先の種類、Admin本人の対応履歴を確認する画面である。`EXPERIENCE_API_MODE=mock` と `ADMIN_SUPPORT_CONSOLE_ENABLED=true` の両方が設定されたときだけ、明示的な合成Adminログインと合成予約を表示する。フラグの既定値はOFFである。
 
-HTTPモードには管理者認証と予約支援APIがまだない。クエリ、通常のホストセッション、ホストの役割、合成cookieを管理者権限として扱わず、画面は「準備中」として実予約を表示・操作しない。API未配備の状態を本番完成とは扱わない。
+HTTPモードは、選別済み v1.0.0 契約によるAdmin専用app-connect認証だけを接続する。NIHOで現在のplatform ADMINと専用clientを確認できた場合に、検証済みactorと8時間の絶対期限を表示する。予約支援APIはまだ接続せず、画面は「準備中」として実予約を表示・操作しない。NIHO側の認証実装も未配備の先行契約であり、本番完成とは扱わない。
+
+契約配布物は `packages/api-client/contract/experience-admin-auth-api.openapi.json` と同SHAファイルに固定する。manifestはNIHO側source commit `b1bee0090e`、契約版、未配備状態、認証だけの範囲を記録する。予約・料金・通知・ホスト設定のschemaを推測して追加しない。
 
 ## 支援条件
 
@@ -28,14 +30,19 @@ HTTPモードには管理者認証と予約支援APIがまだない。クエリ�
 - Adminはホストとは別の暗号化・認証付きcookieを使う。cookie名、path（`/admin`）、暗号化purposeを分け、HttpOnly、Secure、SameSite=Laxにする。
 - 合成ログインはmockと明示flagの組み合わせ以外では404にする。HTTPモードは合成セッションを読まない。
 - AdminのPOSTはAdminセッションに加え、`Origin` と `Sec-Fetch-Site: same-origin` を検証する。通常のホストcookieだけでは401になる。
-- Admin tokenを導入するときはexperienceのサーバーだけが保持し、ブラウザJavaScript、storage、URL、ログへ渡さない。管理者roleは毎回NIHO APIが判定する。
+- HTTPログインのPKCE verifierとstateは10分のAdmin専用cookieへ封印する。callbackは一致するstateを一度だけ受け、成功・失敗ともqueryのないAdmin URLへ移る。
+- Admin tokenと接続refresh tokenはexperienceのサーバーだけが封印cookieに保持し、ブラウザJavaScript、storage、URL、ログへ渡さない。接続成立時、画面描画時、token更新時に専用session APIでclient・現在のAdmin role・actor・接続期限を確認する。
+- Admin接続はNIHOの期限とサイト側の8時間上限の早い方で終了し、refreshで延長しない。401/403、role喪失、接続不一致ではactorを表示せず入口へ戻す。
+- logoutは自分のNIHO接続の失効を試み、通信結果にかかわらずlocal cookieを消す。2xxまたは既に接続がない404だけを解除確認済みとし、401・その他の失敗・通信失敗では、端末からのlogout完了、NIHO側の解除未確認、接続が発行から最長8時間で失効することを表示する。
 - `/admin` 全体を `private, no-store`、`noindex, nofollow` とし、旅行者向けの分析・計測を読み込まない。公開cacheやイベント計測へ予約者・ホスト情報を送らない。
+
+HTTPで有効にするには `ADMIN_SUPPORT_CONSOLE_ENABLED=true`、専用の `ADMIN_SESSION_SECRET`、Firebase Web API key、`SITE_URL` と完全一致する `NIHO_EXPERIENCE_ADMIN_ORIGIN` が必要である。originは本番HTTPS、ローカルはloopback HTTPだけを許し、NIHO側の `APP_CONNECT_EXPERIENCE_ADMIN_ORIGIN` と同じ値を明示する。公開ドメインはコードへ固定しない。
 
 ## NIHO側に必要な契約
 
-実接続の前に、NIHO側で次の選別済みAdmin契約を配備し、版を固定する。
+認証の選別済み契約は版を固定済みだがNIHO側は未配備である。予約支援の実接続には、NIHO側で次を配備・受入する。
 
-1. 管理者接続: 一度きりのコード交換、短寿命Admin token、更新・失効、Admin roleのサーバー検証。
+1. 管理者接続: v1.0.0で固定済み。一度きりのコード交換、短寿命Admin token、更新・失効、Admin roleのサーバー検証。NIHO側の配備・本番受入は未完了。
 2. 横断予約参照: ホスト、期間、状態、サポート、要対応、予約番号／予約者による検索。レスポンスは画面に必要なDTOだけとし、内部ユーザー・決済・DBスキーマを輸出しない。
 3. 予約詳細: 受付時の支援snapshot、相談、担当、運営メモ、連絡スレッド参照、予約条件、金額、返金済額、監査履歴。PIIは権限・目的・保持期間に応じて最小化する。
 4. 操作: 承認、辞退、連絡、取消／返金。予約versionまたはETag、idempotency key、理由、期待する金額を受け取り、NIHOが権限・状態・料率・返金可能額を再検証する。成功後は予約と監査履歴を読み直す。

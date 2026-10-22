@@ -17,6 +17,17 @@ export const EXPERIENCE_HOST_API_CONTRACT = {
   status: "draft",
 } as const;
 
+/**
+ * Admin 認証だけの選別済み契約。NIHO 側 b1bee0090e の先行実装に対応するが、
+ * まだ配備済みとは扱わない。予約・料金・通知・ホスト設定 API は含まない。
+ */
+export const EXPERIENCE_ADMIN_AUTH_API_CONTRACT = {
+  version: "1.0.0",
+  status: "agreed",
+  sourceCommit: "b1bee0090e",
+  deploymentStatus: "not-deployed",
+} as const;
+
 /** 予約に関わる時刻の基準。表示も日本時間（Asia/Tokyo）で行う。 */
 export const EXPERIENCE_TIME_ZONE = "Asia/Tokyo";
 
