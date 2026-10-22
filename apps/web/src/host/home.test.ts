@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, agoJa, dateWithWeekdayJa, durationJa, experienceMeta, minutesBetween, remainingJa, shortDateWithWeekdayJa, todayInJapan, yen } from "./format";
-import { homeMonth, homeSessions, homeTodos } from "./home";
+import { homeMonth, homeSessions, homeTodos, type HomeUpcoming } from "./home";
 import { MOCK_KITCHEN_BOOKINGS, MOCK_NOW, MOCK_TODAY } from "./mock/bookings";
 import { MOCK_KITCHEN_EXPERIENCES } from "./mock/experiences";
 import { MOCK_KITCHEN_SALES, MOCK_SALES_PERIOD } from "./mock/sales";
@@ -81,24 +81,34 @@ describe("host home", () => {
     expect(threads["thread-th-3007"]).toBeUndefined();
   });
 
-  it("shows tomorrow's sessions, today's that have not started, and the next ones from the day after tomorrow", () => {
-    const rows = (sessions: readonly { dateLabel: string; detail: string; seats: string; bookings: string }[]) => sessions.map(({ dateLabel, detail, seats, bookings }) => [dateLabel, detail, seats, bookings]);
+  it("shows today's sessions however far along, tomorrow's, and the next ones from the day after tomorrow, each opening この回", () => {
+    const rows = (sessions: readonly HomeUpcoming[]) => sessions.map(({ dateLabel, detail, seats, bookings, dietary, phase }) => [dateLabel, detail, seats, bookings, dietary, phase?.text ?? null]);
     const sessions = homeSessions(MOCK_KITCHEN_EXPERIENCES, MOCK_KITCHEN_BOOKINGS, MOCK_NOW);
-    expect(rows(sessions.today)).toEqual([]);
-    expect(rows(sessions.tomorrow)).toEqual([["10月22日（木）", "18:00 開始 · 2時間", "4 / 8名", "2件"]]);
+    // Today's tea time is over by 15:30 and nobody's attendance is recorded yet (#107).
+    expect(rows(sessions.today)).toEqual([["10月21日（水）", "13:00 開始 · 2時間", "4 / 8名", "2件", "ナッツなし 1 名", "終了 · 出欠が未記録"]]);
+    expect(sessions.today[0]).toMatchObject({ phase: { tone: "warn" }, href: "/host/bookings/session?date=2026-10-21&start=13%3A00&experience=community-dinner&offer=offer-tea" });
+    // The food wishes count everyone who keeps a seat, as "4 / 8名" does: the vegetarian is still a request.
+    expect(rows(sessions.tomorrow)).toEqual([["10月22日（木）", "18:00 開始 · 2時間", "4 / 8名", "2件", "ベジタリアン 1 名", null]]);
+    expect(sessions.tomorrow[0]!.href).toBe("/host/bookings/session?date=2026-10-22&start=18%3A00&experience=community-dinner&offer=offer-dinner");
     // The tea time on the 25th only has a booking the traveler asked to cancel: no session to prepare.
     expect(rows(sessions.later)).toEqual([
-      ["10月24日（土）", "18:00 開始 · 2時間", "1 / 8名", "1件"],
-      ["10月27日（火）", "18:00 開始 · 2時間", "3 / 8名", "1件"],
-      ["10月29日（木）", "18:00 開始 · 2時間", "3 / 8名", "1件"],
+      ["10月24日（土）", "18:00 開始 · 2時間", "1 / 8名", "1件", "甲殻類なし 1 名", null],
+      ["10月27日（火）", "18:00 開始 · 2時間", "3 / 8名", "1件", "", null],
+      ["10月29日（木）", "18:00 開始 · 2時間", "3 / 8名", "1件", "生魚なし 1 名", null],
     ]);
     expect(homeSessions(MOCK_KITCHEN_EXPERIENCES, MOCK_KITCHEN_BOOKINGS, MOCK_NOW, 1).later).toHaveLength(1);
-    // Today: only what has not started yet. Each offer is its own session, with its own time, length and capacity.
+    // Today: before, during and after the start, each offer its own session with its own time, length and capacity.
     const tea: HostBooking = { ...MOCK_KITCHEN_BOOKINGS.find((booking) => booking.id === "bk-2033")!, id: "tea", status: "confirmed", date: MOCK_TODAY };
     const dinner: HostBooking = { ...MOCK_KITCHEN_BOOKINGS.find((booking) => booking.id === "bk-2038")!, id: "dinner", date: MOCK_TODAY };
+    const phases = (bookings: HostBooking[], now: string) => homeSessions(MOCK_KITCHEN_EXPERIENCES, bookings, now).today.map((row) => [row.detail, row.phase]);
+    expect(phases([tea, dinner], MOCK_NOW)).toEqual([
+      ["13:00 開始 · 2時間", { text: "終了 · 出欠が未記録", tone: "warn" }],
+      ["18:00 開始 · 2時間", { text: "開始前", tone: "muted" }],
+    ]);
+    expect(phases([tea, dinner], "2026-10-21T14:59").map(([, phase]) => phase)).toEqual([{ text: "開催中", tone: "muted" }, { text: "開始前", tone: "muted" }]);
+    // Once everyone's attendance is recorded, an ended session is just over.
+    expect(phases([{ ...tea, attendance: "no_show" }], MOCK_NOW)).toEqual([["13:00 開始 · 2時間", { text: "終了", tone: "muted" }]]);
     const today = homeSessions(MOCK_KITCHEN_EXPERIENCES, [tea, dinner], MOCK_NOW);
-    expect(rows(today.today)).toEqual([["10月21日（水）", "18:00 開始 · 2時間", "2 / 8名", "1件"]]);
-    expect(homeSessions(MOCK_KITCHEN_EXPERIENCES, [tea, dinner], "2026-10-21T12:59").today.map((row) => row.detail)).toEqual(["13:00 開始 · 2時間", "18:00 開始 · 2時間"]);
     expect([today.tomorrow, today.later]).toEqual([[], []]);
   });
 

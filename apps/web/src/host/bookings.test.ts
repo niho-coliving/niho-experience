@@ -23,6 +23,8 @@ import {
   refundNowYen,
   refundTargetYen,
   respondByLabel,
+  sessionHref,
+  sessionOfBooking,
   shortDateTime,
   type BookingFilter,
   type BookingGroup,
@@ -41,6 +43,8 @@ describe("the bookings list", () => {
   it("shows what is ahead under これから, one heading per session with the seats its requests and bookings keep", () => {
     const upcoming = list("upcoming");
     expect(shape(upcoming)).toEqual([
+      // Today's tea time is over by the preview's 15:30, but still today's: attendance is recorded on the day (#107).
+      ["10月21日（水）13:00", "4 / 8名", ["Aiko Tanaka", "Tom Becker"]],
       ["10月22日（木）18:00", "4 / 8名", ["Lucas & Mia Chen", "Emma Larsson"]],
       ["10月24日（土）18:00", "1 / 8名", ["Noah Williams"]],
       // The traveler asked to cancel: still to be handled, but it keeps no seat.
@@ -48,7 +52,9 @@ describe("the bookings list", () => {
       ["10月27日（火）18:00", "3 / 8名", ["Sofia Rossi"]],
       ["10月29日（木）18:00", "3 / 8名", ["Ana Souza"]],
     ]);
-    expect(upcoming.map((group) => group.title)).toEqual(Array(5).fill("Kamakura Community Dinner with Locals"));
+    expect(upcoming.map((group) => group.title)).toEqual(Array(6).fill("Kamakura Community Dinner with Locals"));
+    // Each heading names its session for この回 (#107).
+    expect(upcoming[0]).toMatchObject({ date: "2026-10-21", start: "13:00", experience: "community-dinner", offer: "offer-tea" });
   });
 
   it("counts the whole session in a narrowed list", () => {
@@ -61,7 +67,8 @@ describe("the bookings list", () => {
   it("starts 過去 and 取消済み from the latest day, and puts every booking in one of これから, 過去 and 取消済み", () => {
     expect(shape(list("past"))).toEqual([
       ["10月17日（土）18:00", "2 / 8名", ["Oliver Brown", "Chloé Dubois"]],
-      ["10月10日（土）18:00", "0 / 8名", ["森 健二"]],
+      // A booking the guest did not come to stays a booking (確定): its seat counts.
+      ["10月10日（土）18:00", "1 / 8名", ["森 健二", "Liam Walker"]],
     ]);
     expect(shape(list("cancelled"))).toEqual([["10月15日（木）18:00", "0 / 8名", ["Hannah Kim"]]]);
     for (const booking of MOCK_KITCHEN_BOOKINGS) {
@@ -79,7 +86,7 @@ describe("the bookings list", () => {
 
   it("narrows to one experience, and reads ?filter= safely", () => {
     expect(list("upcoming", "kintsugi")).toEqual([]);
-    expect(list("upcoming", "community-dinner")).toHaveLength(5);
+    expect(list("upcoming", "community-dinner")).toHaveLength(6);
     expect([null, "", "pending", "past", "cancelled", "everything"].map(bookingFilterOf)).toEqual(["upcoming", "upcoming", "pending", "past", "cancelled", "upcoming"]);
   });
 
@@ -92,11 +99,21 @@ describe("the bookings list", () => {
     );
   });
 
-  it("never has the guest's address: NIHO keeps it, and the host writes through the thread", () => {
+  it("never has the guest's email address: NIHO keeps it, and the host writes through the thread", () => {
     for (const booking of MOCK_KITCHEN_BOOKINGS) {
-      expect(Object.keys(booking).filter((key) => /mail|phone|address/i.test(key)), booking.id).toEqual([]);
+      expect(Object.keys(booking).filter((key) => /mail|address/i.test(key)), booking.id).toEqual([]);
       expect(JSON.stringify(booking), booking.id).not.toMatch(/@/);
+      // The phone a guest chose to give is the only way to reach them besides the thread (この回 shows it, #107).
+      if (booking.phone) expect(booking.phone, booking.id).toMatch(/^\+44 7700 900\d{3}$/);
     }
+  });
+
+  it("writes この回's address under 予約, with ?providerId= first", () => {
+    expect(sessionOfBooking(byId("bk-2038"))).toEqual({ date: "2026-10-22", start: "18:00", experience: "community-dinner", offer: "offer-dinner" });
+    expect(sessionHref(sessionOfBooking(byId("bk-2038")))).toBe("/host/bookings/session?date=2026-10-22&start=18%3A00&experience=community-dinner&offer=offer-dinner");
+    expect(sessionHref({ providerId: "sample-provider-kitchen", ...sessionOfBooking(byId("bk-2006")) })).toBe(
+      "/host/bookings/session?providerId=sample-provider-kitchen&date=2026-10-21&start=13%3A00&experience=community-dinner&offer=offer-tea",
+    );
   });
 });
 

@@ -3,7 +3,7 @@ import type { ExperienceHostApiClient, ExperienceProviderConsent } from "@niho-e
 import { nihoIdOrNull, selectProvider, type HostProvider } from "@/lib/host/providers";
 import { hostApiClient, isHostMock, loadHostProviders, readHostSession } from "@/lib/host/server";
 import { idTokenUsable, type HostSession } from "@/lib/host/session";
-import type { BookingExperience } from "./bookings";
+import type { BookingExperience, SessionQuery } from "./bookings";
 import { openStripe, stepNotice, syncStripe } from "./connect";
 import {
   bookingClock,
@@ -14,6 +14,7 @@ import {
   hostConsoleSnapshot,
   hostHome,
   salesList,
+  sessionOf,
   threadList,
   threadOf,
   type HostBookingList,
@@ -21,6 +22,7 @@ import {
   type HostEditorExperience,
   type HostHomeData,
   type HostSalesList,
+  type HostSessionLookup,
   type HostThreadList,
   type HostThreadLookup,
 } from "./console-data";
@@ -164,6 +166,32 @@ export async function loadHostBookings(provider: HostProvider, requestedId: stri
     requested: requestedId ? bookingOf(snapshot, mode, requestedId) : null,
     experiences: snapshot.experiences.map(({ id, title, offers }) => ({ id, title, offers: offers.map(({ id: offerId, capacity, durationMinutes }) => ({ id: offerId, capacity, durationMinutes })) })),
     conversations: threads.status === "ready" ? bookingConversations(threads.threads) : [],
+  };
+}
+
+export interface HostSessionData {
+  /** The moment the session is seen from: whether it has started, and when an action is dated (the preview's fixed one in mock mode). */
+  now: string;
+  lookup: HostSessionLookup;
+  /** The threads of the session's bookings (#106), for their メッセージ. */
+  conversations: BookingConversation[];
+}
+
+/**
+ * この回 (#107): one session's bookings (with the phone the guest gave: only this screen has it),
+ * the experience's title, capacity and meeting line, and the bookings' threads. Synthetic in mock
+ * mode, nothing yet in http mode (the page says 準備中).
+ */
+export async function loadHostSession(provider: HostProvider, query: SessionQuery): Promise<HostSessionData> {
+  const mode = isHostMock() ? "mock" : "http";
+  const snapshot = hostConsoleSnapshot(provider.id, mode, Date.now());
+  const lookup = sessionOf(snapshot, mode, query);
+  const threads = threadList(snapshot, mode);
+  const ids = new Set(lookup.status === "ready" ? lookup.session.bookings.map((booking) => booking.id) : []);
+  return {
+    now: snapshot.now,
+    lookup,
+    conversations: threads.status === "ready" ? bookingConversations(threads.threads).filter((conversation) => ids.has(conversation.bookingId)) : [],
   };
 }
 

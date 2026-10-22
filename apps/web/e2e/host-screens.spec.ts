@@ -34,15 +34,20 @@ test("ホーム shows what to do next, the sessions coming up and the month", as
   await expect(todos.nth(6).getByRole("link")).toHaveCount(0);
   await expect(todo.getByRole("link", { name: "メッセージを見る" })).toHaveAttribute("href", "/host/messages");
 
-  // Nothing today; tomorrow's dinner, then the sessions after tomorrow.
-  await expect(page.getByRole("region", { name: "今日の開催" })).toHaveCount(0);
+  // Today's tea time, over with its attendance still to record; tomorrow's dinner; then the sessions after tomorrow.
+  // 参加者を見る opens each session's own screen (この回, host-session.spec.ts).
+  const today = page.getByRole("region", { name: "今日の開催" });
+  await expect(today.getByRole("listitem")).toHaveCount(1);
+  for (const text of ["10月21日（水）", "終了 · 出欠が未記録", "13:00 開始 · 2時間", "ナッツなし 1 名", "4 / 8名 · 2件"]) await expect(today).toContainText(text);
+  await expect(today.getByRole("link", { name: "参加者を見る" })).toHaveAttribute("href", "/host/bookings/session?date=2026-10-21&start=13%3A00&experience=community-dinner&offer=offer-tea");
   const tomorrow = page.getByRole("region", { name: "明日の開催" });
   await expect(tomorrow.getByRole("listitem")).toHaveCount(1);
-  for (const text of ["10月22日（木）", "Kamakura Community Dinner with Locals", "18:00 開始 · 2時間", "4 / 8名 · 2件"]) await expect(tomorrow).toContainText(text);
-  await expect(tomorrow.getByRole("link", { name: "参加者を見る" })).toHaveAttribute("href", "/host/bookings");
+  for (const text of ["10月22日（木）", "Kamakura Community Dinner with Locals", "18:00 開始 · 2時間", "ベジタリアン 1 名", "4 / 8名 · 2件"]) await expect(tomorrow).toContainText(text);
+  await expect(tomorrow.getByRole("link", { name: "参加者を見る" })).toHaveAttribute("href", "/host/bookings/session?date=2026-10-22&start=18%3A00&experience=community-dinner&offer=offer-dinner");
   const upcoming = page.getByRole("region", { name: "これからの開催" });
   await expect(upcoming.getByRole("listitem")).toHaveCount(3);
-  await expect(upcoming.getByRole("link", { name: /^10月24日（土）.*Kamakura Community Dinner with Locals.*18:00 開始 · 2時間.*1 \/ 8名.*1件/ })).toBeVisible();
+  const saturday = upcoming.getByRole("link", { name: /^10月24日（土）.*Kamakura Community Dinner with Locals.*18:00 開始 · 2時間.*1 \/ 8名.*1件/ });
+  await expect(saturday).toHaveAttribute("href", "/host/bookings/session?date=2026-10-24&start=18%3A00&experience=community-dinner&offer=offer-dinner");
   await expect(upcoming).not.toContainText("10月22日");
   await expect(upcoming.getByRole("link", { name: "予約を見る" })).toHaveAttribute("href", "/host/bookings");
 
@@ -320,7 +325,7 @@ test.describe("320px narrow phone", () => {
     await inside(page.getByRole("button", { name: "承認する" }).first(), "home: 承認する");
     await inside(page.getByRole("link", { name: "詳しく見る" }).first(), "home: 詳しく見る");
     await inside(page.getByRole("link", { name: "返信する" }).first(), "home: 返信する");
-    await inside(page.getByRole("link", { name: "参加者を見る" }), "home: 参加者を見る");
+    for (const day of ["今日の開催", "明日の開催"]) await inside(page.getByRole("region", { name: day }).getByRole("link", { name: "参加者を見る" }), `home: ${day} 参加者を見る`);
     await inside(page.getByRole("link", { name: "編集する" }), "home: 編集する");
     await page.locator("summary", { hasText: "のアカウント" }).click();
     await inside(page.getByRole("link", { name: /サンプル工房/ }), "account menu: provider");

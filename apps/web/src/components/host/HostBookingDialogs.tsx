@@ -33,7 +33,8 @@ import { consoleButtonClass } from "./host-ui";
 export const DANGER_BUTTON =
   "inline-flex h-[38px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-line-strong bg-canvas px-4 text-[0.84375rem] leading-none font-extrabold text-danger hover:bg-danger-pale";
 
-const GROUP_LABEL = `${FIELD_LABEL} mb-1.5 block`;
+/** A radio group's legend in a dialog. */
+export const GROUP_LABEL = `${FIELD_LABEL} mb-1.5 block`;
 
 /** 対象・開催回・金額: what the action is about, above its choices. */
 function BookingSummary({ booking }: { booking: BookingDialogSubject }) {
@@ -78,10 +79,10 @@ export function BookingDecisionDialog({ kind, booking, onConfirm, onClose }: { k
 }
 
 /** A choice of a radio group; the corners come with each use. */
-const CHOICE =
+export const CHOICE =
   "relative border border-line-strong bg-canvas text-ink-soft has-[:checked]:border-moss has-[:checked]:bg-leaf-pale has-[:checked]:text-moss has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-moss";
 /** The invisible radio covers its whole choice, like the booking date cards. */
-const CHOICE_INPUT = "absolute inset-0 z-[1] size-full cursor-pointer appearance-none opacity-0 focus-visible:outline-none";
+export const CHOICE_INPUT = "absolute inset-0 z-[1] size-full cursor-pointer appearance-none opacity-0 focus-visible:outline-none";
 
 /**
  * 取消（と返金）: how much goes back (全額 / 半額 / 返金なし; a traveler's own request is

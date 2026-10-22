@@ -1,4 +1,4 @@
-import { HOST_BOOKINGS_PATH, withQuery } from "@/lib/host/routes";
+import { HOST_BOOKING_SESSION_PATH, HOST_BOOKINGS_PATH, withQuery } from "@/lib/host/routes";
 import { dateWithWeekdayJa, monthDayJa, yen } from "./format";
 import { BOOKING_STATUS, PAST_CONFIRMED_BOOKING, type StatusLabel } from "./status";
 import type {
@@ -17,7 +17,8 @@ import type {
  * filter shows, how bookings group into sessions and count seats, what the host can do in
  * each state, how much a cancellation refunds and what each action changes. NIHO decides
  * these for real bookings; in mock mode the screen applies them itself. Messages to the guest
- * are the booking's thread in メッセージ (messages.ts, #106).
+ * are the booking's thread in メッセージ (messages.ts, #106); one session's guests and attendance
+ * are この回 (session.ts, #107).
  * TODO(#87): send the actions to the provider API and show the booking NIHO reads back.
  */
 
@@ -67,7 +68,10 @@ export interface BookingSession {
   /** YYYY-MM-DD and HH:MM in Japan. */
   date: string;
   start: string;
+  /** HH:MM in Japan, as its bookings have it. */
+  end: string;
   experienceId: string;
+  offerId: string;
   /** The experience's title; empty when it is not among the provider's experiences. */
   title: string;
   capacity: number | null;
@@ -93,7 +97,19 @@ export function bookingSessions(bookings: readonly HostBooking[], experiences: r
     if (!session) {
       const experience = experiences.find((item) => item.id === booking.experienceId);
       const offer = experience?.offers.find((item) => item.id === booking.offerId);
-      session = { key, date: booking.date, start: booking.start, experienceId: booking.experienceId, title: experience?.title ?? "", capacity: offer?.capacity ?? null, durationMinutes: offer?.durationMinutes ?? null, guests: 0, count: 0 };
+      session = {
+        key,
+        date: booking.date,
+        start: booking.start,
+        end: booking.end,
+        experienceId: booking.experienceId,
+        offerId: booking.offerId,
+        title: experience?.title ?? "",
+        capacity: offer?.capacity ?? null,
+        durationMinutes: offer?.durationMinutes ?? null,
+        guests: 0,
+        count: 0,
+      };
       sessions.set(key, session);
     }
     if (SEATED.has(booking.status)) {
@@ -109,8 +125,8 @@ export function seatsLabel(session: Pick<BookingSession, "guests" | "capacity">)
   return session.capacity ? `${session.guests} / ${session.capacity}名` : `${session.guests}名`;
 }
 
-/** A heading of the list and the bookings under it. */
-export interface BookingGroup {
+/** A heading of the list and the bookings under it. The heading opens the session (この回, #107). */
+export interface BookingGroup extends SessionQuery {
   key: string;
   /** "10月22日（木）18:00" */
   label: string;
@@ -140,7 +156,14 @@ export function bookingGroups(bookings: readonly HostBooking[], experiences: rea
     let group = groups.get(key);
     if (!group) {
       const session = sessions.get(key);
-      group = { key, label: `${dateWithWeekdayJa(booking.date)}${booking.start}`, title: session?.title ?? "", seats: session ? seatsLabel(session) : "", bookings: [] };
+      group = {
+        key,
+        ...sessionOfBooking(booking),
+        label: `${dateWithWeekdayJa(booking.date)}${booking.start}`,
+        title: session?.title ?? "",
+        seats: session ? seatsLabel(session) : "",
+        bookings: [],
+      };
       groups.set(key, group);
     }
     group.bookings.push(booking);
@@ -331,6 +354,11 @@ export function priceBreakdown(booking: Pick<HostBooking, "adults" | "children" 
 
 const LANGUAGE_LABELS: Record<HostGuestLanguage, string> = { en: "英語", ja: "日本語" };
 
+/** The language the guest booked in, in Japanese: "英語". */
+export function guestLanguageLabel(language: HostGuestLanguage): string {
+  return LANGUAGE_LABELS[language];
+}
+
 /** 集合案内: "v2 · 10月18日に送付", or "v2 · 承認後に送付" while the booking is not confirmed yet. */
 export function meetingGuideLabel(guide: HostMeetingGuideCopy): string {
   return `v${guide.version} · ${guide.sentAt ? `${monthDayJa(guide.sentAt.slice(0, 10))}に送付` : "承認後に送付"}`;
@@ -352,7 +380,7 @@ export function bookingRequestRows(booking: HostBooking, experienceTitle: string
     { label: "人数", value: peopleLabel(booking) },
     { label: "金額", value: yen(booking.amountYen) },
     { label: "内訳", value: priceBreakdown(booking) },
-    { label: "言語", value: LANGUAGE_LABELS[booking.language] },
+    { label: "言語", value: guestLanguageLabel(booking.language) },
     { label: "申込経路", value: booking.channel },
     Boolean(booking.note.trim()) && { label: "申込メモ", value: booking.note, multiline: true },
     booking.answers.length > 0 && { label: "回答", answers: booking.answers },
@@ -386,4 +414,24 @@ export interface BookingsQuery {
 /** The bookings screen's address: `?providerId=`, the filter (これから, the default, stays out), the experience and the booking. */
 export function bookingsHref({ providerId, filter, experience, booking }: BookingsQuery = {}): string {
   return withQuery(HOST_BOOKINGS_PATH, { providerId, filter: filter === "upcoming" ? null : filter, experience, booking });
+}
+
+/** One session as its screen's address names it (この回, #107): the day, the start, the experience and the offer. */
+export interface SessionQuery {
+  /** YYYY-MM-DD and HH:MM in Japan. */
+  date: string;
+  start: string;
+  /** The experience's and the offer's ids. */
+  experience: string;
+  offer: string;
+}
+
+/** この回's address, under 予約: `?providerId=`, then the session. */
+export function sessionHref({ providerId, ...session }: SessionQuery & { providerId?: string | null }): string {
+  return withQuery(HOST_BOOKING_SESSION_PATH, { providerId, date: session.date, start: session.start, experience: session.experience, offer: session.offer });
+}
+
+/** The session a booking belongs to, as この回's address names it. */
+export function sessionOfBooking(booking: Pick<HostBooking, "date" | "start" | "experienceId" | "offerId">): SessionQuery {
+  return { date: booking.date, start: booking.start, experience: booking.experienceId, offer: booking.offerId };
 }

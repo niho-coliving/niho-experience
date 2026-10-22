@@ -12,9 +12,10 @@ export const MOCK_NOW = `${MOCK_TODAY}T15:30`;
 /*
  * Invented guests and requests for the sample kitchen; nothing here is a real booking, and no
  * guest has an address here (NIHO keeps it; the host writes through the thread, mock/threads.ts).
- * The offers and prices are the Community Dinner's (mock/experiences.ts): Dinner on Tuesday,
- * Thursday and Saturday at 18:00, tea time on Sunday at 13:00. Every booking waits for the
- * host's approval before it is charged.
+ * The phone numbers are in the UK's range for drama (+44 7700 900xxx). The offers and prices are
+ * the Community Dinner's (mock/experiences.ts): Dinner on Tuesday, Thursday and Saturday at 18:00,
+ * tea time on Sunday at 13:00 (and, this once, today: the session 当日の参加者と出欠 #107 opens
+ * after its start). Every booking waits for the host's approval before it is charged.
  */
 
 const DIETARY = "Any dietary preferences we should know about?";
@@ -32,6 +33,10 @@ type MockBooking = BookedOffer &
 function booking({ adults, children = 0, ...fields }: MockBooking): HostBooking {
   return {
     language: "en",
+    country: null,
+    dietary: [],
+    phone: null,
+    attendance: null,
     note: "",
     answers: [],
     meetingGuide: null,
@@ -68,6 +73,8 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2041",
     guest: "Lucas & Mia Chen",
+    country: "CA",
+    dietary: ["ベジタリアン"],
     date: "2026-10-22",
     adults: 2,
     status: "pending",
@@ -83,6 +90,8 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2038",
     guest: "Emma Larsson",
+    country: "GB",
+    phone: "+44 7700 900123",
     date: "2026-10-22",
     adults: 2,
     status: "confirmed",
@@ -97,6 +106,8 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2035",
     guest: "Noah Williams",
+    country: "AU",
+    dietary: ["甲殻類なし"],
     date: "2026-10-24",
     adults: 1,
     status: "confirmed",
@@ -111,6 +122,7 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2031",
     guest: "Sofia Rossi",
+    country: "IT",
     date: "2026-10-27",
     adults: 3,
     status: "confirmed",
@@ -128,9 +140,12 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2020",
     guest: "Oliver Brown",
+    country: "GB",
+    phone: "+44 7700 900318",
     date: "2026-10-17",
     adults: 2,
     status: "confirmed",
+    attendance: "attended",
     channel: "体験サイト",
     answers: [{ question: DIETARY, answer: "No restrictions." }],
     meetingGuide: { version: 1, sentAt: "2026-10-09T13:10" },
@@ -142,6 +157,8 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2012",
     guest: "Hannah Kim",
+    country: "US",
+    dietary: ["豚肉なし", "豚肉なし"],
     date: "2026-10-15",
     adults: 2,
     status: "cancelled",
@@ -167,6 +184,7 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...TEA_TIME,
     id: "bk-2033",
     guest: "Mateo García",
+    country: "ES",
     date: "2026-10-25",
     adults: 2,
     status: "refund_needed",
@@ -181,6 +199,8 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2044",
     guest: "Ana Souza",
+    country: "BR",
+    dietary: ["生魚なし"],
     date: "2026-10-29",
     adults: 2,
     children: 1,
@@ -197,6 +217,7 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2026",
     guest: "Chloé Dubois",
+    country: "FR",
     date: "2026-10-17",
     adults: 4,
     status: "declined",
@@ -212,6 +233,7 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     id: "bk-2017",
     guest: "森 健二",
     language: "ja",
+    country: "JP",
     date: "2026-10-10",
     adults: 2,
     status: "expired",
@@ -220,5 +242,58 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     authorizedAt: "2026-10-07T20:30",
     respondBy: "2026-10-08T20:30",
     timeline: [...requested("2026-10-07T20:30", "NIHO"), { at: "2026-10-08T20:30", text: "承認期限切れ · 与信を取り消し" }],
+  }),
+  // Today's tea time (13:00–15:00): over by the preview's 15:30, its attendance not recorded yet.
+  // Both were paid long before (mock/sales.ts has their payments).
+  booking({
+    ...TEA_TIME,
+    id: "bk-2006",
+    guest: "Aiko Tanaka",
+    language: "ja",
+    country: "JP",
+    date: MOCK_TODAY,
+    adults: 2,
+    status: "confirmed",
+    channel: "NIHO",
+    meetingGuide: { version: 1, sentAt: "2026-10-02T08:45" },
+    authorizedAt: "2026-10-01T19:30",
+    paidAt: "2026-10-02T08:45",
+    timeline: [...requested("2026-10-01T19:30", "NIHO"), ...approved("2026-10-02T08:45")],
+  }),
+  booking({
+    ...TEA_TIME,
+    id: "bk-2003",
+    guest: "Tom Becker",
+    country: "GB",
+    dietary: ["ナッツなし"],
+    phone: "+44 7700 900987",
+    date: MOCK_TODAY,
+    adults: 1,
+    // tea time has no child price: the child comes free.
+    children: 1,
+    status: "confirmed",
+    channel: "NIHO",
+    note: "My son is 7 and will come with me.",
+    meetingGuide: { version: 1, sentAt: "2026-09-13T08:15" },
+    authorizedAt: "2026-09-12T21:40",
+    paidAt: "2026-09-13T08:15",
+    timeline: [...requested("2026-09-12T21:40", "NIHO"), ...approved("2026-09-13T08:15")],
+  }),
+  // A past dinner the guest did not come to (来なかった): NIHO sent no thanks and no review request.
+  booking({
+    ...DINNER,
+    id: "bk-2010",
+    guest: "Liam Walker",
+    country: "IE",
+    date: "2026-10-10",
+    adults: 1,
+    status: "confirmed",
+    attendance: "no_show",
+    channel: "NIHO",
+    answers: [{ question: DIETARY, answer: "No restrictions." }],
+    meetingGuide: { version: 1, sentAt: "2026-10-04T09:20" },
+    authorizedAt: "2026-10-03T22:10",
+    paidAt: "2026-10-04T09:20",
+    timeline: [...requested("2026-10-03T22:10", "NIHO"), ...approved("2026-10-04T09:20")],
   }),
 ];

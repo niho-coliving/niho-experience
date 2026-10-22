@@ -1,8 +1,9 @@
 import { HOST_EXPERIENCES_PATH } from "@/lib/host/routes";
-import { bookingSessions, bookingsHref, seatsLabel, type BookingDialogSubject, type BookingExperience, type BookingSession } from "./bookings";
+import { bookingSessions, bookingsHref, seatsLabel, sessionHref, type BookingDialogSubject, type BookingExperience, type BookingSession, type SessionQuery } from "./bookings";
 import { addDays, agoJa, dateWithWeekdayJa, dayOfMonth, durationJa, listJa, monthDayJa, remainingJa, shortDateWithWeekdayJa, weekdayJa, yen } from "./format";
 import { guestMessageView, lastGuestMessage, messagesHref, quoteJa, sortThreads, threadKind, waitingSince } from "./messages";
 import { salesSummary, type SalesMonth } from "./sales";
+import { attendanceCounts, dietarySummary, SESSION_PHASE_LABELS, sessionBookings, sessionPhase } from "./session";
 import { BOOKING_STATUS, LISTING_STATUS, THREAD_WAITING, type StatusLabel } from "./status";
 import type { HostBooking, HostExperience, HostSale, HostThread } from "./types";
 
@@ -29,6 +30,8 @@ export interface HomeTodo {
 /** A row of the sessions: one date, start time and experience. */
 export interface HomeUpcoming {
   key: string;
+  /** この回 (#107): the session's own screen. The page adds `?providerId=`. */
+  href: string;
   /** "10月22日（木）" for screen readers; the row shows weekday and day. */
   dateLabel: string;
   weekday: string;
@@ -39,6 +42,10 @@ export interface HomeUpcoming {
   seats: string;
   /** "2件" */
   bookings: string;
+  /** 食べものの希望 of the guests: "ベジタリアン 1 名"; empty when no one has one. */
+  dietary: string;
+  /** Today's rows only: 開始前 / 開催中 / 終了, and "終了 · 出欠が未記録" (warn) while attendance is still to record. */
+  phase: { text: string; tone: "warn" | "muted" } | null;
 }
 
 export interface HomeMonth {
@@ -138,9 +145,19 @@ export function homeTodos(experiences: readonly HostExperience[], bookings: read
   return [...requestTodos(experiences, bookings, today, now), ...threadTodos(threads, now), ...drafts, ...reviews];
 }
 
-function upcomingRow(session: BookingSession): HomeUpcoming {
+/** Today's word for a session: where it stands, and whether attendance is still to record once it is over. */
+function todayPhase(session: BookingSession, own: readonly HostBooking[], now: string): HomeUpcoming["phase"] {
+  const phase = sessionPhase(session, now);
+  if (phase === "after" && attendanceCounts(own).unrecorded > 0) return { text: `${SESSION_PHASE_LABELS.after} · 出欠が未記録`, tone: "warn" };
+  return { text: SESSION_PHASE_LABELS[phase], tone: "muted" };
+}
+
+function upcomingRow(session: BookingSession, bookings: readonly HostBooking[], now: string | null): HomeUpcoming {
+  const query: SessionQuery = { date: session.date, start: session.start, experience: session.experienceId, offer: session.offerId };
+  const own = sessionBookings(bookings, query);
   return {
     key: session.key,
+    href: sessionHref(query),
     dateLabel: dateWithWeekdayJa(session.date),
     weekday: weekdayJa(session.date),
     day: dayOfMonth(session.date),
@@ -148,12 +165,14 @@ function upcomingRow(session: BookingSession): HomeUpcoming {
     detail: [`${session.start} 開始`, session.durationMinutes ? durationJa(session.durationMinutes) : null].filter(Boolean).join(" · "),
     seats: seatsLabel(session),
     bookings: `${session.count}件`,
+    dietary: dietarySummary(own),
+    phase: now ? todayPhase(session, own, now) : null,
   };
 }
 
 /** The sessions ホーム shows, split by day. */
 export interface HomeSessions {
-  /** 今日の開催: today's sessions that have not started yet. */
+  /** 今日の開催: all of today's, before, during and after them: the host opens them on the day to record who came (#107). */
   today: HomeUpcoming[];
   /** 明日の開催. */
   tomorrow: HomeUpcoming[];
@@ -163,17 +182,20 @@ export interface HomeSessions {
 
 /**
  * The sessions (an offer on a day at a time) with guests, counting the 承認待ち and 確定 bookings
- * as the bookings list does: today's still to start, tomorrow's, and the next ones after that.
- * A day shown above is never repeated below.
+ * as the bookings list does: today's (also once started or over, with where each stands),
+ * tomorrow's, and the next ones after that. A day shown above is never repeated below.
  */
 export function homeSessions(experiences: readonly BookingExperience[], bookings: readonly HostBooking[], now: string, limit = 3): HomeSessions {
   const [today = ""] = now.split("T");
   const tomorrow = addDays(today, 1);
   const sessions = bookingSessions(bookings, experiences).filter((session) => session.count > 0);
   return {
-    today: sessions.filter((session) => session.date === today && `${session.date}T${session.start}` > now).map(upcomingRow),
-    tomorrow: sessions.filter((session) => session.date === tomorrow).map(upcomingRow),
-    later: sessions.filter((session) => session.date > tomorrow).slice(0, limit).map(upcomingRow),
+    today: sessions.filter((session) => session.date === today).map((session) => upcomingRow(session, bookings, now)),
+    tomorrow: sessions.filter((session) => session.date === tomorrow).map((session) => upcomingRow(session, bookings, null)),
+    later: sessions
+      .filter((session) => session.date > tomorrow)
+      .slice(0, limit)
+      .map((session) => upcomingRow(session, bookings, null)),
   };
 }
 

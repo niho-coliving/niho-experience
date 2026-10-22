@@ -9,6 +9,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const isDesktop = (projectName: string) => projectName === "host-desktop";
 const menu = (page: Page) => page.getByRole("navigation", { name: "ホストのメニュー" });
 const list = (page: Page) => page.getByRole("region", { name: "予約の一覧" });
+/** The bookings' rows (each session's heading is a link of its own, to この回: host-session.spec.ts). */
+const rows = (page: Page) => list(page).getByRole("listitem").getByRole("link");
 const row = (page: Page, guest: string) => list(page).getByRole("link", { name: new RegExp(`^${guest}`) });
 const chips = (page: Page) => page.getByRole("list", { name: "予約の絞り込み" }).getByRole("link");
 const chip = (page: Page, label: string) => page.getByRole("list", { name: "予約の絞り込み" }).getByRole("link", { name: label, exact: true });
@@ -38,6 +40,8 @@ test("予約 lists the bookings by session, and the chips and the experience nar
 
   // One heading per session: day and time, the experience, and the seats its requests and bookings keep.
   await expect(list(page).getByRole("heading", { level: 2 })).toHaveText([
+    // Today's tea time is over, but its day is not (#107).
+    /^10月21日（水）13:00.*4 \/ 8名$/,
     /^10月22日（木）18:00.*Kamakura Community Dinner with Locals.*4 \/ 8名$/,
     /^10月24日（土）18:00.*1 \/ 8名$/,
     /^10月25日（日）13:00.*0 \/ 8名$/,
@@ -51,19 +55,19 @@ test("予約 lists the bookings by session, and the chips and the experience nar
   await chip(page, "承認待ち").click();
   await expect(page).toHaveURL(/\/host\/bookings\?filter=pending$/);
   await expect(chip(page, "承認待ち")).toHaveAttribute("aria-current", "page");
-  await expect(list(page).getByRole("link")).toHaveCount(2);
-  await expect(list(page).getByRole("link")).toContainText(["Lucas & Mia Chen", "Ana Souza"]);
+  await expect(rows(page)).toHaveCount(2);
+  await expect(rows(page)).toContainText(["Lucas & Mia Chen", "Ana Souza"]);
 
   await chip(page, "過去").click();
   await expect(page).toHaveURL(/\?filter=past$/);
-  await expect(list(page).getByRole("link")).toContainText(["Oliver Brown", "Chloé Dubois", "森 健二"]);
+  await expect(rows(page)).toContainText(["Oliver Brown", "Chloé Dubois", "森 健二", "Liam Walker"]);
   await expect(row(page, "Oliver Brown")).toContainText("確定");
   await expect(row(page, "Chloé Dubois")).toContainText("お断り");
   await expect(row(page, "森 健二")).toContainText("期限切れ");
 
   await chip(page, "取消済み").click();
   await expect(page).toHaveURL(/\?filter=cancelled$/);
-  await expect(list(page).getByRole("link")).toHaveCount(1);
+  await expect(rows(page)).toHaveCount(1);
   await expect(row(page, "Hannah Kim")).toContainText("取消済み");
 
   // The experience select keeps the filter.
@@ -74,7 +78,7 @@ test("予約 lists the bookings by session, and the chips and the experience nar
   await expect(chip(page, "これから")).toHaveAttribute("href", "/host/bookings?experience=kintsugi");
   await experience.selectOption({ label: "すべての体験" });
   await expect(page).toHaveURL(/\?filter=cancelled$/);
-  await expect(list(page).getByRole("link")).toHaveCount(1);
+  await expect(rows(page)).toHaveCount(1);
 });
 
 test("PC shows a booking on the right of the list; phones open it as a screen of its own", async ({ page }, testInfo) => {
@@ -82,10 +86,12 @@ test("PC shows a booking on the right of the list; phones open it as a screen of
   await page.goto("/host/bookings");
   const lucas = detail(page, "Lucas & Mia Chen");
   if (isDesktop(testInfo.project.name)) {
-    // The first booking of the list, beside it in a 400px column, until another one is chosen.
-    await expect(lucas).toBeVisible();
+    // The first booking of the list (today's tea time), beside it in a 400px column, until another one is chosen.
+    const first = detail(page, "Aiko Tanaka");
+    await expect(first).toBeVisible();
+    await expect(lucas).toHaveCount(0);
     const listBox = (await list(page).boundingBox())!;
-    const detailBox = (await lucas.boundingBox())!;
+    const detailBox = (await first.boundingBox())!;
     expect(detailBox.x).toBeGreaterThan(listBox.x + listBox.width);
     expect(Math.round(detailBox.width)).toBe(400);
     await row(page, "Emma Larsson").click();
@@ -214,7 +220,7 @@ test("お断り asks first, then declines the other request", async ({ page }, t
   await expect(booking.getByRole("region", { name: "メッセージ" })).toHaveCount(0);
   if (isDesktop(testInfo.project.name)) {
     // It no longer waits for an answer.
-    await expect(list(page).getByRole("link")).toHaveCount(1);
+    await expect(rows(page)).toHaveCount(1);
     await chip(page, "過去").click();
     await expect(row(page, "Ana Souza")).toContainText("お断り");
   }

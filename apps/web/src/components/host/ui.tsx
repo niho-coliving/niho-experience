@@ -30,6 +30,21 @@ export function PageHead({ title, children }: { title: string; children?: ReactN
   );
 }
 
+/**
+ * The title of a screen under a section (この回 under 予約): "‹" back to the section on PC, where
+ * phones have HostSubHeader instead, and the title, which may wrap.
+ */
+export function SubPageHead({ backHref, backLabel, title }: { backHref: string; backLabel: string; title: string }) {
+  return (
+    <div className="mb-3.5 flex items-center gap-3 md:mb-[18px]">
+      <Link href={backHref} aria-label={`${backLabel}へ戻る`} className="grid size-10 shrink-0 place-items-center rounded-full bg-sand hover:bg-line max-md:hidden">
+        <HostIcon name="chevronLeft" className="size-[18px]" />
+      </Link>
+      <h1 className="min-w-0 font-display text-[1.375rem] leading-[1.25] font-medium tracking-[-0.01em] [overflow-wrap:anywhere] md:text-[1.625rem]">{title}</h1>
+    </div>
+  );
+}
+
 /** The small label at the top of a panel (次にすること, 提供者情報). `focusable` lets the page move focus to it after an action. */
 export function SectionTitle({ id, focusable = false, children }: { id?: string; focusable?: boolean; children: ReactNode }) {
   return (

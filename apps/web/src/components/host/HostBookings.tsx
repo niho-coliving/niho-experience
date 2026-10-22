@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
@@ -14,6 +15,7 @@ import {
   bookingStatusLabel,
   cancelBooking,
   declineBooking,
+  sessionHref,
   type BookingCancellation,
   type BookingExperience,
 } from "@/host/bookings";
@@ -64,7 +66,7 @@ export interface HostBookingsProps {
  * the page is not loaded again and the bookings keep what happened to them on this screen
  * (mock mode: 承認・お断り・取消 change them here only; the preview note says nothing is kept).
  * メッセージ leads to the booking's thread (#106). TODO(#87): send the actions to NIHO and show
- * the booking it reads back.
+ * the booking it reads back. A session's heading opens its own screen (この回, #107).
  */
 export function HostBookings({ bookings: initialBookings, experiences, today, now, providerId, conversations }: HostBookingsProps) {
   const searchParams = useSearchParams();
@@ -185,13 +187,16 @@ export function HostBookings({ bookings: initialBookings, experiences, today, no
               {groups.length ? (
                 groups.map((group) => (
                   <div key={group.key} className="border-t border-line first:border-t-0">
-                    {/* One session: its day and time, the experience and the seats its requests and bookings keep. */}
-                    <h2 className="flex items-center gap-2 bg-sand/60 px-3.5 py-2 font-sans text-xs leading-normal font-extrabold tracking-normal text-ink-soft md:px-4">
-                      <span className="shrink-0">{group.label}</span>
-                      <span className="sr-only"> · </span>
-                      <span className="min-w-0 flex-1 truncate text-muted">{group.title}</span>
-                      <span className="sr-only"> · </span>
-                      <span className="shrink-0 tabular-nums">{group.seats}</span>
+                    {/* One session: its day and time, the experience and the seats its requests and bookings keep. It opens the session (この回), apart from the rows' bookings. */}
+                    <h2 className="font-sans text-xs leading-normal font-extrabold tracking-normal text-ink-soft">
+                      <Link href={sessionHref({ providerId, ...group })} className="flex min-h-9 items-center gap-2 bg-sand/60 px-3.5 py-2 hover:bg-sand focus-visible:outline-offset-[-3px] md:px-4">
+                        <span className="shrink-0">{group.label}</span>
+                        <span className="sr-only"> · </span>
+                        <span className="min-w-0 flex-1 truncate text-muted">{group.title}</span>
+                        <span className="sr-only"> · </span>
+                        <span className="shrink-0 tabular-nums">{group.seats}</span>
+                        <HostIcon name="chevronRight" className="size-3.5 text-muted" />
+                      </Link>
                     </h2>
                     <ul>
                       {group.bookings.map((booking) => {

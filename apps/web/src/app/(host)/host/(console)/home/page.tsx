@@ -27,10 +27,11 @@ function SessionDay({ item }: { item: HomeUpcoming }) {
 }
 
 /**
- * 今日の開催 / 明日の開催 (#106): each session with its seats and 参加者を見る. Not shown on a day
- * without sessions. TODO(#107): 参加者を見る opens the day's own screen instead of 予約.
+ * 今日の開催 / 明日の開催 (#106): each session with its seats, its guests' food wishes and 参加者を見る
+ * (この回, #107). Today's rows say where each stands (開始前・開催中・終了), and when a session is over
+ * with attendance still to record. Not shown on a day without sessions.
  */
-function DaySessions({ id, title, sessions, participantsHref }: { id: string; title: string; sessions: readonly HomeUpcoming[]; participantsHref: string }) {
+function DaySessions({ id, title, sessions, link }: { id: string; title: string; sessions: readonly HomeUpcoming[]; link: (href: string) => string }) {
   if (!sessions.length) return null;
   return (
     <section aria-labelledby={id} className={`${HOST_SURFACE} mt-3.5`}>
@@ -42,13 +43,15 @@ function DaySessions({ id, title, sessions, participantsHref }: { id: string; ti
           <li key={item.key} className={`${LIST_ROW} flex-wrap border-t border-line first:border-t-0`}>
             <SessionDay item={item} />
             <span id={`${id}-${index}`} className="min-w-0 flex-[1_1_150px]">
+              {item.phase ? <span className={`block text-xs leading-normal font-extrabold ${item.phase.tone === "warn" ? "text-warn" : "text-muted"}`}>{item.phase.text}</span> : null}
               <span className={`block ${LIST_ROW_TITLE}`}>{item.title}</span>
               <span className={`block ${LIST_ROW_DETAIL}`}>{item.detail}</span>
+              {item.dietary ? <span className={`block ${LIST_ROW_DETAIL}`}>{item.dietary}</span> : null}
             </span>
             <span className="shrink-0 text-[0.875rem] leading-[1.4] font-extrabold whitespace-nowrap tabular-nums max-md:ml-14">
               {item.seats} · {item.bookings}
             </span>
-            <Link href={participantsHref} aria-describedby={`${id}-${index}`} className={consoleButtonClass("secondary", "sm", "max-md:ml-auto")}>
+            <Link href={link(item.href)} aria-describedby={`${id}-${index}`} className={consoleButtonClass("secondary", "sm", "max-md:ml-auto")}>
               参加者を見る
             </Link>
           </li>
@@ -82,8 +85,8 @@ export default async function HostHomePage({ searchParams }: { searchParams: Pro
 
       {/* Keyed by provider: another provider's rows start from their own list. */}
       <HostHomeTodos key={provider.id} todos={home.todos} providerId={linkProviderId} />
-      <DaySessions id="home-today" title="今日の開催" sessions={home.sessions.today} participantsHref={link(HOST_BOOKINGS_PATH)} />
-      <DaySessions id="home-tomorrow" title="明日の開催" sessions={home.sessions.tomorrow} participantsHref={link(HOST_BOOKINGS_PATH)} />
+      <DaySessions id="home-today" title="今日の開催" sessions={home.sessions.today} link={link} />
+      <DaySessions id="home-tomorrow" title="明日の開催" sessions={home.sessions.tomorrow} link={link} />
 
       <div className="mt-3.5 grid items-start gap-3.5 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <section aria-labelledby="home-upcoming" className={HOST_SURFACE}>
@@ -95,7 +98,7 @@ export default async function HostHomePage({ searchParams }: { searchParams: Pro
             <ul>
               {upcoming.map((item) => (
                 <li key={item.key} className="border-t border-line first:border-t-0">
-                  <Link href={link(HOST_BOOKINGS_PATH)} className={`${LIST_ROW} hover:bg-sand/60`}>
+                  <Link href={link(item.href)} className={`${LIST_ROW} hover:bg-sand/60`}>
                     <SessionDay item={item} />
                     <span className="min-w-0 flex-1">
                       <span className={`block ${LIST_ROW_TITLE}`}>{item.title}</span>

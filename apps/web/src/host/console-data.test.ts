@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMockHostFetch, MOCK_ID_TOKEN_PREFIX } from "@/lib/host/mock-niho";
-import { bookingClock, bookingList, bookingOf, bookingThreadOf, editorExperience, hostConsoleSnapshot, hostHome, salesList, threadList, threadOf } from "./console-data";
+import { bookingClock, bookingList, bookingOf, bookingThreadOf, editorExperience, hostConsoleSnapshot, hostHome, salesList, sessionOf, threadList, threadOf } from "./console-data";
 import { MOCK_CONSOLE_PROVIDERS } from "./mock/provider";
 import { MOCK_KITCHEN_SALES, MOCK_SALES_PERIOD } from "./mock/sales";
 import { MOCK_KITCHEN_THREADS } from "./mock/threads";
@@ -20,7 +20,7 @@ describe("console data per provider", () => {
     expect(snapshot.now).toBe("2026-10-21T15:30");
     const home = hostHome(snapshot);
     expect(home.todos.map((todo) => todo.status.label)).toEqual(["承認待ち", "承認待ち", "返信待ち", "返信待ち", "返信待ち", "下書き", "審査待ち"]);
-    expect([home.sessions.today, home.sessions.tomorrow, home.sessions.later].map((sessions) => sessions.length)).toEqual([0, 1, 3]);
+    expect([home.sessions.today, home.sessions.tomorrow, home.sessions.later].map((sessions) => sessions.length)).toEqual([1, 1, 3]);
     // The preview keeps its own "today": the synthetic dates stay upcoming whenever it is opened.
     expect(home.month).toEqual({ label: "10月", sales: "¥390,000", refunds: "−¥60,000", expected: "¥139,500", confirmed: "8件" });
   });
@@ -73,7 +73,25 @@ describe("console data per provider", () => {
   it("lists the provider's own bookings and opens one of them, and has none to read in http mode yet (#87)", () => {
     const kitchen = hostConsoleSnapshot("sample-provider-kitchen", "mock", NOW);
     const list = bookingList(kitchen, "mock");
-    expect(list.status === "ready" && list.bookings.map((booking) => booking.status)).toEqual(["pending", "confirmed", "confirmed", "confirmed", "confirmed", "cancelled", "refund_needed", "pending", "declined", "expired"]);
+    expect(list.status === "ready" && list.bookings.map((booking) => booking.status)).toEqual([
+      "pending",
+      "confirmed",
+      "confirmed",
+      "confirmed",
+      "confirmed",
+      "cancelled",
+      "refund_needed",
+      "pending",
+      "declined",
+      "expired",
+      "confirmed",
+      "confirmed",
+      "confirmed",
+    ]);
+    // 予約 never carries the guest's phone: only この回 shows it (#107).
+    expect(list.status === "ready" && list.bookings.filter((booking) => booking.phone !== null)).toEqual([]);
+    expect(kitchen.bookings.filter((booking) => booking.phone !== null).map((booking) => booking.id)).toEqual(["bk-2038", "bk-2020", "bk-2003"]);
+    expect(bookingOf(kitchen, "mock", "bk-2038")).toMatchObject({ status: "ready", booking: { guest: "Emma Larsson", phone: null } });
     expect(bookingOf(kitchen, "mock", "bk-2041")).toMatchObject({ status: "ready", booking: { guest: "Lucas & Mia Chen" } });
     expect(bookingOf(kitchen, "mock", "no-such-booking")).toEqual({ status: "missing" });
     // Another provider's booking is not this provider's to open.
@@ -83,6 +101,34 @@ describe("console data per provider", () => {
     expect(bookingClock("http")).toBeNull();
     expect(bookingList(kitchen, "http")).toEqual({ status: "unavailable" });
     expect(bookingOf(kitchen, "http", "bk-2041")).toEqual({ status: "unavailable" });
+  });
+
+  it("opens a session of the provider's with all its bookings and the guests' phones, and has none to read in http mode yet (#87)", () => {
+    const kitchen = hostConsoleSnapshot("sample-provider-kitchen", "mock", NOW);
+    const dinner = { date: "2026-10-22", start: "18:00", experience: "community-dinner", offer: "offer-dinner" };
+    const opened = sessionOf(kitchen, "mock", dinner);
+    expect(opened.status === "ready" && { ...opened.session, bookings: opened.session.bookings.map((booking) => [booking.id, booking.phone]) }).toEqual({
+      date: "2026-10-22",
+      start: "18:00",
+      end: "20:00",
+      experienceId: "community-dinner",
+      offerId: "offer-dinner",
+      title: "Kamakura Community Dinner with Locals",
+      offer: "Dinner",
+      capacity: 8,
+      meetingArea: "Near Kamakura Station, 2-minute walk",
+      pageLanguage: "en",
+      bookings: [
+        ["bk-2041", null],
+        ["bk-2038", "+44 7700 900123"],
+      ],
+    });
+    // A session with only cancelled bookings still opens; one without any booking, or another provider's, does not.
+    expect(sessionOf(kitchen, "mock", { ...dinner, date: "2026-10-15" })).toMatchObject({ status: "ready" });
+    expect(sessionOf(kitchen, "mock", { ...dinner, date: "2026-10-20" })).toEqual({ status: "missing" });
+    expect(sessionOf(kitchen, "mock", { ...dinner, offer: "offer-tea" })).toEqual({ status: "missing" });
+    expect(sessionOf(hostConsoleSnapshot("sample-provider-studio", "mock", NOW), "mock", dinner)).toEqual({ status: "missing" });
+    expect(sessionOf(kitchen, "http", dinner)).toEqual({ status: "unavailable" });
   });
 
   it("lists the provider's own threads and opens one, or a booking's (an empty one to start), and has none to read in http mode yet (#87)", () => {
