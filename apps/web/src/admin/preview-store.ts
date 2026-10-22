@@ -9,5 +9,8 @@ const processState = globalThis as typeof globalThis & { __nihoAdminPreviewStore
 const store = processState.__nihoAdminPreviewStore ??= new AdminPreviewStateStore();
 
 export const adminPreviewBookings = (sessionId: string, expiresAt: number, now = Date.now()) => store.bookings(sessionId, expiresAt, now);
+export const adminPreviewNotifications = (sessionId: string, expiresAt: number, now = Date.now()) => store.notifications(sessionId, expiresAt, now);
+export const markAdminPreviewNotificationsRead = (sessionId: string, expiresAt: number, notificationIds: readonly string[], now = Date.now()) =>
+  store.markNotificationsRead(sessionId, expiresAt, notificationIds, now);
 export const runAdminPreviewOperation = (sessionId: string, expiresAt: number, bookingId: string, idempotencyKey: string, operation: AdminOperation, actor: AdminActor, now = Date.now()) =>
   store.run(sessionId, expiresAt, bookingId, idempotencyKey, operation, actor, now);

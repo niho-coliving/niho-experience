@@ -32,6 +32,7 @@ import {
   encodeAdminHttpSession,
   startAdminHttpSession,
 } from "./http-session";
+import { safeAdminReturnTo } from "./routes";
 
 const SITE = state.config.siteUrl;
 const NIHO = state.config.nihoWebOrigin;
@@ -116,6 +117,12 @@ function successfulAuth(connectionExpiresAt: number) {
 }
 
 describe("Admin HTTP login and callback", () => {
+  it("allows only the two fixed console destinations", () => {
+    expect(safeAdminReturnTo("/admin/bookings")).toBe("/admin/bookings");
+    expect(safeAdminReturnTo("/admin/notifications")).toBe("/admin/notifications");
+    expect(safeAdminReturnTo("/admin/notifications?next=https://evil.example.test")).toBe("/admin/bookings");
+  });
+
   it("uses the dedicated client with PKCE/state/origin and a short isolated login cookie", async () => {
     const { location, rawCookie } = await startLogin("?returnTo=https://evil.example.test");
     expect(location.origin + location.pathname).toBe(`${NIHO}/connect/niho-experience-admin`);
