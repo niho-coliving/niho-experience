@@ -70,6 +70,88 @@ test("browser history keeps the selected booking in sync with the URL", async ({
   await expect(page.getByRole("article")).toContainText("Amelia Jones");
 });
 
+test("notification navigation keeps unread state and opens the opaque booking target", async ({ page }) => {
+  await adminSignIn(page);
+  const notificationLink = page.getByRole("link", { name: /通知/ });
+  await expect(notificationLink).toHaveAccessibleName(/通知.*未読5件/);
+  await notificationLink.click();
+  await expect(page).toHaveURL(/\/admin\/notifications$/);
+  await expect(notificationLink).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { level: 1, name: "通知" })).toBeVisible();
+  const changed = page.getByRole("article").filter({ hasText: "申込内容が変更されました" });
+  await changed.getByRole("button", { name: "既読にする" }).click();
+  await expect(changed).toContainText("既読");
+  await expect(notificationLink).toHaveAccessibleName(/通知.*未読4件/);
+  await page.reload();
+  await expect(page.getByRole("article").filter({ hasText: "申込内容が変更されました" })).toContainText("既読");
+  await page.getByRole("article").filter({ hasText: "申込内容が変更されました" }).getByRole("link", { name: "予約を見る" }).click();
+  await expect(page).toHaveURL(/\/admin\/bookings\?booking=bk-2041$/);
+  await expect(page.getByRole("article")).toContainText("Lucas & Mia Chen");
+});
+
+test("notification unread filter reaches an honest empty state", async ({ page }) => {
+  await adminSignIn(page);
+  await page.getByRole("link", { name: /通知/ }).click();
+  await expect(page.getByRole("button", { name: "すべて既読にする" })).toBeEnabled();
+  await page.getByRole("button", { name: "すべて既読にする" }).click();
+  await expect(page.getByRole("button", { name: "未読 0件" })).toBeVisible();
+  await page.getByRole("button", { name: "未読 0件" }).click();
+  await expect(page.getByText("未読の通知はありません。")).toBeVisible();
+  await expect(page.getByRole("link", { name: /未読\d+件/ })).toHaveCount(0);
+});
+
+test("notification read API rejects unsigned, cross-site and unknown receipts", async ({ page }) => {
+  await page.goto("/admin");
+  const signedOut = await page.request.get("/admin/api/preview-notifications");
+  expect(signedOut.status()).toBe(401);
+  expect(signedOut.headers()["cache-control"]).toContain("no-store");
+  await adminSignIn(page);
+  const crossSite = await page.request.post("/admin/api/preview-notifications", {
+    headers: { origin: "https://evil.example.test", "sec-fetch-site": "cross-site" },
+    data: { notificationIds: ["notice-new-booking-2041"] },
+  });
+  expect(crossSite.status()).toBe(403);
+  expect(crossSite.headers()["cache-control"]).toContain("no-store");
+  const unknown = await page.evaluate(() => fetch("/admin/api/preview-notifications", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ notificationIds: ["notice-new-booking-2041", "unknown-notification"] }),
+  }).then((response) => response.status));
+  expect(unknown).toBe(400);
+  await page.getByRole("link", { name: /通知/ }).click();
+  await expect(page.getByRole("button", { name: "未読 5件" })).toBeVisible();
+});
+
+test("notification load and read failures keep state and can retry", async ({ page }) => {
+  await adminSignIn(page);
+  let getAttempts = 0;
+  await page.route("**/admin/api/preview-notifications", async (route) => {
+    if (route.request().method() === "GET" && getAttempts++ === 0) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ notifications: [null], unreadCount: 1 }) });
+      return;
+    }
+    await route.continue();
+  });
+  await page.getByRole("link", { name: /通知/ }).click();
+  await expect(page.getByRole("alert")).toContainText("通知を読み込めませんでした");
+  await page.getByRole("button", { name: "もう一度試す" }).click();
+  await expect(page.getByRole("article")).toHaveCount(5);
+
+  await page.unroute("**/admin/api/preview-notifications");
+  await page.route("**/admin/api/preview-notifications", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ notifications: [{ kind: "unknown" }], unreadCount: 4 }) });
+      return;
+    }
+    await route.continue();
+  });
+  const first = page.getByRole("article").first();
+  await expect(first).toContainText("未読");
+  await first.getByRole("button", { name: "既読にする" }).click();
+  await expect(page.getByRole("alert")).toContainText("表示は更新していません");
+  await expect(first).toContainText("未読");
+  await expect(page.getByRole("link", { name: /未読5件/ })).toBeVisible();
+});
+
 test("busy action dialog ignores Escape and does not report into another booking", async ({ page }) => {
   await adminSignIn(page);
   let releaseResponse!: () => void;
@@ -168,6 +250,10 @@ test.describe("admin accessibility and responsive layout", () => {
     await expect(page.getByRole("button", { name: /Lucas & Mia Chen/ })).toBeInViewport();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "本文へ移動" })).toBeFocused();
+    await page.getByRole("link", { name: /通知/ }).press("Enter");
+    await expect(page).toHaveURL(/\/admin\/notifications$/);
+    await expect(page.getByRole("link", { name: /通知/ })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("article").first()).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();
     expect(results.violations.filter((item) => item.impact === "serious" || item.impact === "critical")).toEqual([]);
     expect(await overflowX(page)).toBeLessThanOrEqual(0);
@@ -185,6 +271,10 @@ test.describe("admin accessibility and responsive layout", () => {
     expect(await overflowX(page)).toBeLessThanOrEqual(0);
     await page.getByRole("button", { name: /Lucas & Mia Chen/ }).click();
     await expect(page.getByRole("button", { name: "予約支援へ戻る" })).toBeVisible();
+    expect(await overflowX(page)).toBeLessThanOrEqual(0);
+    await page.getByRole("link", { name: /通知/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "通知" })).toBeVisible();
+    await expect(page.getByRole("article").first()).toBeVisible();
     expect(await overflowX(page)).toBeLessThanOrEqual(0);
   });
 });

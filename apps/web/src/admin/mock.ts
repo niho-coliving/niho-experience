@@ -1,7 +1,7 @@
 import { MOCK_KITCHEN_BOOKINGS } from "@/host/mock/bookings";
 import type { HostBooking } from "@/host/types";
 import { supportSnapshot } from "@/support/types";
-import type { AdminBooking, AdminHost } from "./types";
+import type { AdminBooking, AdminHost, AdminNotification } from "./types";
 
 export const MOCK_ADMIN_TODAY = "2026-10-21";
 export const MOCK_ADMIN_NOW = "2026-10-21T15:30";
@@ -98,6 +98,63 @@ export const MOCK_ADMIN_BOOKINGS: readonly AdminBooking[] = [
     guestContact: "予約者の連絡スレッド",
     adminHistory: [{ at: "2026-10-19T12:05", actorId: "admin-sato", actorName: "NIHO サポート 佐藤", action: "assigned", detail: "地元参加者の相談を受け付けました" }],
   }),
+];
+
+/**
+ * Explicit synthetic receipts for support-ON bookings. These describe the five preview
+ * event classes without pretending that an external delivery or real activity occurred.
+ */
+export const MOCK_ADMIN_NOTIFICATIONS: readonly AdminNotification[] = [
+  {
+    id: "notice-new-booking-2041",
+    bookingId: "bk-2041",
+    bookingNumber: "EX-202610-2041",
+    kind: "new_booking",
+    title: "新しい申込を受け付けました",
+    detail: "サポートONの予約です。受付条件と承認期限を確認してください。",
+    occurredAt: "2026-10-20T14:02",
+    readAt: null,
+  },
+  {
+    id: "notice-change-2041",
+    bookingId: "bk-2041",
+    bookingNumber: "EX-202610-2041",
+    kind: "booking_changed",
+    title: "申込内容が変更されました",
+    detail: "人数に変更があります。予約の最新内容を確認してください。",
+    occurredAt: "2026-10-21T09:10",
+    readAt: null,
+  },
+  {
+    id: "notice-cancel-2033",
+    bookingId: "bk-2033",
+    bookingNumber: "EX-202610-2033",
+    kind: "cancellation",
+    title: "取消の確認が必要です",
+    detail: "取消依頼を受け付けました。ホストとの相談内容を確認してください。",
+    occurredAt: "2026-10-20T08:20",
+    readAt: null,
+  },
+  {
+    id: "notice-refund-2033",
+    bookingId: "bk-2033",
+    bookingNumber: "EX-202610-2033",
+    kind: "refund_attention",
+    title: "返金内容を確認してください",
+    detail: "返金の確認待ちです。ここでは実際の返金処理は行いません。",
+    occurredAt: "2026-10-20T08:25",
+    readAt: null,
+  },
+  {
+    id: "notice-contact-garden-301",
+    bookingId: "bk-garden-301",
+    bookingNumber: "EX-202611-2301",
+    kind: "new_contact",
+    title: "新しい連絡があります",
+    detail: "サポート相談に新しい連絡が届きました。予約詳細で確認してください。",
+    occurredAt: "2026-10-21T13:45",
+    readAt: null,
+  },
 ];
 
 export function mockAdminBooking(id: string): AdminBooking | null {

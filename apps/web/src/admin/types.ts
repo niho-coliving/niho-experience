@@ -38,3 +38,17 @@ export interface AdminActor {
 
 export type AdminBookingAction = "approve" | "decline" | "contact" | "cancel";
 
+export type AdminNotificationKind = "new_booking" | "booking_changed" | "cancellation" | "refund_attention" | "new_contact";
+
+/** Synthetic preview notification. It intentionally carries no guest name or contact value. */
+export interface AdminNotification {
+  id: string;
+  bookingId: string;
+  bookingNumber: string;
+  kind: AdminNotificationKind;
+  title: string;
+  detail: string;
+  occurredAt: string;
+  readAt: string | null;
+}
+
