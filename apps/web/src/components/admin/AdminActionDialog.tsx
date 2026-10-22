@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { cancelConfirmLabel, defaultCancelMessage, refundChoicesFor, refundNowYen } from "@/host/bookings";
+import { cancelConfirmLabel, refundChoicesFor, refundNowYen } from "@/host/bookings";
 import { yen } from "@/host/format";
 import type { HostCancelReason, HostRefundChoice } from "@/host/types";
 import type { AdminBooking, AdminBookingAction } from "@/admin/types";
 import type { AdminOperation } from "@/admin/bookings";
+import { adminCancellationMessage } from "@/admin/bookings";
 import { HOST_DIALOG } from "@/components/host/HostConfirmDialog";
 import { consoleButtonClass } from "@/components/host/host-ui";
 
@@ -35,7 +36,7 @@ export function AdminActionDialog({ booking, action, busy, onConfirm, onClose }:
     event.preventDefault();
     if (busy || !event.currentTarget.reportValidity()) return;
     const operation: AdminOperation = action === "cancel"
-      ? { action, reason, cancellation: { refund, reason: cancelReason, message: defaultCancelMessage(booking) } }
+      ? { action, reason, cancellation: { refund, reason: cancelReason, message: adminCancellationMessage(booking, cancelReason) } }
       : { action, reason };
     onConfirm(operation);
   };

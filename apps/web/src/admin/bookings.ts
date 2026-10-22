@@ -1,5 +1,5 @@
 import { approveBooking, bookingActions, cancelBooking, declineBooking, type BookingCancellation } from "@/host/bookings";
-import type { HostBookingStatus } from "@/host/types";
+import type { HostBookingStatus, HostCancelReason } from "@/host/types";
 import type { AdminActor, AdminBooking, AdminBookingAction } from "./types";
 
 export interface AdminBookingFilters {
@@ -39,6 +39,13 @@ export type AdminOperation =
 
 export type AdminOperationResult = { ok: true; booking: AdminBooking; message: string } | { ok: false; code: "support_off" | "invalid_state" | "invalid_input"; message: string };
 
+export function adminCancellationMessage(booking: Pick<AdminBooking, "language">, reason: HostCancelReason): string {
+  const messages = booking.language === "ja"
+    ? { host: "誠に申し訳ありませんが、この日は開催できなくなったため、ご予約を取り消します。", guest: "ご依頼のとおり、ご予約を取り消しました。", other: "ホストと確認のうえ、ご予約を取り消しました。" }
+    : { host: "We’re very sorry, but we have to cancel your booking: we are unable to host on this date.", guest: "At your request, we have cancelled your booking.", other: "After confirming with the host, we have cancelled your booking." };
+  return messages[reason];
+}
+
 function appendAudit(booking: AdminBooking, actor: AdminActor, action: AdminBookingAction, detail: string, at: string): AdminBooking {
   return { ...booking, adminHistory: [...booking.adminHistory, { at, actorId: actor.id, actorName: actor.name, action: action === "contact" ? "contacted" : action === "cancel" ? "cancelled" : action === "approve" ? "approved" : "declined", detail }] };
 }
@@ -62,6 +69,6 @@ export function applyAdminOperation(booking: AdminBooking, operation: AdminOpera
   }
   const detail = operation.action === "approve" ? `承認 · ${reason}` : operation.action === "decline" ? `辞退 · ${reason}` : `取消・返金 · ${reason}`;
   const message = operation.action === "approve" ? "予約を承認しました。" : operation.action === "decline" ? "申込を辞退しました。" : "予約を取り消しました。";
-  return { ok: true, booking: appendAudit({ ...booking, ...changed }, actor, operation.action, detail, at), message };
+  return { ok: true, booking: appendAudit({ ...booking, ...changed, needsAttention: false, attentionReason: "" }, actor, operation.action, detail, at), message };
 }
 

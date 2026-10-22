@@ -110,11 +110,13 @@ test("support ON operation confirms counterpart, amount and reason, then audits 
   await dialog.getByLabel("対応理由").fill("ホストと受入条件を確認しました");
   await dialog.getByRole("button", { name: "予約を承認する" }).click();
   await expect(detail.getByRole("status")).toContainText("予約を承認しました");
+  await expect(detail).not.toContainText("承認期限が近づいています");
   await expect(detail).toContainText("NIHO サポート 山本");
   await expect(detail).toContainText("承認 · ホストと受入条件を確認しました");
   await page.reload();
   await expect(page.getByRole("article")).toContainText("確定");
   await expect(page.getByRole("article")).toContainText("承認 · ホストと受入条件を確認しました");
+  await expect(page.getByRole("article")).not.toContainText("承認期限が近づいています");
 });
 
 test("preview POST rejects cross-site and signed-out calls", async ({ page }) => {
