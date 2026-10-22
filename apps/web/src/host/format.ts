@@ -19,6 +19,50 @@ export function dateWithWeekdayJa(date: string): string {
   return `${month}月${day}日（${weekdayJa(date)}）`;
 }
 
+/** "10/22（木）": the short form for one line (ホーム's requests, a thread's booking). */
+export function shortDateWithWeekdayJa(date: string): string {
+  const { month, day } = parts(date);
+  return `${month}/${day}（${weekdayJa(date)}）`;
+}
+
+/** The calendar date `days` after `date` (YYYY-MM-DD). */
+export function addDays(date: string, days: number): string {
+  const { year, month, day } = parts(date);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/** Minutes from `from` to `to` (both YYYY-MM-DDTHH:MM in Japan; negative when `to` is earlier). */
+export function minutesBetween(from: string, to: string): number {
+  const at = (moment: string) => {
+    const [date = "", time = "00:00"] = moment.split("T");
+    const { year, month, day } = parts(date);
+    const [hours = 0, minutes = 0] = time.split(":").map(Number);
+    return Date.UTC(year, month - 1, day, hours, minutes);
+  };
+  return Math.round((at(to) - at(from)) / 60_000);
+}
+
+/** How long ago `at` was, rounded down: "たった今", "40 分前", "2 時間前", "3 日前". */
+export function agoJa(at: string, now: string): string {
+  const minutes = minutesBetween(at, now);
+  if (minutes < 1) return "たった今";
+  if (minutes < 60) return `${minutes} 分前`;
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} 時間前`;
+  return `${Math.floor(minutes / (24 * 60))} 日前`;
+}
+
+/**
+ * The time left before a deadline, rounded down so it never promises more: "あと 40 分",
+ * "あと 6 時間" (up to two days: "あと 44 時間" says more than "あと 1 日"), then "あと 2 日".
+ */
+export function remainingJa(deadline: string, now: string): string {
+  const minutes = minutesBetween(now, deadline);
+  if (minutes <= 0) return "期限を過ぎています";
+  if (minutes < 60) return `あと ${minutes} 分`;
+  if (minutes < 48 * 60) return `あと ${Math.floor(minutes / 60)} 時間`;
+  return `あと ${Math.floor(minutes / (24 * 60))} 日`;
+}
+
 /** "10月19日" */
 export function monthDayJa(date: string): string {
   const { month, day } = parts(date);

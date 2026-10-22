@@ -36,9 +36,11 @@ vi.mock("@/lib/host/server", async (importActual) => {
   };
 });
 
-import { openPayoutConnect, registerProvider, saveProviderProfile, sharePayoutAccount, submitProviderReview, syncPayoutAccount } from "./actions";
+import { draftReplyEnglish, openPayoutConnect, registerProvider, saveProviderProfile, sharePayoutAccount, submitProviderReview, syncPayoutAccount } from "./actions";
 import { PREVIEW_STRIPE_TEXT, STRIPE_LINK_UNUSABLE_TEXT, STRIPE_SYNCED_TEXT } from "./connect";
 import { HOST_ERROR_REASON_TEXT, HOST_INVALID_INPUT_TEXT, HOST_SESSION_ENDED_TEXT } from "./errors";
+import { MESSAGE_TEXT_LIMIT, REPLY_DRAFT_UNAVAILABLE_TEXT } from "./messages";
+import { MOCK_REPLY_EXAMPLES, PREVIEW_ENGLISH_DRAFT } from "./mock/threads";
 
 // The contract mock's synthetic consents (packages/api-client/src/host/mock.ts).
 const PROVIDER_CONSENT = "sample-provider-consent-1";
@@ -220,6 +222,39 @@ describe("openPayoutConnect and syncPayoutAccount", () => {
   });
 });
 
+describe("英語にする (#106)", () => {
+  const example = MOCK_REPLY_EXAMPLES[0]!;
+
+  it("mock: the example reply's natural English, and a preview sentence for anything else", async () => {
+    expect(await draftReplyEnglish({ providerId: KITCHEN, threadId: example.threadId, japanese: example.japanese })).toEqual({ ok: true, message: "英語にしました", english: example.english });
+    expect(await draftReplyEnglish({ providerId: KITCHEN, threadId: "th-bk-2044", japanese: "ご予約ありがとうございます。" })).toEqual({ ok: true, message: "英語にしました", english: PREVIEW_ENGLISH_DRAFT });
+    expect(state.revalidated).toEqual([]);
+  });
+
+  it("checks what the browser sent: a provider, a thread and Japanese that is not blank nor too long", async () => {
+    const ok = { providerId: KITCHEN, threadId: example.threadId, japanese: "はい" };
+    for (const input of [
+      { ...ok, providerId: "../admin" },
+      { ...ok, threadId: "" },
+      { ...ok, threadId: "x".repeat(201) },
+      { ...ok, japanese: "  \n" },
+      { ...ok, japanese: "あ".repeat(MESSAGE_TEXT_LIMIT + 1) },
+      { ...ok, japanese: 42 },
+      null,
+    ]) {
+      expect(await draftReplyEnglish(input as never)).toEqual({ ok: false, message: HOST_INVALID_INPUT_TEXT });
+    }
+    expect((await draftReplyEnglish({ ...ok, japanese: "あ".repeat(MESSAGE_TEXT_LIMIT) })).ok).toBe(true);
+  });
+
+  it("http: not until NIHO's API makes the English, and nothing is sent to NIHO", async () => {
+    state.config.apiMode = "http";
+    const calls = stubNiho(() => new Response(null, { status: 500 }));
+    expect(await draftReplyEnglish({ providerId: KITCHEN, threadId: example.threadId, japanese: example.japanese })).toEqual({ ok: false, message: REPLY_DRAFT_UNAVAILABLE_TEXT });
+    expect(calls).toEqual([]);
+  });
+});
+
 describe("the session", () => {
   it("asks for a reload instead of sending an expired token", async () => {
     state.config.apiMode = "http";
@@ -227,6 +262,7 @@ describe("the session", () => {
     const calls = stubNiho(() => new Response(null, { status: 500 }));
     expect(await submitProviderReview({ providerId: KITCHEN })).toEqual({ ok: false, message: HOST_SESSION_ENDED_TEXT });
     expect(await saveProviderProfile({ providerId: KITCHEN, bio: "x" })).toEqual({ ok: false, message: HOST_SESSION_ENDED_TEXT });
+    expect(await draftReplyEnglish({ providerId: KITCHEN, threadId: "th-3012", japanese: "はい" })).toEqual({ ok: false, message: HOST_SESSION_ENDED_TEXT });
     expect(calls).toEqual([]);
   });
 });

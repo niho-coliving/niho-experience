@@ -1,24 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useState, type ReactNode } from "react";
 import {
-  BOOKING_TEXT_LIMITS,
   bookingActions,
   bookingRequestRows,
   bookingStateRows,
   bookingStatusLabel,
   bookingWhen,
-  MESSAGE_STATUS,
   respondByLabel,
   shortDateTime,
   type BookingCancellation,
-  type BookingMessageInput,
   type BookingRow,
 } from "@/host/bookings";
 import { monthDayJa, yen } from "@/host/format";
 import type { HostBooking } from "@/host/types";
-import { FIELD_LABEL } from "./editor-parts";
-import { INPUT, TEXTAREA } from "./fields";
 import { BookingCancelDialog, BookingDecisionDialog, DANGER_BUTTON } from "./HostBookingDialogs";
 import { consoleButtonClass, HOST_SURFACE } from "./host-ui";
 import { HostIcon } from "./HostIcon";
@@ -66,95 +62,32 @@ function Rows({ rows }: { rows: readonly BookingRow[] }) {
 
 const WAIT_LINE = "mb-2.5 text-[0.78125rem] leading-normal font-extrabold text-warn";
 
-/** A text that is not only spaces: the browser's own check says why it cannot be sent. */
-function keepFilled(field: HTMLInputElement | HTMLTextAreaElement) {
-  field.setCustomValidity(field.value && !field.value.trim() ? "空白だけでは送れません" : "");
+/** メッセージ: the booking's thread (#106), with its last message, or the way to start one. */
+export interface BookingConversationLink {
+  /** /host/messages?thread=… (or ?booking=… to start one). */
+  href: string;
+  /** The last message in one line and when it was written; null before anyone wrote. */
+  last: { text: string; at: string } | null;
 }
 
-/** メッセージ: what was sent (連絡の履歴, with NIHO's sending state) and a subject and body to send now. */
-function MessageSection({ booking, canSend, onSend }: { booking: HostBooking; canSend: boolean; onSend: (input: BookingMessageInput) => void }) {
-  const baseId = useId();
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [sent, setSent] = useState(false);
+/** メッセージ: the last word of the booking's thread and the way into it. Messages are read and written in メッセージ. */
+function ConversationSection({ conversation }: { conversation: BookingConversationLink }) {
+  const { last } = conversation;
   return (
     <DetailSection title="メッセージ">
-      {booking.messages.length ? (
-        <ol aria-label="連絡の履歴" className="mb-3 flex flex-col gap-2">
-          {booking.messages.map((message) => (
-            <li key={message.id} className="rounded-xl bg-sand px-3 py-2.5 text-[0.8125rem] leading-normal [overflow-wrap:anywhere]">
-              <p className="font-extrabold">{message.subject}</p>
-              <p className="mt-0.5 whitespace-pre-wrap text-ink-soft">{message.body}</p>
-              <p className={`mt-1 flex flex-wrap items-center gap-x-1 text-xs font-bold ${message.status === "sent" ? "text-moss" : "text-danger"}`}>
-                <HostIcon name={message.status === "sent" ? "check" : "close"} className="size-3.5" />
-                {MESSAGE_STATUS[message.status]}
-                <span className="font-normal text-muted">· {shortDateTime(message.at)}</span>
-              </p>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-      {canSend ? (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!event.currentTarget.reportValidity()) return;
-            onSend({ subject, body });
-            setSubject("");
-            setBody("");
-            setSent(true);
-          }}
-        >
-          <p className="mb-2 text-xs text-muted [overflow-wrap:anywhere]">
-            宛先 {booking.guest} · {booking.email}
-          </p>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${baseId}-subject`} className={FIELD_LABEL}>
-              件名
-            </label>
-            <input
-              id={`${baseId}-subject`}
-              required
-              maxLength={BOOKING_TEXT_LIMITS.subject}
-              value={subject}
-              onChange={(event) => {
-                keepFilled(event.currentTarget);
-                setSubject(event.currentTarget.value);
-                setSent(false);
-              }}
-              className={INPUT}
-            />
-          </div>
-          <div className="mt-3 flex flex-col gap-1.5">
-            <label htmlFor={`${baseId}-body`} className={FIELD_LABEL}>
-              本文
-            </label>
-            <textarea
-              id={`${baseId}-body`}
-              required
-              maxLength={BOOKING_TEXT_LIMITS.body}
-              rows={3}
-              value={body}
-              onChange={(event) => {
-                keepFilled(event.currentTarget);
-                setBody(event.currentTarget.value);
-                setSent(false);
-              }}
-              className={TEXTAREA}
-            />
-          </div>
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <button type="submit" className={consoleButtonClass("secondary", "sm")}>
-              送信する
-            </button>
-            <p role="status" className="text-xs font-extrabold text-moss">
-              {sent ? "メッセージを送信しました" : ""}
-            </p>
-          </div>
-        </form>
+      {last ? (
+        <p className="flex items-baseline gap-2.5 text-[0.8125rem] leading-normal">
+          <span className="min-w-0 flex-1 truncate">{last.text}</span>
+          <time dateTime={`${last.at}+09:00`} className="shrink-0 text-xs text-muted tabular-nums">
+            {shortDateTime(last.at)}
+          </time>
+        </p>
       ) : (
-        <p className="text-[0.8125rem] text-muted">お断り・期限切れの申込には送れません。</p>
+        <p className="text-[0.8125rem] text-muted">まだやりとりはありません。</p>
       )}
+      <Link href={conversation.href} className={consoleButtonClass("secondary", "sm", "mt-2.5")}>
+        {last ? "やりとりを開く" : "メッセージを送る"}
+      </Link>
     </DetailSection>
   );
 }
@@ -167,17 +100,19 @@ export interface HostBookingDetailProps {
   headingId: string;
   /** What the last action did (role=status); empty until then. */
   notice: string;
+  /** The booking's thread, or the way to start one; null when the guest cannot be written to (お断り・期限切れ). */
+  conversation: BookingConversationLink | null;
   onApprove: () => void;
   onDecline: () => void;
   onCancel: (cancellation: BookingCancellation) => void;
-  onMessage: (input: BookingMessageInput) => void;
 }
 
 /**
  * One booking (mock v2 `bookingDetail`): the guest and the state, 申込内容, 状態, what the
- * host can do now, メッセージ and 時系列. 承認・お断り・取消 are asked in a dialog first.
+ * host can do now, メッセージ (the way into its thread) and 時系列. 承認・お断り・取消 are
+ * asked in a dialog first.
  */
-export function HostBookingDetail({ booking, experienceTitle, today, headingId, notice, onApprove, onDecline, onCancel, onMessage }: HostBookingDetailProps) {
+export function HostBookingDetail({ booking, experienceTitle, today, headingId, notice, conversation, onApprove, onDecline, onCancel }: HostBookingDetailProps) {
   const [asking, setAsking] = useState<"approve" | "decline" | "cancel" | null>(null);
   const actions = bookingActions(booking.status);
 
@@ -240,7 +175,7 @@ export function HostBookingDetail({ booking, experienceTitle, today, headingId, 
         <Rows rows={bookingStateRows(booking)} />
       </DetailSection>
       {next ? <div className="mt-3.5 border-t border-line pt-3.5">{next}</div> : null}
-      {actions.message || booking.messages.length ? <MessageSection booking={booking} canSend={actions.message} onSend={onMessage} /> : null}
+      {conversation ? <ConversationSection conversation={conversation} /> : null}
       <DetailSection title="時系列">
         <ol>
           {booking.timeline.map((event, index) => (

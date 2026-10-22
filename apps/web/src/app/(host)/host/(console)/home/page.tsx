@@ -1,30 +1,67 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HostHomeTodos } from "@/components/host/HostHomeTodos";
 import { HostIcon } from "@/components/host/HostIcon";
 import { HostRegisterPrompt } from "@/components/host/HostRegisterPrompt";
-import { consoleButtonClass, HOST_SURFACE } from "@/components/host/host-ui";
-import { HostPageBody, PageHead, SectionTitle, StatusPill } from "@/components/host/ui";
+import { consoleButtonClass, HOST_SURFACE, LIST_ROW, LIST_ROW_DETAIL, LIST_ROW_TITLE } from "@/components/host/host-ui";
+import { HostPageBody, MoreLink, PageHead, SectionTitle } from "@/components/host/ui";
 import { hostPageContext, loadHostConsoleData } from "@/host/data";
+import type { HomeUpcoming } from "@/host/home";
 import { HOST_BOOKINGS_PATH, HOST_SALES_PATH, withProvider } from "@/lib/host/routes";
 
 export const metadata: Metadata = { title: "ホーム" };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-const ROW = "flex min-h-[52px] items-center gap-3 px-3.5 py-3 md:px-4";
-const ROW_TITLE = "text-[0.875rem] leading-[1.4] font-extrabold [overflow-wrap:anywhere]";
-const ROW_DETAIL = "text-[0.78125rem] leading-normal text-muted";
-
-function MoreLink({ href, children }: { href: string; children: string }) {
+/** The day of a session: its weekday over the day (the full date for screen readers). */
+function SessionDay({ item }: { item: HomeUpcoming }) {
   return (
-    <Link href={href} className="inline-flex min-h-6 shrink-0 items-center gap-0.5 text-[0.78125rem] font-extrabold text-ink-soft hover:text-ink">
-      {children}
-      <HostIcon name="chevronRight" className="size-3.5" />
-    </Link>
+    <>
+      <span className="sr-only">{item.dateLabel}</span>
+      <span aria-hidden="true" className="w-11 shrink-0 text-center leading-[1.1]">
+        <span className="block text-xs font-extrabold text-muted">{item.weekday}</span>
+        <span className="mt-0.5 block font-display text-[1.3125rem] font-medium">{item.day}</span>
+      </span>
+    </>
   );
 }
 
-/** ホーム (mock v2): what needs doing, the sessions coming up, and this month's numbers. */
+/**
+ * 今日の開催 / 明日の開催 (#106): each session with its seats, its guests' food wishes and 参加者を見る
+ * (この回, #107). Today's rows say where each stands (開始前・開催中・終了), and when a session is over
+ * with attendance still to record. Not shown on a day without sessions.
+ */
+function DaySessions({ id, title, sessions, link }: { id: string; title: string; sessions: readonly HomeUpcoming[]; link: (href: string) => string }) {
+  if (!sessions.length) return null;
+  return (
+    <section aria-labelledby={id} className={`${HOST_SURFACE} mt-3.5`}>
+      <div className="px-4 pt-4 pb-2 md:px-5">
+        <SectionTitle id={id}>{title}</SectionTitle>
+      </div>
+      <ul>
+        {sessions.map((item, index) => (
+          <li key={item.key} className={`${LIST_ROW} flex-wrap border-t border-line first:border-t-0`}>
+            <SessionDay item={item} />
+            <span id={`${id}-${index}`} className="min-w-0 flex-[1_1_150px]">
+              {item.phase ? <span className={`block text-xs leading-normal font-extrabold ${item.phase.tone === "warn" ? "text-warn" : "text-muted"}`}>{item.phase.text}</span> : null}
+              <span className={`block ${LIST_ROW_TITLE}`}>{item.title}</span>
+              <span className={`block ${LIST_ROW_DETAIL}`}>{item.detail}</span>
+              {item.dietary ? <span className={`block ${LIST_ROW_DETAIL}`}>{item.dietary}</span> : null}
+            </span>
+            <span className="shrink-0 text-[0.875rem] leading-[1.4] font-extrabold whitespace-nowrap tabular-nums max-md:ml-14">
+              {item.seats} · {item.bookings}
+            </span>
+            <Link href={link(item.href)} aria-describedby={`${id}-${index}`} className={consoleButtonClass("secondary", "sm", "max-md:ml-auto")}>
+              参加者を見る
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** ホーム (mock v2, the journey mock's H1): what needs doing, today's and tomorrow's sessions, the ones after, and this month's numbers. */
 export default async function HostHomePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const context = await hostPageContext(await searchParams);
   // The console layout shows sign-in, refresh and error states.
@@ -33,6 +70,9 @@ export default async function HostHomePage({ searchParams }: { searchParams: Pro
   if (!provider) return <HostRegisterPrompt title="ホーム" />;
   const { home } = await loadHostConsoleData(provider);
   const link = (path: string) => withProvider(path, linkProviderId);
+  // これからの開催 starts after the days shown above it.
+  const upcoming = home.sessions.later;
+  const soon = home.sessions.today.length + home.sessions.tomorrow.length > 0;
 
   return (
     <HostPageBody>
@@ -43,32 +83,10 @@ export default async function HostHomePage({ searchParams }: { searchParams: Pro
         </p>
       ) : null}
 
-      <section aria-labelledby="home-todo" className={HOST_SURFACE}>
-        <div className="px-4 pt-4 pb-2 md:px-5">
-          <SectionTitle id="home-todo">次にすること</SectionTitle>
-        </div>
-        {home.todos.length ? (
-          <ul>
-            {home.todos.map((todo) => (
-              <li key={todo.key} className={`${ROW} flex-wrap border-t border-line first:border-t-0 max-md:items-start`}>
-                <StatusPill status={todo.status} />
-                {/* 170px keeps the pill and the words on one line down to a 360px phone; the button wraps below. */}
-                <div className="min-w-0 flex-[1_1_170px]">
-                  <p className={ROW_TITLE}>{todo.title}</p>
-                  <p className={ROW_DETAIL}>{todo.detail}</p>
-                </div>
-                {todo.action ? (
-                  <Link href={link(todo.action.href)} className={consoleButtonClass(todo.action.primary ? "primary" : "secondary", "sm", "max-md:ml-auto")}>
-                    {todo.action.label}
-                  </Link>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="px-4 pb-4 text-muted md:px-5">いま対応が必要なことはありません。</p>
-        )}
-      </section>
+      {/* Keyed by provider: another provider's rows start from their own list. */}
+      <HostHomeTodos key={provider.id} todos={home.todos} providerId={linkProviderId} />
+      <DaySessions id="home-today" title="今日の開催" sessions={home.sessions.today} link={link} />
+      <DaySessions id="home-tomorrow" title="明日の開催" sessions={home.sessions.tomorrow} link={link} />
 
       <div className="mt-3.5 grid items-start gap-3.5 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <section aria-labelledby="home-upcoming" className={HOST_SURFACE}>
@@ -76,23 +94,19 @@ export default async function HostHomePage({ searchParams }: { searchParams: Pro
             <SectionTitle id="home-upcoming">これからの開催</SectionTitle>
             <MoreLink href={link(HOST_BOOKINGS_PATH)}>予約を見る</MoreLink>
           </div>
-          {home.upcoming.length ? (
+          {upcoming.length ? (
             <ul>
-              {home.upcoming.map((item) => (
+              {upcoming.map((item) => (
                 <li key={item.key} className="border-t border-line first:border-t-0">
-                  <Link href={link(HOST_BOOKINGS_PATH)} className={`${ROW} hover:bg-sand/60`}>
-                    <span className="sr-only">{item.dateLabel}</span>
-                    <span aria-hidden="true" className="w-11 shrink-0 text-center leading-[1.1]">
-                      <span className="block text-xs font-extrabold text-muted">{item.weekday}</span>
-                      <span className="mt-0.5 block font-display text-[1.3125rem] font-medium">{item.day}</span>
-                    </span>
+                  <Link href={link(item.href)} className={`${LIST_ROW} hover:bg-sand/60`}>
+                    <SessionDay item={item} />
                     <span className="min-w-0 flex-1">
-                      <span className={`block ${ROW_TITLE}`}>{item.title}</span>
-                      <span className={`block ${ROW_DETAIL}`}>{item.detail}</span>
+                      <span className={`block ${LIST_ROW_TITLE}`}>{item.title}</span>
+                      <span className={`block ${LIST_ROW_DETAIL}`}>{item.detail}</span>
                     </span>
                     <span className="shrink-0 text-right">
                       <span className="block text-[0.875rem] leading-[1.4] font-extrabold whitespace-nowrap">{item.seats}</span>
-                      <span className={`block ${ROW_DETAIL}`}>{item.bookings}</span>
+                      <span className={`block ${LIST_ROW_DETAIL}`}>{item.bookings}</span>
                     </span>
                     <HostIcon name="chevronRight" className="size-4 text-line-strong max-md:hidden" />
                   </Link>
@@ -100,7 +114,7 @@ export default async function HostHomePage({ searchParams }: { searchParams: Pro
               ))}
             </ul>
           ) : (
-            <p className="px-4 pb-4 text-muted md:px-5">これからの開催はまだありません。</p>
+            <p className="px-4 pb-4 text-muted md:px-5">{soon ? "明後日からの開催はまだありません。" : "これからの開催はまだありません。"}</p>
           )}
         </section>
 

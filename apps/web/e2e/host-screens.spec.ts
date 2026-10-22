@@ -5,7 +5,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 // (HOST_CONSOLE_ENABLED=true, mock mode; see playwright.config.ts): the mock sign-in
 // makes a session for the synthetic NIHO, and nothing here talks to NIHO.
 
-const CONSOLE_PAGES = ["/host/home", "/host/experiences", "/host/experiences/community-dinner", "/host/bookings", "/host/sales", "/host/settings", "/host/register"];
+const CONSOLE_PAGES = ["/host/home", "/host/experiences", "/host/experiences/community-dinner", "/host/bookings", "/host/messages", "/host/sales", "/host/settings", "/host/register"];
 const PREVIEW_NOTE = "プレビュー（合成データ）· 体験・予約・売上・口座は架空で、保存されません";
 
 /** The sidebar (PC) and the bottom tabs (phones) share one name; only the one for the width is exposed. */
@@ -24,21 +24,31 @@ test("ホーム shows what to do next, the sessions coming up and the month", as
 
   const todo = page.getByRole("region", { name: "次にすること" });
   const todos = todo.getByRole("listitem");
-  await expect(todos).toHaveCount(3);
-  // Two requests wait for an answer: one row that opens 承認待ち (host-bookings.spec.ts follows it).
+  // Each request, the threads waiting for an answer, then a draft and a listing under review (host-messages.spec.ts follows the first ones).
+  await expect(todos).toHaveCount(7);
   await expect(todos.nth(0)).toContainText("承認待ち");
-  await expect(todos.nth(0)).toContainText("承認待ちの申込が 2 件");
-  await expect(todos.nth(0)).toContainText("最も早い承認期限 今日 22:00");
-  await expect(todos.nth(1)).toContainText("下書き");
-  await expect(todos.nth(2)).toContainText("審査待ち");
-  await expect(todo.getByRole("link", { name: "確認する" })).toHaveAttribute("href", "/host/bookings?filter=pending");
+  await expect(todos.nth(5)).toContainText("下書き");
+  await expect(todos.nth(6)).toContainText("審査待ち");
   await expect(todo.getByRole("link", { name: "編集する" })).toHaveAttribute("href", "/host/experiences/coffee");
   // Listings under review wait for NIHO: no button.
-  await expect(todos.nth(2).getByRole("link")).toHaveCount(0);
+  await expect(todos.nth(6).getByRole("link")).toHaveCount(0);
+  await expect(todo.getByRole("link", { name: "メッセージを見る" })).toHaveAttribute("href", "/host/messages");
 
+  // Today's tea time, over with its attendance still to record; tomorrow's dinner; then the sessions after tomorrow.
+  // 参加者を見る opens each session's own screen (この回, host-session.spec.ts).
+  const today = page.getByRole("region", { name: "今日の開催" });
+  await expect(today.getByRole("listitem")).toHaveCount(1);
+  for (const text of ["10月21日（水）", "終了 · 出欠が未記録", "13:00 開始 · 2時間", "ナッツなし 1 名", "4 / 8名 · 2件"]) await expect(today).toContainText(text);
+  await expect(today.getByRole("link", { name: "参加者を見る" })).toHaveAttribute("href", "/host/bookings/session?date=2026-10-21&start=13%3A00&experience=community-dinner&offer=offer-tea");
+  const tomorrow = page.getByRole("region", { name: "明日の開催" });
+  await expect(tomorrow.getByRole("listitem")).toHaveCount(1);
+  for (const text of ["10月22日（木）", "Kamakura Community Dinner with Locals", "18:00 開始 · 2時間", "ベジタリアン 1 名", "4 / 8名 · 2件"]) await expect(tomorrow).toContainText(text);
+  await expect(tomorrow.getByRole("link", { name: "参加者を見る" })).toHaveAttribute("href", "/host/bookings/session?date=2026-10-22&start=18%3A00&experience=community-dinner&offer=offer-dinner");
   const upcoming = page.getByRole("region", { name: "これからの開催" });
   await expect(upcoming.getByRole("listitem")).toHaveCount(3);
-  await expect(upcoming.getByRole("link", { name: /^10月22日（木）.*Kamakura Community Dinner with Locals.*18:00 開始 · 2時間.*4 \/ 8名.*2件/ })).toBeVisible();
+  const saturday = upcoming.getByRole("link", { name: /^10月24日（土）.*Kamakura Community Dinner with Locals.*18:00 開始 · 2時間.*1 \/ 8名.*1件/ });
+  await expect(saturday).toHaveAttribute("href", "/host/bookings/session?date=2026-10-24&start=18%3A00&experience=community-dinner&offer=offer-dinner");
+  await expect(upcoming).not.toContainText("10月22日");
   await expect(upcoming.getByRole("link", { name: "予約を見る" })).toHaveAttribute("href", "/host/bookings");
 
   const month = page.getByRole("region", { name: "10月" });
@@ -62,6 +72,8 @@ test("console links carry ?providerId=, and each provider has its own data", asy
   const todo = page.getByRole("region", { name: "次にすること" });
   await expect(todo.getByRole("listitem")).toHaveCount(1);
   await expect(todo.getByRole("link", { name: "編集する" })).toHaveAttribute("href", "/host/experiences/calligraphy?providerId=sample-provider-studio");
+  await expect(todo.getByRole("link", { name: "メッセージを見る" })).toHaveAttribute("href", "/host/messages?providerId=sample-provider-studio");
+  await expect(page.getByRole("region", { name: "明日の開催" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "これからの開催" })).toContainText("これからの開催はまだありません。");
   for (const [label, path] of [["ホーム", "/host/home"], ["体験", "/host/experiences"], ["予約", "/host/bookings"], ["売上", "/host/sales"], ["設定", "/host/settings"]]) {
     await expect(menu(page).getByRole("link", { name: label }), label).toHaveAttribute("href", `${path}?providerId=sample-provider-studio`);
@@ -310,7 +322,10 @@ test.describe("320px narrow phone", () => {
     }
     await page.goto("/host/home");
     for (const name of ["ホーム", "体験", "予約", "売上", "設定"]) await inside(menu(page).getByRole("link", { name }), `tab ${name}`);
-    await inside(page.getByRole("link", { name: "確認する" }), "home: 確認する");
+    await inside(page.getByRole("button", { name: "承認する" }).first(), "home: 承認する");
+    await inside(page.getByRole("link", { name: "詳しく見る" }).first(), "home: 詳しく見る");
+    await inside(page.getByRole("link", { name: "返信する" }).first(), "home: 返信する");
+    for (const day of ["今日の開催", "明日の開催"]) await inside(page.getByRole("region", { name: day }).getByRole("link", { name: "参加者を見る" }), `home: ${day} 参加者を見る`);
     await inside(page.getByRole("link", { name: "編集する" }), "home: 編集する");
     await page.locator("summary", { hasText: "のアカウント" }).click();
     await inside(page.getByRole("link", { name: /サンプル工房/ }), "account menu: provider");

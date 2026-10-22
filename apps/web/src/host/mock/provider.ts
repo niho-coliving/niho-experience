@@ -1,7 +1,8 @@
-import type { HostBooking, HostExperience, HostMeetingDefaults, HostSale } from "../types";
+import type { HostBooking, HostExperience, HostMeetingDefaults, HostSale, HostThread } from "../types";
 import { MOCK_KITCHEN_BOOKINGS } from "./bookings";
 import { MOCK_KITCHEN_EXPERIENCES, MOCK_STUDIO_EXPERIENCES } from "./experiences";
 import { MOCK_KITCHEN_SALES } from "./sales";
+import { MOCK_KITCHEN_THREADS } from "./threads";
 
 /*
  * The console's side of the two synthetic providers of the host contract's mock
@@ -13,6 +14,7 @@ import { MOCK_KITCHEN_SALES } from "./sales";
 export interface MockConsoleProvider {
   experiences: readonly HostExperience[];
   bookings: readonly HostBooking[];
+  threads: readonly HostThread[];
   sales: readonly HostSale[];
   meetingPoint: HostMeetingDefaults;
   notificationEmail: string;
@@ -22,6 +24,7 @@ export const MOCK_CONSOLE_PROVIDERS: ReadonlyMap<string, MockConsoleProvider> = 
   ["sample-provider-kitchen", {
     experiences: MOCK_KITCHEN_EXPERIENCES,
     bookings: MOCK_KITCHEN_BOOKINGS,
+    threads: MOCK_KITCHEN_THREADS,
     sales: MOCK_KITCHEN_SALES,
     meetingPoint: {
       area: "Near Kamakura Station, 5-minute walk",
@@ -30,10 +33,11 @@ export const MOCK_CONSOLE_PROVIDERS: ReadonlyMap<string, MockConsoleProvider> = 
     },
     notificationEmail: "kitchen@example.com",
   }],
-  // A small second provider: one draft, nothing booked or sold yet.
+  // A small second provider: one draft, nothing booked, asked or sold yet.
   ["sample-provider-studio", {
     experiences: MOCK_STUDIO_EXPERIENCES,
     bookings: [],
+    threads: [],
     sales: [],
     meetingPoint: { area: "", mapUrl: "", entrance: "" },
     notificationEmail: "studio@example.com",

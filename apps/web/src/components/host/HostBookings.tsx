@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   actionTime,
   approveBooking,
+  bookingActions,
   BOOKING_FILTERS,
   bookingFilterOf,
   bookingGroups,
@@ -13,15 +15,15 @@ import {
   bookingStatusLabel,
   cancelBooking,
   declineBooking,
-  sendBookingMessage,
+  sessionHref,
   type BookingCancellation,
   type BookingExperience,
-  type BookingMessageInput,
 } from "@/host/bookings";
 import { yen } from "@/host/format";
+import { messagesHref, type BookingConversation } from "@/host/messages";
 import type { HostBooking } from "@/host/types";
 import { useFocusAfterRender } from "./editor-parts";
-import { HostBookingDetail } from "./HostBookingDetail";
+import { HostBookingDetail, type BookingConversationLink } from "./HostBookingDetail";
 import { HostIcon } from "./HostIcon";
 import { HostSubHeader } from "./HostSubHeader";
 import { HOST_SURFACE } from "./host-ui";
@@ -51,6 +53,8 @@ export interface HostBookingsProps {
   now: string | null;
   /** The URL's own `?providerId=` (when well formed), carried on every link. */
   providerId: string | null;
+  /** The last message of each booking's thread (メッセージ, #106). */
+  conversations: readonly BookingConversation[];
 }
 
 /**
@@ -60,10 +64,11 @@ export interface HostBookingsProps {
  *
  * The filter, the experience and the booking live in the URL and change with pushState, so
  * the page is not loaded again and the bookings keep what happened to them on this screen
- * (mock mode: 承認・お断り・取消・メッセージ change them here only; the preview note says
- * nothing is kept). TODO(#87): send the actions to NIHO and show the booking it reads back.
+ * (mock mode: 承認・お断り・取消 change them here only; the preview note says nothing is kept).
+ * メッセージ leads to the booking's thread (#106). TODO(#87): send the actions to NIHO and show
+ * the booking it reads back. A session's heading opens its own screen (この回, #107).
  */
-export function HostBookings({ bookings: initialBookings, experiences, today, now, providerId }: HostBookingsProps) {
+export function HostBookings({ bookings: initialBookings, experiences, today, now, providerId, conversations }: HostBookingsProps) {
   const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<readonly HostBooking[]>(initialBookings);
   const [notice, setNotice] = useState<{ bookingId: string; text: string } | null>(null);
@@ -84,6 +89,12 @@ export function HostBookings({ bookings: initialBookings, experiences, today, no
   // From lg the first booking of the list shows until one is chosen; below lg the list does.
   const shown = sub ? selected : (groups[0]?.bookings[0] ?? null);
   const titleOf = (id: string) => experiences.find((experience) => experience.id === id)?.title ?? "";
+  /** The booking's thread, or the way to start one while the guest can still be written to. */
+  const conversationOf = (booking: HostBooking): BookingConversationLink | null => {
+    const thread = conversations.find((conversation) => conversation.bookingId === booking.id);
+    if (thread) return { href: messagesHref({ providerId, thread: thread.threadId }), last: { text: thread.text, at: thread.at } };
+    return bookingActions(booking.status).message ? { href: messagesHref({ providerId, booking: booking.id }), last: null } : null;
+  };
 
   // Below lg, opening a booking replaces the list: focus its name. Coming back puts focus on its row again.
   useEffect(() => {
@@ -176,13 +187,16 @@ export function HostBookings({ bookings: initialBookings, experiences, today, no
               {groups.length ? (
                 groups.map((group) => (
                   <div key={group.key} className="border-t border-line first:border-t-0">
-                    {/* One session: its day and time, the experience and the seats its requests and bookings keep. */}
-                    <h2 className="flex items-center gap-2 bg-sand/60 px-3.5 py-2 font-sans text-xs leading-normal font-extrabold tracking-normal text-ink-soft md:px-4">
-                      <span className="shrink-0">{group.label}</span>
-                      <span className="sr-only"> · </span>
-                      <span className="min-w-0 flex-1 truncate text-muted">{group.title}</span>
-                      <span className="sr-only"> · </span>
-                      <span className="shrink-0 tabular-nums">{group.seats}</span>
+                    {/* One session: its day and time, the experience and the seats its requests and bookings keep. It opens the session (この回), apart from the rows' bookings. */}
+                    <h2 className="font-sans text-xs leading-normal font-extrabold tracking-normal text-ink-soft">
+                      <Link href={sessionHref({ providerId, ...group })} className="flex min-h-9 items-center gap-2 bg-sand/60 px-3.5 py-2 hover:bg-sand focus-visible:outline-offset-[-3px] md:px-4">
+                        <span className="shrink-0">{group.label}</span>
+                        <span className="sr-only"> · </span>
+                        <span className="min-w-0 flex-1 truncate text-muted">{group.title}</span>
+                        <span className="sr-only"> · </span>
+                        <span className="shrink-0 tabular-nums">{group.seats}</span>
+                        <HostIcon name="chevronRight" className="size-3.5 text-muted" />
+                      </Link>
                     </h2>
                     <ul>
                       {group.bookings.map((booking) => {
@@ -230,13 +244,14 @@ export function HostBookings({ bookings: initialBookings, experiences, today, no
             ) : null}
             {shown ? (
               <HostBookingDetail
-                // Each booking starts with its own message form.
+                // Each booking starts with its dialogs closed.
                 key={shown.id}
                 booking={shown}
                 experienceTitle={titleOf(shown.experienceId)}
                 today={today}
                 headingId={DETAIL_HEADING}
                 notice={notice?.bookingId === shown.id ? notice.text : ""}
+                conversation={conversationOf(shown)}
                 onApprove={() => {
                   if (change(shown.id, approveBooking)) report(shown.id, "申込を承認しました。予約が確定しました");
                 }}
@@ -248,9 +263,6 @@ export function HostBookings({ bookings: initialBookings, experiences, today, no
                   if (!done) return;
                   const refunded = done.after.refundedYen - done.before.refundedYen;
                   report(shown.id, refunded > 0 ? `予約を取り消し、${yen(refunded)} を返金しました` : "予約を取り消しました");
-                }}
-                onMessage={(input: BookingMessageInput) => {
-                  change(shown.id, (booking, at) => sendBookingMessage(booking, input, at));
                 }}
               />
             ) : sub ? (

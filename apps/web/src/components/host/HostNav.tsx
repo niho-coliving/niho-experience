@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useRef } from "react";
-import { hostBackLink, isHostNavActive } from "@/host/nav";
+import { hostBackLink, isHostNavActive, providerSwitchPath } from "@/host/nav";
 import { nihoIdOrNull, providerRoleLabel, selectProvider, type HostProviderChoice } from "@/lib/host/providers";
 import { HOST_HOME_PATH, HOST_LOGOUT_PATH, HOST_NAV, withProvider } from "@/lib/host/routes";
 import { HostIcon, type HostIconName } from "./HostIcon";
@@ -41,7 +41,7 @@ function useProviderId(): string | null {
 function ProviderLinks({ providers, currentId, onPick }: { providers: readonly HostProviderChoice[]; currentId: string; onPick: () => void }) {
   const pathname = usePathname();
   // A page under a section (one experience) may not exist for the other provider: switch to the section itself.
-  const base = hostBackLink(pathname)?.href ?? pathname;
+  const base = providerSwitchPath(pathname);
   return (
     <ul className="flex flex-col gap-0.5">
       {providers.map((provider) => {
@@ -206,7 +206,7 @@ function AccountMenu({ account, providers, nihoAppUrl }: HostChromeProps) {
   );
 }
 
-/** Phones, on the five top pages: brand and account. Pages under a section (and one booking, `?booking=`) bring their own "‹ 体験" header. */
+/** Phones, on the five top pages: brand and account. Pages under a section or ホーム (and one booking, `?booking=`) bring their own "‹ 体験" header. */
 export function HostMobileHeader(props: HostChromeProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -226,7 +226,7 @@ export function HostMobileHeader(props: HostChromeProps) {
   );
 }
 
-/** Phones: the five sections as bottom tabs (icon and a 12px label). Hidden under a section and on one booking, where the page has its back header. */
+/** Phones: the five sections as bottom tabs (icon and a 12px label). Hidden under a section or ホーム and on one booking, where the page has its back header. */
 export function HostTabBar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();

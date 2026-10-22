@@ -83,7 +83,7 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 - `?mock=reviews-error`（レビューの節が読めない）・`reviews-more-error`（"Show all" だけ失敗）：レビューの失敗を再現（mock時のみ）。合成のレビューは indigo＝12 件・pottery＝2 件・cycling＝1 件・dinner＝0 件。
 - `/preview/checkout` から、決済後のページ `/booking/return` の 3 通り（`?type=instant`・`?type=approval`・種別なし）へ進める。
 - 決済は `/preview/checkout` の模擬ページへ進む。カード情報は扱わない。
-- ホストの画面：`HOST_CONSOLE_ENABLED=true` で `/host` の「NIHO でログイン」から合成のアカウントで入る（mock 時は NIHO へ行かない）。提供者の一覧と詳細はホスト契約の mock（`@niho-experience/api-client/host/mock`）で、指定なしは「サンプルの台所」と「サンプル工房」。`/host?mock=empty`（提供者 0 件。登録の流れを試せる）・`?mock=payments-pending`（口座未接続の提供者 1 件）から入ると、その scenario の合成セッションになる。体験・予約・売上の表示は架空（`apps/web/src/host/mock/`）で、体験の編集・予約の操作・売上は画面内の状態だけ（保存しても次の要求には残らない）。提供者情報の保存・審査の申請・受取口座（共有・接続・再確認）・登録はホスト契約の mock を server action から呼ぶ。契約 mock は要求ごとに作り直されるので、書き込みの結果はその応答にだけ残り、mock の登録は `?mock=payments-pending` のログインに置き換わる。
+- ホストの画面：`HOST_CONSOLE_ENABLED=true` で `/host` の「NIHO でログイン」から合成のアカウントで入る（mock 時は NIHO へ行かない）。提供者の一覧と詳細はホスト契約の mock（`@niho-experience/api-client/host/mock`）で、指定なしは「サンプルの台所」と「サンプル工房」。`/host?mock=empty`（提供者 0 件。登録の流れを試せる）・`?mock=payments-pending`（口座未接続の提供者 1 件）から入ると、その scenario の合成セッションになる。体験・予約・売上・メッセージのスレッドの表示は架空（`apps/web/src/host/mock/`。今は 2026-10-21 15:30 に固定）で、体験の編集・予約の操作・ホームからの承認・スレッドへの返信・出欠・この回の中止は画面内の状態だけ（保存しても次の要求には残らない）。返信の「英語にする」は server action で、mock は合成の英語（例の返信以外は「[Preview] …」の 1 文）を返す。提供者情報の保存・審査の申請・受取口座（共有・接続・再確認）・登録はホスト契約の mock を server action から呼ぶ。契約 mock は要求ごとに作り直されるので、書き込みの結果はその応答にだけ残り、mock の登録は `?mock=payments-pending` のログインに置き換わる。
 
 ## データの扱い
 

@@ -31,6 +31,9 @@ export const BOOKING_STATUS: Record<HostBookingStatus, StatusLabel> = {
 /** A booking whose day has passed stays 確定, in the quiet tone (mock v2). */
 export const PAST_CONFIRMED_BOOKING: StatusLabel = { label: "確定", tone: "draft" };
 
+/** A thread whose last word is the guest's (メッセージ, #106). */
+export const THREAD_WAITING: StatusLabel = { label: "返信待ち", tone: "wait" };
+
 /** The provider's own review, shown beside 設定 › 提供者情報 (NIHO's provider screen calls SUSPENDED 確認が必要). */
 export const PROVIDER_REVIEW_STATUS: Record<HostProviderReviewStatus, StatusLabel> = {
   DRAFT: { label: "未申請", tone: "draft" },
