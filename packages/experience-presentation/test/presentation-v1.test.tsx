@@ -125,6 +125,58 @@ describe("v1 portable presentation", () => {
     expect(html).not.toContain(EN_STATIC_COPY_V1.text("detail.meetingAfterBooking"));
   });
 
+  it("shows structured conditions and the ask slot inside Good to know, and nothing extra without them", () => {
+    const plain = renderToStaticMarkup(<DetailViewV1 model={detailModel} />);
+    expect(plain).toContain("Synthetic note");
+    expect(plain).not.toContain("Ask slot");
+    const withConditions = renderToStaticMarkup(<DetailViewV1 model={{ ...detailModel, know: [], conditions: [{ icon: "people", headline: "Ages 10 and up", detail: "Children must join with an adult" }, { icon: "umbrella", headline: "Rain or shine" }], askHost: <button>Ask slot</button> }} />);
+    expect(withConditions).toContain(EN_STATIC_COPY_V1.text("detail.goodToKnow"));
+    expect(withConditions).toContain("Ages 10 and up");
+    expect(withConditions).toContain("Children must join with an adult");
+    expect(withConditions.indexOf("Ages 10 and up")).toBeLessThan(withConditions.indexOf("Rain or shine"));
+    expect(withConditions.indexOf("Rain or shine")).toBeLessThan(withConditions.indexOf("Ask slot"));
+    expect(withConditions).not.toContain("Synthetic note");
+    // Host-written notes stay under the structured rows when both exist.
+    const both = renderToStaticMarkup(<DetailViewV1 model={{ ...detailModel, conditions: [{ icon: "people", headline: "Ages 10 and up" }] }} />);
+    expect(both.indexOf("Ages 10 and up")).toBeLessThan(both.indexOf("Synthetic note"));
+  });
+
+  it("keeps the ask slot when an experience has no Good to know content", () => {
+    const html = renderToStaticMarkup(<DetailViewV1 model={{ ...detailModel, know: [], notSuitable: [], askHost: <button>Ask slot</button> }} />);
+    expect(html).not.toContain(EN_STATIC_COPY_V1.text("detail.goodToKnow"));
+    expect(html).toContain("Ask slot");
+    expect(renderToStaticMarkup(<DetailViewV1 model={{ ...detailModel, know: [], notSuitable: [] }} />)).not.toContain("Ask slot");
+  });
+
+  it("adds Before you book, the mobile number and a host heading to checkout without changing the default screen", () => {
+    const base = renderToStaticMarkup(<BookingCheckoutViewV1 model={bookingPreview.checkout} />);
+    expect(base).not.toContain('name="conditions"');
+    expect(base).not.toContain('name="guestPhone"');
+    expect(base).toContain(EN_STATIC_COPY_V1.text("booking.hostQuestions"));
+    const stepOf = (html: string, id: string) => new RegExp(`id="${id}"[^>]*><span[^>]*>step (\\d)</span>`).exec(html)?.[1];
+    const extended = renderToStaticMarkup(<BookingCheckoutViewV1 model={{
+      ...bookingPreview.checkout,
+      hostQuestionsHeading: "Questions from Sample Host",
+      guestPhone: { label: "Mobile number", hint: "(optional, for the day)", value: "+44 7700 900123", invalid: false },
+      conditions: { heading: "Before you book", agreeIntro: "Everyone in my group is OK with:", items: ["Ages 10 and up", "Steps up to the studio"], agreed: false, invalid: false },
+    }} />);
+    expect(extended).toContain('id="booking-conditions"');
+    expect(extended).toContain("Before you book");
+    expect(extended).toContain("Ages 10 and up");
+    expect(extended).toContain('type="tel"');
+    expect(extended).toContain("Mobile number");
+    expect(extended).toContain("Questions from Sample Host");
+    expect(extended).not.toContain(EN_STATIC_COPY_V1.text("booking.hostQuestions"));
+    // The conditions come first; details and the final check shift down by one step.
+    expect(extended.indexOf('id="conditions-heading-v1"')).toBeLessThan(extended.indexOf('id="details-heading-v1"'));
+    expect(extended.indexOf('id="details-heading-v1"')).toBeLessThan(extended.indexOf('id="check-heading-v1"'));
+    expect([stepOf(extended, "conditions-heading-v1"), stepOf(extended, "details-heading-v1"), stepOf(extended, "check-heading-v1")]).toEqual(["3", "4", "5"]);
+    expect([stepOf(base, "details-heading-v1"), stepOf(base, "check-heading-v1")]).toEqual(["3", "4"]);
+    const invalid = renderToStaticMarkup(<BookingCheckoutViewV1 model={{ ...bookingPreview.checkout, conditions: { heading: "Before you book", agreeIntro: "OK?", items: ["A"], agreed: false, invalid: true }, guestPhone: { label: "Mobile number", value: "x", invalid: true } }} />);
+    expect(invalid).toContain('aria-invalid="true"');
+    expect(invalid).toContain("border-danger");
+  });
+
   it("renders the complete route structures through React SSR", () => {
     const detail = <DetailViewV1 model={detailModel} />;
     const booking = <BookingPageViewV1 backHref={card.href} backLabel={card.title} panel={<BookingPreviewV1 model={bookingPreview} />} />;

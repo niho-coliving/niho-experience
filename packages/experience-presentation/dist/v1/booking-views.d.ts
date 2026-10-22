@@ -108,15 +108,38 @@ export type BookingCheckoutViewModelV1 = Readonly<{
     retryWaiting: boolean;
     actionDisabled: boolean;
     when: string;
+    /**
+     * Optional additions for the guest journey (Epic #103). When absent the screen is exactly as before.
+     * The consumer supplies these display strings (they are not in the static copy registry, so saved localization snapshots stay complete).
+     */
+    /** "Before you book": participation conditions the whole group must accept. Adds one step before "Your details". */
+    conditions?: Readonly<{
+        heading: string;
+        agreeIntro: string;
+        items: readonly string[];
+        agreed: boolean;
+        invalid: boolean;
+    }>;
+    /** Optional mobile number for the day of the experience. */
+    guestPhone?: Readonly<{
+        label: string;
+        hint?: string;
+        value: string;
+        invalid: boolean;
+    }>;
+    /** Replaces "Questions from your host", e.g. "Questions from Shiryu". */
+    hostQuestionsHeading?: string;
 }>;
 export type BookingCheckoutCallbacksV1 = Readonly<{
     onBack?: () => void;
     onRefresh?: () => void;
     onGuestNameChange?: (value: string) => void;
     onGuestEmailChange?: (value: string) => void;
+    onGuestPhoneChange?: (value: string) => void;
     onNoteChange?: (value: string) => void;
     onAnswerChange?: (id: string, value: string | string[]) => void;
     onAgreementChange?: (value: boolean) => void;
+    onConditionsAgreementChange?: (value: boolean) => void;
     onSubmit?: () => void;
 }>;
 export declare function BookingCheckoutViewV1({ model, callbacks, titleAs, problemRef, primitives, copy }: {
