@@ -87,7 +87,7 @@ export async function HostPageContent({ searchParams, locale }: { searchParams: 
       {consoleEntry && openSignup ? null : startUrl ? (
         <div className="space-y-3">
           <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
-            {copy.text("host.start")}
+            {locale === "ja" ? "NIHOアカウントで始める" : "Start with your NIHO account"}
           </TrackedLink>
           <p className="text-sm text-muted">
             {copy.text("host.feesBody")}

@@ -15,7 +15,6 @@ import { imageAlt } from "@/lib/experience-copy";
 import { assertSameJapaneseRelease, getJapaneseCatalog, getJapaneseCopy } from "@/lib/localized-content";
 import { japaneseStaticMetadata } from "@/lib/locale-metadata";
 import { BANNER_VIDEO, HERO_PHOTO, HOST_BAND_VIDEO, POSTCARDS } from "@/lib/site-media";
-import { themeEntries } from "@/lib/themes";
 
 const cardModel = (card: CardModel): ExperienceCardModelV1 => ({
   ...card,
@@ -39,12 +38,13 @@ export default async function JapaneseHome() {
     const cards = buildCardModels(catalog.experiences, details, false, "ja", copy.copy);
     data = { copy, catalog, cards };
   } catch { return <JapaneseUnavailable />; }
-  const { copy, catalog, cards } = data;
+  const { copy, cards } = data;
   const cardDates: CardDatesSource = { kind: "read", preview: false, nihoWebOrigin: config.nihoWebOrigin };
   const model: HomeViewModelV1 = {
     hero: { src: HERO_PHOTO.src, alt: HERO_PHOTO.alt, position: HERO_PHOTO.position },
     finder: <HomeFinder days={upcomingDays(new Date(), 14, "ja")} />,
-    themes: themeEntries(catalog.experiences).map((theme) => ({ ...theme, href: `/experiences/${theme.slug}` })),
+    // Editorial theme labels are English-only until they join the approved copy release.
+    themes: [],
     cardsEyebrow: `${cards.length}件`,
     cards: cards.map((card) => ({ model: cardModel(card), dates: <CardDates slug={card.slug} scheduleLabel={card.scheduleLabel} source={cardDates} /> })),
     empty: <EmptyResults clearHref={null} />,

@@ -19,8 +19,8 @@ test("empty, unavailable, and unknown catalog states have a way forward", async 
 test("host page keeps self-sign-up closed until NIHO provides the real registration route", async ({ page }) => {
   await page.goto("/host");
 
-  await expect(page.getByText("We're starting with a small group of hosts")).toBeVisible();
-  await expect(page.getByText("Online sign-up opens after that.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tell us your idea" })).toBeVisible();
+  await expect(page.getByText("A short chat about what you'd like to share, how often, and for how many guests.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Start with your NIHO account" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Manage your experiences on NIHO" })).toHaveAttribute("href", "https://niho.life/experiences/provider");
 });
