@@ -82,9 +82,9 @@ async function installContractStubs(page: Page) {
     }
     const url = new URL(request.url());
     const unreadOnly = url.searchParams.get("unread") === "true";
-    const source = notices.map((item) => ({ ...item, readAt: readAt.get(item.id) ?? item.readAt })).filter((item) => !unreadOnly || item.readAt === null);
     const offset = url.searchParams.get("cursor") === "notice-page-2" ? 2 : 0;
-    const body = JSON.stringify({ notifications: source.slice(offset, offset + 2), unreadCount: notices.filter((item) => !readAt.has(item.id)).length, nextCursor: offset === 0 && source.length > 2 ? "notice-page-2" : null });
+    const source = notices.slice(offset).map((item) => ({ ...item, readAt: readAt.get(item.id) ?? item.readAt })).filter((item) => !unreadOnly || item.readAt === null);
+    const body = JSON.stringify({ notifications: source.slice(0, 2), unreadCount: notices.filter((item) => !readAt.has(item.id)).length, nextCursor: offset === 0 && source.length > 2 ? "notice-page-2" : null });
     if (offset === 0) notificationFirstPageReads += 1;
     if (offset > 0 || notificationFirstPageReads === 2) await new Promise((resolve) => setTimeout(resolve, 650));
     await route.fulfill({ status: 200, contentType: "application/json", body });
@@ -190,6 +190,23 @@ test("notification pages expose global unread count and update only after whole-
   await expect(page.getByRole("button", { name: "次の50件を読み込む" })).toBeEnabled();
   await page.getByRole("button", { name: "次の50件を読み込む" }).click();
   await expect(page.getByText("読み込みページ 2 · 1件")).toBeVisible();
+});
+
+test("marking unread notifications removes them and preserves the next keyset page", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("link", { name: /通知/ }).click();
+  await page.getByRole("button", { name: "未読 3件" }).click();
+  const list = page.getByRole("region", { name: "通知一覧" });
+  const first = list.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "新規申込", exact: true }) });
+  await first.getByRole("button", { name: "既読にする", exact: true }).click();
+  await expect(first).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "未読 2件" })).toBeVisible();
+  await page.getByRole("button", { name: "このページの未読1件を既読にする" }).click();
+  await expect(list.getByRole("listitem")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "未読 1件" })).toBeVisible();
+  await page.getByRole("button", { name: "次の50件を読み込む" }).click();
+  await expect(list.getByRole("heading", { name: "返金確認", exact: true })).toBeVisible();
+  await expect(list.getByText("既読", { exact: true })).toHaveCount(0);
 });
 
 test("a notification write 401 clears notifications and the global unread count", async ({ page }) => {

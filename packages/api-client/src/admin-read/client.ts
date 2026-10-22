@@ -7,7 +7,7 @@ import {
   decodeExperienceAdminNotificationQuery,
   decodeExperienceAdminNotificationReadRequest,
   decodeExperienceAdminNotificationReadResponse,
-  EXPERIENCE_ADMIN_OPAQUE_ID,
+  isExperienceAdminOpaqueId,
 } from "./schema.ts";
 import type {
   ExperienceAdminBookingDetailResponse,
@@ -94,8 +94,11 @@ export function createExperienceAdminReadApiClient(input: ExperienceAdminReadApi
     },
 
     getBooking(bookingId) {
-      if (!EXPERIENCE_ADMIN_OPAQUE_ID.test(bookingId)) return Promise.resolve({ ok: false, kind: "invalid_request" });
-      return requestJson(`/api/admin/experience-bookings/${encodeURIComponent(bookingId)}`, { method: "GET" }, decodeExperienceAdminBookingDetailResponse);
+      if (!isExperienceAdminOpaqueId(bookingId) || bookingId === "." || bookingId === ".." || /[/\\%]/.test(bookingId)
+        || Array.from(bookingId).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) return Promise.resolve({ ok: false, kind: "invalid_request" });
+      let segment: string;
+      try { segment = encodeURIComponent(bookingId); } catch { return Promise.resolve({ ok: false, kind: "invalid_request" }); }
+      return requestJson(`/api/admin/experience-bookings/${segment}`, { method: "GET" }, decodeExperienceAdminBookingDetailResponse);
     },
 
     listNotifications(query) {

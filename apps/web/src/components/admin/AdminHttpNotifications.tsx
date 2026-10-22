@@ -148,7 +148,14 @@ export function AdminHttpNotifications() {
     try {
       const result = await markNotificationsRead(notificationIds);
       const readAt = new Map(result.notifications.map((item) => [item.id, item.readAt]));
-      setPages((current) => current.map((page) => ({ ...page, unreadCount: result.unreadCount, notifications: page.notifications.map((item) => readAt.has(item.id) ? { ...item, readAt: readAt.get(item.id)! } : item) })));
+      setPages((current) => current.map((page) => ({
+        ...page,
+        unreadCount: result.unreadCount,
+        // Keep the API's keyset cursor when marking all items on this page read.
+        notifications: page.notifications
+          .map((item) => readAt.has(item.id) ? { ...item, readAt: readAt.get(item.id)! } : item)
+          .filter((item) => filter !== "unread" || item.readAt === null),
+      })));
       setUnreadCount(result.unreadCount);
       router.refresh();
     } catch (error) {

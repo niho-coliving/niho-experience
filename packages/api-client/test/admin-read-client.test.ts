@@ -91,6 +91,12 @@ describe("Admin read response decoders", () => {
     expect(decodeExperienceAdminBookingDetailResponse({ booking: detail, supportAgreement: { agreementRevision: 99, sharedConsultationMemo: null, matchesBookingSnapshot: true } })).toBeNull();
   });
 
+  it("accepts opaque response IDs without imposing URL-segment character rules", () => {
+    const item = { ...listItem, id: "booking.1:legacy", host: { ...listItem.host, id: "provider:legacy.1" }, support: { ...validSupport, snapshot: { ...validSupport.snapshot, consentedByUserId: "federated:owner.user" } } };
+    expect(decodeExperienceAdminBookingListResponse({ bookings: [item], nextCursor: null }))?.toMatchObject({ bookings: [{ id: item.id, host: { id: item.host.id }, support: { snapshot: { consentedByUserId: "federated:owner.user" } } }] });
+    expect(decodeExperienceAdminNotificationListResponse({ notifications: [{ id: "notice:1.v2", type: "APPLICATION_RECEIVED", title: "合成通知", body: "通知", bookingRequestId: item.id, occurredAt: item.createdAt, readAt: null }], unreadCount: 1, nextCursor: null })).not.toBeNull();
+  });
+
   it("accepts seven notification types and does not equate page unread with global unread", () => {
     const notifications = ["APPLICATION_RECEIVED", "BOOKING_CONFIRMED", "BOOKING_DECLINED", "BOOKING_EXPIRED", "BOOKING_CANCELLED", "REFUND_NEEDED", "TRAVELER_CANCEL_REQUESTED"].map((type, index) => ({ id: `notice-${index}`, type, title: type, body: "合成通知", bookingRequestId: "booking-1", occurredAt: "2026-10-23T01:00:00.000Z", readAt: index === 0 ? null : "2026-10-23T02:00:00.000Z" }));
     expect(decodeExperienceAdminNotificationListResponse({ notifications, unreadCount: 12, nextCursor: null }))?.toMatchObject({ unreadCount: 12 });
@@ -121,6 +127,25 @@ describe("Admin read server-only client", () => {
     expect(fetcher).not.toHaveBeenCalled();
     expect(await client.getBooking("booking-1")).toEqual({ ok: false, kind: "rejected", status: 403 });
     expect(fetcher.mock.calls[0]?.[0]).toBe("https://niho.example/api/admin/experience-bookings/booking-1");
+  });
+
+  it("encodes opaque path IDs while keeping traversal outside the fixed route", async () => {
+    const fetcher = vi.fn(async (_input: string, _init?: RequestInit) => new Response(JSON.stringify({ booking: { ...detail, id: "booking.1:legacy" }, supportAgreement: { agreementRevision: 2, sharedConsultationMemo: null, matchesBookingSnapshot: true } }), { status: 200 }));
+    const client = createExperienceAdminReadApiClient({ nihoWebOrigin: "https://niho.example", idToken: "token-1", fetch: fetcher });
+    for (const id of [".", "..", "a/b", "a\\b", "a%2Fb", "a%5Cb", "a%2Eb", "", "x".repeat(201), "\ud800"]) {
+      expect(await client.getBooking(id)).toEqual({ ok: false, kind: "invalid_request" });
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+    expect((await client.getBooking("booking.1:legacy")).ok).toBe(true);
+    expect(fetcher.mock.calls[0]?.[0]).toBe("https://niho.example/api/admin/experience-bookings/booking.1%3Alegacy");
+  });
+
+  it("keeps opaque notification IDs in the JSON body and accepts the exact receipt", async () => {
+    const fetcher = vi.fn(async (_input: string, _init?: RequestInit) => new Response(JSON.stringify({ notifications: [{ id: "notice:1.v2", readAt: "2026-10-23T01:00:00.000Z" }], unreadCount: 2 }), { status: 200 }));
+    const client = createExperienceAdminReadApiClient({ nihoWebOrigin: "https://niho.example", idToken: "token-1", fetch: fetcher });
+    expect((await client.markNotificationsRead({ notificationIds: ["notice:1.v2"] })).ok).toBe(true);
+    expect(fetcher.mock.calls[0]?.[0]).toBe("https://niho.example/api/admin/experience-support-notifications/read");
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({ notificationIds: ["notice:1.v2"] });
   });
 
   it("rejects malformed success JSON", async () => {

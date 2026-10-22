@@ -22,7 +22,7 @@ type JsonObject = Record<string, unknown>;
 export const EXPERIENCE_ADMIN_BOOKING_STATUSES = ["PENDING", "PAYMENT_PENDING", "PROVISIONAL", "CONFIRMED", "DECLINED", "EXPIRED", "CANCELLED", "REFUND_NEEDED"] as const satisfies readonly ExperienceAdminBookingStatus[];
 export const EXPERIENCE_ADMIN_NOTIFICATION_TYPES = ["APPLICATION_RECEIVED", "BOOKING_CONFIRMED", "BOOKING_DECLINED", "BOOKING_EXPIRED", "BOOKING_CANCELLED", "REFUND_NEEDED", "TRAVELER_CANCEL_REQUESTED"] as const satisfies readonly ExperienceAdminNotificationType[];
 export const EXPERIENCE_ADMIN_NOTIFICATION_IDS_MAX = 64;
-export const EXPERIENCE_ADMIN_OPAQUE_ID = /^[A-Za-z0-9_-]{1,200}$/;
+export const isExperienceAdminOpaqueId = (value: unknown): value is string => typeof value === "string" && value.length >= 1 && value.length <= 200;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -34,7 +34,7 @@ const isString = (value: unknown): value is string => typeof value === "string";
 const isNullableString = (value: unknown): value is string | null => value === null || typeof value === "string";
 const isInteger = (value: unknown, min = 0): value is number => typeof value === "number" && Number.isInteger(value) && value >= min;
 const isOneOf = <T extends string>(values: readonly T[], value: unknown): value is T => typeof value === "string" && (values as readonly string[]).includes(value);
-const isId = (value: unknown): value is string => typeof value === "string" && EXPERIENCE_ADMIN_OPAQUE_ID.test(value);
+const isId = isExperienceAdminOpaqueId;
 const isCursor = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 2048;
 const isDateTime = (value: unknown): value is string => typeof value === "string" && DATE_TIME.test(value) && Number.isFinite(Date.parse(value));
 const isNullableDateTime = (value: unknown): value is string | null => value === null || isDateTime(value);
