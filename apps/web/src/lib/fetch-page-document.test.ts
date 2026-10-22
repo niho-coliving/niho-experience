@@ -5,7 +5,7 @@ import { publishedDocument } from "./testing/page-document-fixtures";
 
 const origin = "https://niho.example";
 describe("published page document boundary", () => {
-  it("全6ページを公開routeから認証なし・no-storeで取得する", async () => {
+  it("全7ページを公開routeから認証なし・no-storeで取得する", async () => {
     for (const pageId of PAGE_IDS) {
       const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(publishedDocument(pageId)));
       expect(await fetchPageDocument(pageId, { origin, fetch: fetcher })).toMatchObject({ pageId, locale: "en", revision: 2 });

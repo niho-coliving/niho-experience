@@ -1,15 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { LocalizedLink } from "./LocalizedLink";
+import { localeHref, useSiteLocale } from "./SiteLocale";
 
 /** Header link that marks the page it leads to (a pale surface and aria-current). */
 export function NavLink({ href, className = "", children }: { href: string; className?: string; children: ReactNode }) {
-  const current = usePathname() === href;
+  const { locale } = useSiteLocale();
+  const target = localeHref(href, locale);
+  const current = usePathname() === target;
   return (
-    <Link href={href} aria-current={current ? "page" : undefined} className={`${className} ${current ? "bg-sand" : ""}`}>
+    <LocalizedLink href={href} aria-current={current ? "page" : undefined} className={`${className} ${current ? "bg-sand" : ""}`}>
       {children}
-    </Link>
+    </LocalizedLink>
   );
 }

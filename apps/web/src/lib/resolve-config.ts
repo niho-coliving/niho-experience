@@ -21,6 +21,10 @@ export function resolveConfig(env: Env) {
     apiMode,
     // v1.2 is opt-in after NIHO deploys the approved catalog and checkout contract.
     publicApiVersion: env.EXPERIENCE_PUBLIC_API_VERSION === "1.2" ? "1.2" : env.EXPERIENCE_PUBLIC_API_VERSION === "1.1" ? "1.1" : "1.0",
+    // #59/#66 are deployment gates, not capability claims. Both remain off until
+    // the exact frozen consumer and an approved Japanese release pass acceptance.
+    presentationSourceDisplayEnabled: apiMode === "http" && env.EXPERIENCE_PRESENTATION_SOURCE_DISPLAY_ENABLED === "true",
+    japaneseSiteEnabled: apiMode === "http" && env.EXPERIENCE_JAPANESE_SITE_ENABLED === "true",
     nihoWebOrigin: env.NEXT_PUBLIC_NIHO_WEB_ORIGIN ?? "https://niho.life",
     mockLatencyMs: Number(env.MOCK_LATENCY_MS ?? 0) || 0,
     // "pilot" shows the permitted first experiences with provisional details (docs/content/README.md).

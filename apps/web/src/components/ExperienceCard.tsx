@@ -1,9 +1,12 @@
+"use client";
+
 import { ExperienceCardV1, InviteCardV1, type ExperienceCardModelV1 } from "@niho/experience-presentation/v1";
 import type { CardModel } from "@/lib/card-model";
 import { browseHref, type BrowseContext } from "@/lib/browse-context";
 import { imageAlt } from "@/lib/experience-copy";
 import { CardDates, type CardDatesSource } from "./CardDates";
 import { PRESENTATION_PRIMITIVES_V1 } from "./PresentationV1";
+import { useSiteCopy } from "./SiteLocale";
 
 export type CardOptions = {
   /** List page: 2-line lead and a 4:3 cover on phones. */
@@ -19,19 +22,20 @@ export type CardOptions = {
 
 /** One whole-card link (the title's link covers the card). No popularity, scarcity or review claims. */
 export function ExperienceCard({ card, variant = "home", priority = false, dates = { kind: "given", occurrences: null }, highlight = null, browseContext = {}, offerId }: { card: CardModel } & CardOptions) {
+  const copy = useSiteCopy();
   const model: ExperienceCardModelV1 = {
     ...card,
     href: browseHref(`/experiences/${card.slug}`, browseContext, offerId),
     cover: card.cover ? { src: card.cover.url, alt: imageAlt(card.cover, card.title) } : null,
     face: { ...card.face, image: card.face.image ? { src: card.face.image.url, alt: "" } : null },
-    priceSuffix: " / adult",
+    priceSuffix: ` ${copy.text("common.perAdult")}`,
   };
-  return <ExperienceCardV1 card={model} variant={variant} priority={priority} highlight={highlight} dates={<CardDates slug={card.slug} scheduleLabel={card.scheduleLabel} source={dates} />} primitives={PRESENTATION_PRIMITIVES_V1} />;
+  return <ExperienceCardV1 card={model} variant={variant} priority={priority} highlight={highlight} dates={<CardDates slug={card.slug} scheduleLabel={card.scheduleLabel} source={dates} />} primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} />;
 }
 
 /** Closing card on the home carousel: an invitation to host, not a listing. */
 export function InviteCard() {
-  return <InviteCardV1 primitives={PRESENTATION_PRIMITIVES_V1} />;
+  return <InviteCardV1 primitives={PRESENTATION_PRIMITIVES_V1} copy={useSiteCopy()} />;
 }
 
 export function ExperienceGridSkeleton({ count = 3 }: { count?: number }) {

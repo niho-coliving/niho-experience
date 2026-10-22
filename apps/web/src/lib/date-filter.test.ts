@@ -27,6 +27,10 @@ describe("date chips (JST)", () => {
     expect(dayOption("2026-12-31").label).toBe("Thu 31 Dec");
   });
 
+  it("formats Japanese dates as Japanese while keeping the same JST date key", () => {
+    expect(upcomingDays(new Date("2026-10-23T15:30:00Z"), 1, "ja")[0]).toEqual({ key: "2026-10-24", weekday: "土曜", day: "24", label: "10月24日（土曜）" });
+  });
+
   it("accepts an offered date and only an explicit 1–8 party size from the URL", () => {
     const days = upcomingDays(new Date("2026-10-20T03:00:00Z"), 14);
     expect(parseDateParam("2026-10-24", days)).toBe("2026-10-24");

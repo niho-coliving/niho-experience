@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { LocalizedLink as Link } from "./LocalizedLink";
 import type { ComponentProps, ReactNode } from "react";
 import { NoticeV1, SectionHeadingV1, buttonClassV1, type ButtonVariantV1 } from "@niho/experience-presentation/v1";
 

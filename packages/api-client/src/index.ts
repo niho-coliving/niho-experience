@@ -5,6 +5,7 @@ export {
   createExperienceApiClient,
   isAllowedCheckoutRedirect,
   type CheckoutResult,
+  type LocalizedCheckoutResult,
   type ExperienceApiClient,
   type ExperienceApiClientOptions,
   type FetchLike,

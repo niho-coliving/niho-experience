@@ -10,17 +10,21 @@ import { safeHttpsUrl } from "@/lib/safe-url";
 import { track } from "@/lib/analytics";
 import { readBookingAttribution } from "@/lib/booking-attribution";
 import type { ExperienceDetailForSite } from "@/lib/experience-types";
-import { checkoutErrorCopy } from "./States";
 import { policyTitle } from "./Policy";
 import type { BookingSelection } from "./SlotPicker";
-import { BookingCheckoutViewV1, EN_STATIC_COPY_V1, type BookingCheckoutViewModelV1 } from "@niho/experience-presentation/v1";
+import { BookingCheckoutViewV1, type BookingCheckoutViewModelV1 } from "@niho/experience-presentation/v1";
 import { PRESENTATION_PRIMITIVES_V1 } from "./PresentationV1";
+import { useSiteCopy, useSiteLocale } from "./SiteLocale";
+import { readAvailabilityFromApi } from "@/lib/browser-availability";
+import { checkoutProblem, fullNameValidationMessage, retryUnit } from "@/lib/booking-messages";
 
 export type BookingDraft = { guestName: string; guestEmail: string; note: string; answerSets: Record<string, Record<string, string | string[]>> };
 export type CheckoutAttempt = { signature: string; key: string };
 
 export function BookingForm({ api, apiUnavailable, experience, offer, selection, preview, attributionEnabled, publicApiVersion, onExperienceRefresh, draft, onDraftChange, attemptRef, onBack, titleAs = "h1" }: { api: ExperienceApiClient | null; apiUnavailable: boolean; experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; attributionEnabled: boolean; publicApiVersion: "1.0" | "1.1" | "1.2"; onExperienceRefresh: (experience: ExperienceDetailForSite) => boolean; draft: BookingDraft; onDraftChange: Dispatch<SetStateAction<BookingDraft>>; attemptRef: RefObject<CheckoutAttempt | null>; onBack: () => void; titleAs?: "h1" | "p" }) {
   const router = useRouter();
+  const copy = useSiteCopy();
+  const { locale, releaseId } = useSiteLocale();
   const { guestName, guestEmail, note } = draft;
   const questionSet = `${offer.id}:${offer.bookingQuestionsFingerprint}`;
   const answers = draft.answerSets[questionSet] ?? {};
@@ -47,14 +51,14 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   useEffect(() => {
     if (!api) return;
     let active = true;
-    api.getAvailability(experience.slug, { offerId: offer.id }).then((result) => {
+    readAvailabilityFromApi(api, experience.slug, locale, releaseId, offer.id).then((occurrences) => {
       if (!active) return;
-      const occurrence = result.ok ? result.data.occurrences.find((item) => item.offerId === offer.id && item.date === selection.date) : undefined;
+      const occurrence = occurrences?.find((item) => item.offerId === offer.id && item.date === selection.date);
       setAvailabilityOk(selectionValid && !!occurrence?.bookable && occurrence.seatsLeft >= headCount);
       setChecking(false);
     }).catch(() => { if (active) { setAvailabilityOk(false); setChecking(false); } });
     return () => { active = false; };
-  }, [api, experience.slug, offer.id, selection.date, headCount, selectionValid]);
+  }, [api, experience.slug, offer.id, selection.date, headCount, selectionValid, locale, releaseId]);
   useEffect(() => {
     if (!problem) return;
     const id = invalidField === "consent" || invalidField === "consent.agreedVersion" ? "booking-consent"
@@ -75,9 +79,11 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   useEffect(() => {
     if (checkingAvailability || viewTracked.current) return;
     viewTracked.current = true;
-    if (availabilityOk && total !== null) track("booking_form_view", { experience: experience.slug, guests: headCount, total_jpy: total });
-    else track("booking_unavailable", { experience: experience.slug, error_code: "unavailable" });
-  }, [availabilityOk, checkingAvailability, experience.slug, headCount, total]);
+    if (locale === "en") {
+      if (availabilityOk && total !== null) track("booking_form_view", { experience: experience.slug, guests: headCount, total_jpy: total });
+      else track("booking_unavailable", { experience: experience.slug, error_code: "unavailable" });
+    }
+  }, [availabilityOk, checkingAvailability, experience.slug, headCount, total, locale]);
 
   function updateAnswer(id: string, value: string | string[]) { onDraftChange((current) => ({ ...current, answerSets: { ...current.answerSets, [questionSet]: { ...current.answerSets[questionSet], [id]: value } } })); }
   function collectAnswers(): CheckoutAnswer[] {
@@ -92,11 +98,11 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   async function submit() {
     if (submitting || checkingAvailability || needsFreshDetails || retrySecondsRemaining > 0 || !api || total === null || !availabilityOk) return;
     setProblem(""); setInvalidField("");
-    if (!guestName.trim()) { setProblem("Please enter your full name."); setInvalidField("guestName"); return; }
+    if (!guestName.trim()) { setProblem(fullNameValidationMessage(locale, copy)); setInvalidField("guestName"); return; }
     const answered = collectAnswers();
     const missing = offer.bookingQuestions.find((question) => question.required && !answered.some((answer) => answer.questionId === question.id));
-    if (missing) { setProblem(EN_STATIC_COPY_V1.text("booking.requiredQuestion")); setInvalidField(missing.id); return; }
-    if (!agreed) { setProblem(EN_STATIC_COPY_V1.text("booking.requiredTerms")); setInvalidField("consent"); return; }
+    if (missing) { setProblem(copy.text("booking.requiredQuestion")); setInvalidField(missing.id); return; }
+    if (!agreed) { setProblem(copy.text("booking.requiredTerms")); setInvalidField("consent"); return; }
     const draft: Omit<ExperienceCheckoutRequest, "clientRequestKey"> = {
       offerId: offer.id, occurrenceDate: selection.date, adultCount: selection.adultCount, childCount: selection.childCount,
       expectedTotalYen: total, bookingQuestionsFingerprint: offer.bookingQuestionsFingerprint,
@@ -108,73 +114,81 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     if (attemptRef.current?.signature !== signature) attemptRef.current = { signature, key: createClientRequestKey() };
     const body: ExperienceCheckoutRequest = { ...draft, clientRequestKey: attemptRef.current.key };
     setSubmitting(true);
-    track("checkout_start", { experience: experience.slug, guests: headCount, total_jpy: total });
-    let result: Awaited<ReturnType<ExperienceApiClient["startCheckout"]>>;
-    try { result = await api.startCheckout(experience.slug, body); }
+    if (locale === "en") track("checkout_start", { experience: experience.slug, guests: headCount, total_jpy: total });
+    let result: Awaited<ReturnType<ExperienceApiClient["startJapaneseCheckout"]>>;
+    try { result = locale === "ja" ? await api.startJapaneseCheckout(experience.slug, body) : await api.startCheckout(experience.slug, body); }
     catch {
       setSubmitting(false);
-      setProblem(EN_STATIC_COPY_V1.text("booking.checkoutError"));
+      setProblem(copy.text("booking.checkoutError"));
       return;
     }
     setSubmitting(false);
     if (result.ok) {
       if (preview) {
         const { isMockCheckoutUrl } = await import("@niho-experience/api-client/mock");
-        if (!isMockCheckoutUrl(result.checkoutUrl)) { setProblem(EN_STATIC_COPY_V1.text("booking.previewUnexpected")); return; }
+        if (!isMockCheckoutUrl(result.checkoutUrl)) { setProblem(copy.text("booking.previewUnexpected")); return; }
         router.push("/preview/checkout");
       } else window.location.assign(result.checkoutUrl);
       return;
     }
     if (result.kind === "rejected") {
       const errorCode = result.error.code === "INPUT_INVALID" || result.error.code === "ANSWERS_INVALID" ? "invalid_contact" : result.error.code === "FULL" ? "slot_sold_out" : result.error.code === "UNAVAILABLE" ? "unavailable" : result.error.code.toLowerCase();
-      track("checkout_error", { experience: experience.slug, error_code: errorCode });
+      if (locale === "en") track("checkout_error", { experience: experience.slug, error_code: errorCode });
       const retryAfter = result.error.code === "RATE_LIMITED" ? result.retryAfterSeconds : null;
       const now = Date.now();
       setClockNow(now);
       setRetryUntil(retryAfter ? now + retryAfter * 1000 : null);
       setProblem(retryAfter
-        ? EN_STATIC_COPY_V1.text("booking.rateLimitedCount", { seconds: retryAfter, noun: retryAfter === 1 ? "second" : "seconds" })
-        : checkoutErrorCopy[result.error.code]);
+        ? copy.text("booking.rateLimitedCount", { seconds: retryAfter, noun: retryUnit(locale, retryAfter) })
+        : checkoutProblem(result.error.code, locale, copy));
       setInvalidField(result.error.questionId ?? result.error.field ?? "");
       if (result.error.code === "REQUEST_MISMATCH") attemptRef.current = null;
       if (["CONSENT_OUTDATED", "QUESTIONS_CHANGED", "PRICE_CHANGED"].includes(result.error.code)) setNeedsFreshDetails(true);
       if (["OCCURRENCE_INVALID", "FULL", "UNAVAILABLE"].includes(result.error.code)) setAvailabilityOk(false);
+    } else if (result.kind === "localization_outdated") {
+      setNeedsFreshDetails(true);
+      setProblem(result.error.message);
     } else {
-      track("checkout_error", { experience: experience.slug, error_code: result.kind === "network_error" ? "unavailable" : "unexpected_response" });
-      setProblem(EN_STATIC_COPY_V1.text(result.kind === "network_error" ? "booking.checkoutError" : "booking.checkoutUnexpected"));
+      if (locale === "en") track("checkout_error", { experience: experience.slug, error_code: result.kind === "network_error" ? "unavailable" : "unexpected_response" });
+      setProblem(copy.text(result.kind === "network_error" ? "booking.checkoutError" : "booking.checkoutUnexpected"));
     }
   }
 
   async function refreshLatestDetails() {
+    if (locale === "ja") {
+      // Copy, terms, and the layout must advance to the new release together.
+      window.location.reload();
+      return;
+    }
     if (!api || refreshing) return;
     setRefreshing(true);
     setProblem("");
     setInvalidField("");
     try {
-      const result = publicApiVersion === "1.0"
-        ? await api.getExperience(experience.slug)
-        : await api.getExperienceV11(experience.slug);
-      if (!result.ok || result.data.experience.slug !== experience.slug) {
-        setProblem(EN_STATIC_COPY_V1.text("booking.latestLoadError"));
+      const latest = publicApiVersion === "1.0"
+        ? await api.getExperience(experience.slug).then((result) => result.ok ? result.data.experience : null)
+        : await api.getExperienceV11(experience.slug).then((result) => result.ok ? result.data.experience : null);
+      if (!latest || latest.slug !== experience.slug) {
+        setProblem(copy.text("booking.latestLoadError"));
         return;
       }
-      if (!onExperienceRefresh(result.data.experience)) {
-        setProblem(EN_STATIC_COPY_V1.text("booking.latestUnavailable"));
+      if (!onExperienceRefresh(latest)) {
+        setProblem(copy.text("booking.latestUnavailable"));
       }
     } catch {
-      setProblem(EN_STATIC_COPY_V1.text("booking.latestLoadError"));
+      setProblem(copy.text("booking.latestLoadError"));
     } finally {
       setRefreshing(false);
     }
   }
 
   const approval = offer.acceptanceMode === "APPROVAL";
-  const day = dayOption(selection.date);
-  const when = `${day.label} · ${formatClock(offer.startTime)}`;
-  const guests = `${selection.adultCount} adult${selection.adultCount === 1 ? "" : "s"}${selection.childCount ? `, ${selection.childCount} child${selection.childCount === 1 ? "" : "ren"}` : ""}`;
+  const day = dayOption(selection.date, locale);
+  const when = `${day.label} · ${formatClock(offer.startTime, locale)}`;
+  const guests = locale === "ja" ? `大人${selection.adultCount}名${selection.childCount ? `、子ども${selection.childCount}名` : ""}` : `${selection.adultCount} adult${selection.adultCount === 1 ? "" : "s"}${selection.childCount ? `, ${selection.childCount} child${selection.childCount === 1 ? "" : "ren"}` : ""}`;
   const legalDocuments = experience.booking.legalDocuments.flatMap((doc) => { const url = safeHttpsUrl(doc.url); return url ? [{ kind: doc.kind, url }] : []; });
   const model: BookingCheckoutViewModelV1 = {
-    summary: { title: experience.title, image: experience.cover ? { src: experience.cover.url, alt: "" } : null, summary: `${formatDuration(offer.durationMinutes)} · ${formatClock(offer.startTime)} JST · ${offer.name}` },
+    summary: { title: experience.title, image: experience.cover ? { src: experience.cover.url, alt: "" } : null, summary: `${formatDuration(offer.durationMinutes, locale)} · ${formatClock(offer.startTime, locale)} JST · ${offer.name}` },
     availability: checkingAvailability ? "checking" : needsFreshDetails ? "stale" : availabilityOk ? "ready" : "unavailable",
     refreshing,
     refreshDisabled: refreshing || !api,
@@ -188,13 +202,13 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     invalidNote: invalidField === "note",
     approval,
     review: [
-      { label: EN_STATIC_COPY_V1.text("booking.date"), value: `${when} JST` },
-      { label: EN_STATIC_COPY_V1.text("booking.guests"), value: guests },
-      { label: EN_STATIC_COPY_V1.text("booking.adults"), value: EN_STATIC_COPY_V1.text("booking.adultRow", { count: selection.adultCount, price: formatYen(offer.pricing.adultPriceYen) }) },
-      ...(selection.childCount && offer.pricing.child ? [{ label: EN_STATIC_COPY_V1.text("booking.children"), value: EN_STATIC_COPY_V1.text("booking.childRow", { count: selection.childCount, price: formatYen(offer.pricing.child.priceYen) }) }] : []),
+      { label: copy.text("booking.date"), value: `${when} JST` },
+      { label: copy.text("booking.guests"), value: guests },
+      { label: copy.text("booking.adults"), value: copy.text("booking.adultRow", { count: selection.adultCount, price: formatYen(offer.pricing.adultPriceYen, locale) }) },
+      ...(selection.childCount && offer.pricing.child ? [{ label: copy.text("booking.children"), value: copy.text("booking.childRow", { count: selection.childCount, price: formatYen(offer.pricing.child.priceYen, locale) }) }] : []),
     ],
-    total: total === null ? EN_STATIC_COPY_V1.text("booking.totalUnavailable") : formatYen(total),
-    policyTitle: policyTitle(offer.cancellationPolicy),
+    total: total === null ? copy.text("booking.totalUnavailable") : formatYen(total, locale),
+    policyTitle: policyTitle(offer.cancellationPolicy, locale),
     sellerName: experience.seller.displayName,
     sellerLegalUrl: sellerLegalUrl ?? undefined,
     legalDocuments,
@@ -207,5 +221,5 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     actionDisabled: submitting || checkingAvailability || !api || !availabilityOk || needsFreshDetails || retrySecondsRemaining > 0 || total === null,
     when,
   };
-  return <BookingCheckoutViewV1 model={model} titleAs={titleAs} problemRef={alertRef} primitives={PRESENTATION_PRIMITIVES_V1} callbacks={{ onBack, onRefresh: refreshLatestDetails, onGuestNameChange: (value) => onDraftChange((current) => ({ ...current, guestName: value })), onGuestEmailChange: (value) => onDraftChange((current) => ({ ...current, guestEmail: value })), onNoteChange: (value) => onDraftChange((current) => ({ ...current, note: value })), onAnswerChange: updateAnswer, onAgreementChange: setAgreed, onSubmit: submit }} />;
+  return <BookingCheckoutViewV1 model={model} titleAs={titleAs} problemRef={alertRef} primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} callbacks={{ onBack, onRefresh: refreshLatestDetails, onGuestNameChange: (value) => onDraftChange((current) => ({ ...current, guestName: value })), onGuestEmailChange: (value) => onDraftChange((current) => ({ ...current, guestEmail: value })), onNoteChange: (value) => onDraftChange((current) => ({ ...current, note: value })), onAnswerChange: updateAnswer, onAgreementChange: setAgreed, onSubmit: submit }} />;
 }

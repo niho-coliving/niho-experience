@@ -18,6 +18,10 @@
       "types": "./src/testing/index.ts",
       "default": "./src/testing/index.ts"
     },
+    "./server-validation": {
+      "types": "./src/public-schema-validation.ts",
+      "default": "./src/public-schema-validation.ts"
+    },
     "./host": {
       "types": "./src/host/index.ts",
       "default": "./src/host/index.ts"

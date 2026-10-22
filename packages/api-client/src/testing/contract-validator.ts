@@ -5,8 +5,8 @@
  * - `auditContractDocument`: 契約そのものが公開の規則（閉じた形・禁止項目・応答は全項目必須）を満たすか。
  * - `findSensitiveValues`: 応答・fixture の値に、個人情報・秘密・内部 ID らしい値が混ざっていないか。
  */
-import { Ajv, type ErrorObject, type ValidateFunction } from "ajv";
-import addFormatsModule from "ajv-formats";
+import { createPublicSchemaValidator, type ValidationResult } from "../public-schema-validation.ts";
+export { toJsonSchema, type ValidationResult } from "../public-schema-validation.ts";
 
 import contractDocument from "../../contract/experience-public-api.openapi.json" with { type: "json" };
 import fieldPolicy from "../../contract/public-field-policy.json" with { type: "json" };
@@ -20,65 +20,12 @@ function isObject(value: unknown): value is JsonObject {
 export const EXPERIENCE_CONTRACT_DOCUMENT = contractDocument as unknown as JsonObject;
 export const EXPERIENCE_FIELD_POLICY = fieldPolicy;
 
-/** OpenAPI 3.0 の schema を ajv（JSON Schema draft-07）で読める形にする。`x-` 拡張は外し、参照は `contract#/$defs/` にする。 */
-export function toJsonSchema(schema: unknown): unknown {
-  if (Array.isArray(schema)) return schema.map(toJsonSchema);
-  if (!isObject(schema)) return schema;
-  const converted: JsonObject = {};
-  for (const [key, value] of Object.entries(schema)) {
-    if (key.startsWith("x-") || key === "nullable" || key === "example" || key === "examples") continue;
-    if (key === "$ref" && typeof value === "string") {
-      converted.$ref = value.replace("#/components/schemas/", "contract#/$defs/");
-      continue;
-    }
-    if (key === "properties" && isObject(value)) {
-      converted.properties = Object.fromEntries(Object.entries(value).map(([name, child]) => [name, toJsonSchema(child)]));
-      continue;
-    }
-    converted[key] = toJsonSchema(value);
-  }
-  if (schema.nullable === true) {
-    // `allOf` / `$ref` などの合成は null にも効くので、型の和ではなく anyOf で null を足す（OpenAPI 3.0 の nullable は全体に効く）
-    const composed = ["allOf", "anyOf", "oneOf", "$ref"].some((keyword) => keyword in converted);
-    if (typeof converted.type === "string" && !composed) {
-      const { enum: enumValues, ...rest } = converted;
-      const withNull: JsonObject = { ...rest, type: [converted.type, "null"] };
-      if (Array.isArray(enumValues)) withNull.enum = [...enumValues, null];
-      return withNull;
-    }
-    return { anyOf: [converted, { type: "null" }] };
-  }
-  return converted;
-}
-
-const addFormats = addFormatsModule as unknown as (ajv: Ajv) => Ajv;
-
-export type ValidationResult = { ok: true } | { ok: false; errors: string[] };
-
-function formatErrors(errors: ErrorObject[] | null | undefined): string[] {
-  return (errors ?? []).map((error) => `${error.instancePath || "/"} ${error.message ?? "invalid"}`);
-}
-
 export function createContractValidator(document: JsonObject = EXPERIENCE_CONTRACT_DOCUMENT) {
-  const components = isObject(document.components) ? document.components : {};
-  const schemas = isObject(components.schemas) ? components.schemas : {};
-  const ajv = new Ajv({ allErrors: true, strict: true, strictRequired: false });
-  addFormats(ajv);
-  ajv.addSchema({ $id: "contract", $defs: toJsonSchema(schemas) });
-  const compiled = new Map<string, ValidateFunction>();
-
-  function validatorFor(schemaName: string): ValidateFunction {
-    const existing = compiled.get(schemaName);
-    if (existing) return existing;
-    if (!(schemaName in schemas)) throw new Error(`unknown schema: ${schemaName}`);
-    const validate = ajv.compile({ $ref: `contract#/$defs/${schemaName}` });
-    compiled.set(schemaName, validate);
-    return validate;
-  }
+  const validateShape = createPublicSchemaValidator(document);
 
   function validateSchema(schemaName: string, value: unknown): ValidationResult {
-    const validate = validatorFor(schemaName);
-    if (!validate(value)) return { ok: false, errors: formatErrors(validate.errors) };
+    const shape = validateShape(schemaName, value);
+    if (!shape.ok) return shape;
     const invariant = invariantErrors(schemaName, value);
     return invariant.length === 0 ? { ok: true } : { ok: false, errors: invariant };
   }

@@ -1,4 +1,4 @@
-import type { Occurrence } from "@niho-experience/api-client";
+import type { ExperienceApiClient, Occurrence, OfferId } from "@niho-experience/api-client";
 import { getBrowserApi } from "./browser-api";
 
 /**
@@ -13,14 +13,23 @@ export type AvailabilityRead = { ok: true; occurrences: Occurrence[] } | { ok: f
 const SHARE_MS = 5_000;
 const inflight = new Map<string, { at: number; promise: Promise<AvailabilityRead> }>();
 
-export function readAvailability(slug: string, preview: boolean, nihoWebOrigin: string): Promise<AvailabilityRead> {
-  const key = `${preview ? "mock" : "http"}|${nihoWebOrigin}|${slug}`;
+export async function readAvailabilityFromApi(api: ExperienceApiClient, slug: string, locale: "en" | "ja", releaseId: string | null, offerId?: OfferId): Promise<Occurrence[] | null> {
+  if (locale === "ja") {
+    const result = await api.getJapaneseAvailability(slug, offerId ? { offerId } : {});
+    return result.ok && result.data.releaseId === releaseId ? result.data.occurrences : null;
+  }
+  const result = await api.getAvailability(slug, offerId ? { offerId } : {});
+  return result.ok ? result.data.occurrences : null;
+}
+
+export function readAvailability(slug: string, preview: boolean, nihoWebOrigin: string, locale: "en" | "ja" = "en", releaseId: string | null = null): Promise<AvailabilityRead> {
+  const key = `${preview ? "mock" : "http"}|${nihoWebOrigin}|${locale}|${releaseId ?? ""}|${slug}`;
   const now = Date.now();
   const shared = inflight.get(key);
   if (shared && now - shared.at < SHARE_MS) return shared.promise;
   const promise = getBrowserApi(preview, nihoWebOrigin)
-    .then((api) => api.getAvailability(slug))
-    .then((result): AvailabilityRead => (result.ok ? { ok: true, occurrences: result.data.occurrences } : { ok: false }))
+    .then((api) => readAvailabilityFromApi(api, slug, locale, releaseId))
+    .then((occurrences): AvailabilityRead => occurrences ? { ok: true, occurrences } : { ok: false })
     .catch((): AvailabilityRead => ({ ok: false }));
   inflight.set(key, { at: now, promise });
   // Share concurrent failures, but let an explicit retry reach the API immediately.

@@ -7,7 +7,7 @@ export function publishedDocument(pageId: PageId): PageDocument {
     home: [["experience-grid", "ExperienceGrid"]], experiences: [["experience-grid", "ExperienceGrid"]],
     "experience-detail": [["experience-detail", "ExperienceDetail"], ["booking-cta", "BookingCTA"]],
     booking: [["booking-panel", "BookingPanel"]],
-    host: [["host-signup-cta", "HostSignupCTA"]], chrome: [["site-header", "SiteHeader"], ["site-footer", "SiteFooter"]]
+    host: [["host-signup-cta", "HostSignupCTA"]], help: [["help-content", "HelpContent"]], chrome: [["site-header", "SiteHeader"], ["site-footer", "SiteFooter"]]
   };
   return {
     schemaVersion: 1, siteId: "experience", pageId, locale: "en", revision: 2, title: `Edited ${pageId}`, tokens: { ink: { type: "color", value: "#123456" } },

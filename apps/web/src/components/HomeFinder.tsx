@@ -6,10 +6,13 @@ import { MAX_GUESTS, type DayOption } from "@/lib/date-filter";
 import { pluralize } from "@/lib/format";
 import { HandIcon } from "./HandIcon";
 import { buttonClass } from "./ui";
+import { localeHref, useSiteCopy, useSiteLocale } from "./SiteLocale";
 
 /** Date and party size (2 adults unless changed), sent as a plain GET to the list (works without JavaScript). */
 export function HomeFinder({ days }: { days: DayOption[] }) {
   const router = useRouter();
+  const copy = useSiteCopy();
+  const { locale } = useSiteLocale();
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
@@ -19,7 +22,8 @@ export function HomeFinder({ days }: { days: DayOption[] }) {
       if (typeof value === "string" && value) params.set(name, value);
     }
     const query = params.toString();
-    router.push(query ? `/experiences?${query}` : "/experiences");
+    const target = localeHref("/experiences", locale);
+    router.push(query ? `${target}?${query}` : target);
   }
 
   // The package's @scope(.nexp-v1) CSS beats this app's lg: utilities by scope proximity, so anything that changes at lg is a max-lg:/lg: pair, never a base class the package also defines.
@@ -31,19 +35,19 @@ export function HomeFinder({ days }: { days: DayOption[] }) {
   ].join(" ");
   return (
     <form
-      action="/experiences"
+      action={localeHref("/experiences", locale)}
       method="get"
       role="search"
-      aria-label="Find experiences"
+      aria-label={copy.text("home.find")}
       onSubmit={submit}
       className="z-[3] grid gap-1 bg-white py-2 pr-2 shadow-[0_10px_30px_rgb(0_0_0/0.12),0_1px_2px_rgb(0_0_0/0.06)] max-lg:relative max-lg:mx-4 max-lg:-mt-9 max-lg:grid-cols-2 max-lg:rounded-[22px] max-lg:pl-2 lg:absolute lg:bottom-[-38px] lg:left-1/2 lg:w-[min(780px,calc(100%_-_80px))] lg:-translate-x-1/2 lg:grid-cols-[1fr_1fr_auto] lg:rounded-full lg:pl-3.5"
     >
       <label className={cell}>
         <HandIcon name="cal" className="size-[30px]" />
         <span className="flex min-w-0 flex-1 flex-col">
-          <small className="text-xs font-extrabold text-muted">When</small>
+          <small className="text-xs font-extrabold text-muted">{copy.text("home.when")}</small>
           <select name="date" defaultValue="" className={select}>
-            <option value="">Any day</option>
+            <option value="">{copy.text("home.anyDay")}</option>
             {days.map((day) => <option key={day.key} value={day.key}>{day.label}</option>)}
           </select>
         </span>
@@ -51,14 +55,14 @@ export function HomeFinder({ days }: { days: DayOption[] }) {
       <label className={cell}>
         <HandIcon name="people" className="size-[30px]" />
         <span className="flex min-w-0 flex-1 flex-col">
-          <small className="text-xs font-extrabold text-muted">Guests</small>
+          <small className="text-xs font-extrabold text-muted">{copy.text("home.guests")}</small>
           <select name="guests" defaultValue="2" className={select}>
-            {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{pluralize(n, "adult")}</option>)}
+            {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{locale === "ja" ? `大人${n}名` : pluralize(n, "adult")}</option>)}
           </select>
         </span>
       </label>
       <button type="submit" className={button}>
-        Find experiences
+        {copy.text("home.find")}
       </button>
     </form>
   );
