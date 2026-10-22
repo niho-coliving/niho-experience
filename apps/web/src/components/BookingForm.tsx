@@ -16,7 +16,7 @@ import { BookingCheckoutViewV1, type BookingCheckoutViewModelV1 } from "@niho/ex
 import { PRESENTATION_PRIMITIVES_V1 } from "./PresentationV1";
 import { useSiteCopy, useSiteLocale } from "./SiteLocale";
 import { readAvailabilityFromApi } from "@/lib/browser-availability";
-import { fullNameValidationMessage, retryUnit } from "@/lib/booking-messages";
+import { checkoutProblem, fullNameValidationMessage, retryUnit } from "@/lib/booking-messages";
 
 export type BookingDraft = { guestName: string; guestEmail: string; note: string; answerSets: Record<string, Record<string, string | string[]>> };
 export type CheckoutAttempt = { signature: string; key: string };
@@ -140,7 +140,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
       setRetryUntil(retryAfter ? now + retryAfter * 1000 : null);
       setProblem(retryAfter
         ? copy.text("booking.rateLimitedCount", { seconds: retryAfter, noun: retryUnit(locale, retryAfter) })
-        : checkoutProblem(result.error.code, copy));
+        : checkoutProblem(result.error.code, locale, copy));
       setInvalidField(result.error.questionId ?? result.error.field ?? "");
       if (result.error.code === "REQUEST_MISMATCH") attemptRef.current = null;
       if (["CONSENT_OUTDATED", "QUESTIONS_CHANGED", "PRICE_CHANGED"].includes(result.error.code)) setNeedsFreshDetails(true);
@@ -219,14 +219,4 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     when,
   };
   return <BookingCheckoutViewV1 model={model} titleAs={titleAs} problemRef={alertRef} primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} callbacks={{ onBack, onRefresh: refreshLatestDetails, onGuestNameChange: (value) => onDraftChange((current) => ({ ...current, guestName: value })), onGuestEmailChange: (value) => onDraftChange((current) => ({ ...current, guestEmail: value })), onNoteChange: (value) => onDraftChange((current) => ({ ...current, note: value })), onAnswerChange: updateAnswer, onAgreementChange: setAgreed, onSubmit: submit }} />;
-}
-
-function checkoutProblem(code: string, copy: ReturnType<typeof useSiteCopy>): string {
-  if (code === "CONSENT_OUTDATED") return copy.text("booking.termsChanged");
-  if (code === "QUESTIONS_CHANGED") return copy.text("booking.questionsChanged");
-  if (code === "PRICE_CHANGED") return copy.text("booking.priceChanged");
-  if (["OCCURRENCE_INVALID", "FULL"].includes(code)) return copy.text("availability.fullyBooked");
-  if (code === "UNAVAILABLE") return copy.text("booking.paused");
-  if (code === "RATE_LIMITED") return copy.text("booking.rateLimited");
-  return copy.text("booking.checkoutUnexpected");
 }

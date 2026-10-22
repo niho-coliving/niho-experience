@@ -147,11 +147,11 @@ export function ExperienceList({
         <div className="container-page mt-6 space-y-4">
           <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-sand p-4 text-ink-soft">
             <HandIcon name="cal" className="size-6 text-moss" />
-            <p role="status" className="min-w-0 flex-1">{copy.text("catalogue.availabilityWarning")}</p>
+            <p role="status" className="min-w-0 flex-1">{locale === "en" ? "Dates couldn't be checked. Showing experiences for your group." : copy.text("catalogue.availabilityWarning")}</p>
             <button type="button" className={buttonClass("secondary")} onClick={() => {
               setAvailability({ state: "loading" });
               setReadAttempt((attempt) => attempt + 1);
-            }}>{copy.text("common.tryAgain")}</button>
+            }}>{locale === "en" ? "Retry dates" : copy.text("common.tryAgain")}</button>
           </div>
           {inlineSearch}
         </div>

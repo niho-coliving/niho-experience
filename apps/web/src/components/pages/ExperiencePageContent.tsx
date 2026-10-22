@@ -167,8 +167,8 @@ export async function ExperiencePageContent({ params, searchParams, locale }: Ex
       icon: "people",
       text:
         approval === e.offers.length
-          ? copy.text("booking.approvalNote")
-          : copy.text("detail.policyApplies"),
+          ? locale === "en" ? "Your hosts confirm each request — you're only charged if they accept" : copy.text("booking.approvalNote")
+          : locale === "en" ? "Some options are confirmed by your hosts — you're only charged if they accept" : copy.text("detail.policyApplies"),
     });
   }
   assurances.push({ icon: "mail", text: copy.text("detail.noAccount") }, { icon: "card", text: copy.text("detail.secureStripe") });

@@ -37,6 +37,7 @@ CSS・copy registryが一致しても、archive全体の同一性は成立して
 
 - NIHO側の日本語presentation asset document、不変な動的URL対応、business-public装飾画像のcontent digestを契約へ追加し、選別された公開API配布物へ型を取り込む。現状の日本語DTOは基盤Draft SHA `a532a456fe9e4580d555ec34a61b8164e4ebabab` に合わせた仮の選別型。
 - canonical business sourceの変更hook、翻訳outbox、site CAS、写真・公開許可撤回のtransaction整合を基盤側で接続する。
+- 凍結copy registryで表せないcheckoutエラー別の回復操作、検索解除・日程再試行などの固有文言を、英語の既存UXを保ったまま公開copy契約へ追加する。現段階の日本語では一部が汎用の案内になるため、全画面接続の受入対象に含める。
 - 英語原文からAUTO初稿を作り、手修正値の保護、原文更新時の再翻訳候補、承認release公開、日英切替、体験詳細から予約までを実際の承認済みreleaseで確認する。
 
 これらを満たすまでは #59 / #66 を完了扱いにしない。
