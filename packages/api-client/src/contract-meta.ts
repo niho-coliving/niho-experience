@@ -36,6 +36,14 @@ export const EXPERIENCE_ADMIN_READ_API_CONTRACT = {
   deploymentStatus: "not-deployed",
 } as const;
 
+/** Selected Admin per-booking assignee/internal-memo contract. Agreed, but not deployed by NIHO yet. */
+export const EXPERIENCE_ADMIN_SUPPORT_CASE_API_CONTRACT = {
+  version: "1.0.0",
+  sourceCommit: "9ddb79c3a62bafca6896a06fa2f364f1fb089ff3",
+  status: "agreed-not-deployed",
+  deploymentStatus: "not-deployed",
+} as const;
+
 /** 予約に関わる時刻の基準。表示も日本時間（Asia/Tokyo）で行う。 */
 export const EXPERIENCE_TIME_ZONE = "Asia/Tokyo";
 

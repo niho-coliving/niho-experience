@@ -8,6 +8,8 @@
 
 機械可読の契約は [`packages/api-client/contract/experience-public-api.openapi.json`](../packages/api-client/contract/experience-public-api.openapi.json)、公開項目の規則は [`public-field-policy.json`](../packages/api-client/contract/public-field-policy.json) です。この文書と食い違ったら JSON を正とし、文書を直します。
 
+この文書は旅行者向け公開APIを扱う。認証付きのAdmin予約参照と予約別担当・内部メモcaseは公開APIへ混ぜず、選別済みの別契約と [Admin予約支援](admin-support.md) で管理する。
+
 ## 1. 境界
 
 | 持つ側 | 持つもの |

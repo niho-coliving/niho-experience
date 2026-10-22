@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ExperienceAdminBookingDetailResponse, ExperienceAdminBookingListItem, ExperienceAdminBookingListResponse } from "@niho-experience/api-client/admin-read";
 import { decodeExperienceAdminBookingDetailResponse, decodeExperienceAdminBookingListResponse } from "@niho-experience/api-client/admin-read-schema";
@@ -11,6 +12,7 @@ import { SELECT } from "@/components/host/fields";
 import { HOST_SURFACE } from "@/components/host/host-ui";
 import { StatusPill } from "@/components/host/ui";
 import { AdminHttpBookingDetail } from "./AdminHttpBookingDetail";
+import { useAdminGuardedNavigation, useAdminLeaveGuardReset } from "./AdminLeaveGuard";
 
 async function requestBookings(filters: AdminHttpBookingFilters, cursor: string | undefined, signal: AbortSignal): Promise<ExperienceAdminBookingListResponse> {
   const response = await fetch("/admin/api/bookings", {
@@ -43,8 +45,10 @@ function BookingRow({ booking, selected, onOpen }: { booking: ExperienceAdminBoo
   </button>;
 }
 
-export function AdminHttpBookings() {
+export function AdminHttpBookings({ supportCaseEnabled = false }: { supportCaseEnabled?: boolean }) {
   const router = useRouter();
+  const guardedNavigate = useAdminGuardedNavigation();
+  const resetLeaveGuard = useAdminLeaveGuardReset();
   const params = useSearchParams();
   const selectedId = params.get("booking");
   const [filters, setFilters] = useState(EMPTY_ADMIN_HTTP_BOOKING_FILTERS);
@@ -61,6 +65,7 @@ export function AdminHttpBookings() {
   const [detail, setDetail] = useState<ExperienceAdminBookingDetailResponse | null>(null);
   const [detailState, setDetailState] = useState<"idle" | "loading" | "error" | "not-found">("idle");
   const [detailRetry, setDetailRetry] = useState(0);
+  const [expired, setExpired] = useState(false);
   const listSequence = useRef(0);
   const loadMoreSequence = useRef(0);
   const detailSequence = useRef(0);
@@ -69,6 +74,7 @@ export function AdminHttpBookings() {
   const sub = selectedId !== null;
 
   const expireSession = useCallback(() => {
+    resetLeaveGuard();
     ++listSequence.current;
     ++loadMoreSequence.current;
     ++detailSequence.current;
@@ -80,12 +86,16 @@ export function AdminHttpBookings() {
     setLoadingMore(false);
     setDetail(null);
     setDetailState("idle");
+    setFilters({ ...EMPTY_ADMIN_HTTP_BOOKING_FILTERS });
+    setFiltersOpen(false);
     setLoadErrorScope("first");
     setLoadError("管理者接続を確認できません。もう一度サインインしてください。");
+    setExpired(true);
     router.refresh();
-  }, [router]);
+  }, [resetLeaveGuard, router]);
 
   useEffect(() => {
+    if (expired) return;
     const sequence = ++listSequence.current;
     ++loadMoreSequence.current;
     const controller = new AbortController();
@@ -113,9 +123,10 @@ export function AdminHttpBookings() {
       }).finally(() => { if (sequence === listSequence.current) setLoading(false); });
     }, 250);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [expireSession, filters, listRetry, queryKey]);
+  }, [expireSession, expired, filters, listRetry, queryKey]);
 
   useEffect(() => {
+    if (expired) return;
     const sequence = ++detailSequence.current;
     const controller = new AbortController();
     void Promise.resolve().then(async () => {
@@ -135,7 +146,7 @@ export function AdminHttpBookings() {
       }
     });
     return () => controller.abort();
-  }, [selectedId, detailRetry, expireSession]);
+  }, [selectedId, detailRetry, expireSession, expired]);
 
   const invalidateList = () => {
     ++listSequence.current;
@@ -159,8 +170,8 @@ export function AdminHttpBookings() {
     invalidateList();
     setListRetry((value) => value + 1);
   };
-  const open = (id: string) => router.push(`/admin/bookings?booking=${encodeURIComponent(id)}`, { scroll: false });
-  const close = () => router.push("/admin/bookings", { scroll: false });
+  const open = (id: string) => guardedNavigate(() => router.push(`/admin/bookings?booking=${encodeURIComponent(id)}`, { scroll: false }));
+  const close = () => guardedNavigate(() => router.push("/admin/bookings", { scroll: false }));
   const loadMore = async () => {
     if (!nextCursor || loadingMore || loading || loadedQueryKey !== queryKey) return;
     const sequence = listSequence.current;
@@ -187,8 +198,10 @@ export function AdminHttpBookings() {
     }
   };
 
+  if (expired) return <div className="mx-auto w-full max-w-[1400px] px-4 py-5 md:px-7 md:py-7"><section role="alert" className={`${HOST_SURFACE} mx-auto max-w-2xl p-6`}><h1 className="font-display text-2xl font-medium">管理者接続の有効期限が切れました</h1><p className="mt-2 text-ink-soft">予約一覧・詳細・検索条件・担当候補・入力中の内部メモをこの画面から消去しました。</p><Link href="/admin" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-leaf px-5 font-extrabold hover:bg-leaf-hover">もう一度サインイン</Link></section></div>;
+
   return <div className="mx-auto w-full max-w-[1400px] px-4 py-5 md:px-7 md:py-7">
-    <div className={`mb-4 flex items-center justify-between gap-3 ${sub ? "max-lg:hidden" : ""}`}><div className="min-w-0"><h1 className="font-display text-[1.5rem] font-medium md:text-[1.75rem]">予約支援</h1><p className="mt-1 text-[0.8125rem] text-muted">NIHOの予約を横断検索して確認します。現在は内容の確認だけができます。</p></div><span className="shrink-0 self-start whitespace-nowrap rounded-full bg-leaf-pale px-3 py-1 text-xs font-extrabold text-moss">NIHO参照</span></div>
+    <div className={`mb-4 flex items-center justify-between gap-3 ${sub ? "max-lg:hidden" : ""}`}><div className="min-w-0"><h1 className="font-display text-[1.5rem] font-medium md:text-[1.75rem]">予約支援</h1><p className="mt-1 text-[0.8125rem] text-muted">{supportCaseEnabled ? "NIHOの予約を確認し、事務局内の担当とメモを管理します。" : "NIHOの予約を横断検索して確認します。現在は内容の確認だけができます。"}</p></div><span className="shrink-0 self-start whitespace-nowrap rounded-full bg-leaf-pale px-3 py-1 text-xs font-extrabold text-moss">NIHO参照</span></div>
     <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_430px]">
       <div className={`min-w-0 ${sub ? "max-lg:hidden" : ""}`}>
         <section aria-label="予約の絞り込み" className={`${HOST_SURFACE} mb-3 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4`}>
@@ -218,7 +231,7 @@ export function AdminHttpBookings() {
         {detailState === "loading" && detail?.booking.id !== selectedId ? <section className={`${HOST_SURFACE} p-5`} role="status">予約詳細を読み込んでいます…</section> : null}
         {detailState === "error" ? <section className={`${HOST_SURFACE} p-5`} role="alert"><h2 className="font-sans font-extrabold tracking-normal">予約詳細を読み込めませんでした</h2><button type="button" onClick={() => setDetailRetry((value) => value + 1)} className="mt-3 min-h-10 rounded-full border border-line-strong px-4 font-extrabold hover:bg-sand">もう一度試す</button></section> : null}
         {detailState === "not-found" ? <section className={`${HOST_SURFACE} p-5`}><h2 className="font-sans font-extrabold tracking-normal">予約が見つかりません</h2><p className="mt-2 text-sm text-muted">予約IDと現在の参照権限を確認してください。</p><button type="button" onClick={close} className="mt-3 font-extrabold underline">一覧へ戻る</button></section> : null}
-        {detail?.booking.id === selectedId ? <AdminHttpBookingDetail response={detail} /> : null}
+        {detail?.booking.id === selectedId ? <AdminHttpBookingDetail response={detail} supportCaseEnabled={supportCaseEnabled} onSessionExpired={expireSession} /> : null}
       </div>
     </div>
   </div>;

@@ -15,6 +15,8 @@ NIHO 共通基盤の公開 API（体験の一覧・詳細・残席・ゲスト�
 | `@niho-experience/api-client/admin-auth` | Experience Admin のapp-connect認証（**サーバー専用**。予約APIは含まない） |
 | `@niho-experience/api-client/admin-read` | Experience Admin の予約・通知の読取SDK（**サーバー専用**。Admin tokenをBearerで送る） |
 | `@niho-experience/api-client/admin-read-schema` | 選別済みAdmin read DTOの型とstrict decoder（tokenや通信処理を含まない） |
+| `@niho-experience/api-client/admin-support-case` | 予約別担当・内部メモcase SDK（**サーバー専用**。Admin tokenをBearerで送る） |
+| `@niho-experience/api-client/admin-support-case-schema` | case DTO・PATCHのstrict decoder（ブラウザから利用可。tokenや通信処理を含まない） |
 
 ```sh
 npm ci                                     # リポジトリのrootで一度だけ（lockfileはrootの1つ）
@@ -29,6 +31,7 @@ npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life
 - `contract/host-field-policy.json`：ホスト API の範囲（path・Bearer）、閉じない schema の許可リスト（`openSchemas`：`ExperienceHostAuthMe`・写真の form の項目 `ExperienceProviderUploadPolicyFields`）、入れてはいけない名前・語と、その例外（`allowedPropertyNames`：写真の識別子 `objectKey` 系と集合場所の `address` を、理由と一緒に schema ごと・名前ごとに許す。語そのものの禁止は残す）。監査は `auditHostContractDocument`（公開の `auditContractDocument` とは別。`oneOf` の各組も閉じた形として見る）。
 - `contract/experience-admin-auth-api.openapi.json`（＋`.sha256`・manifest）：Admin認証だけのv1.0.0選別契約。NIHO側source commit `b1bee0090e` の先行実装で、まだ未配備。予約・料金・通知・ホスト設定のschemaは含めない。
 - `contract/experience-admin-read-api.openapi.json`（＋`.sha256`・manifest）：Admin予約一覧・詳細・通知・既読だけのv1.0.0選別契約。NIHO側source commit `08736836328976b130b919bef0ebcdad7d5ba7bb` で合意済みだが未配備。`src/generated/admin-read-openapi.ts` はここから生成する。
+- `contract/experience-admin-support-case-api.openapi.json`（＋`.sha256`・manifest）：予約別の担当・内部メモ・CAS revision・書込可否と担当候補だけのv1.0.0選別契約。NIHO側source commit `9ddb79c3a62bafca6896a06fa2f364f1fb089ff3` で合意済みだが未配備。`src/generated/admin-support-case-openapi.ts` はここから生成する。
 
 ### ホスト API
 
