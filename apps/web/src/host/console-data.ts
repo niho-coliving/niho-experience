@@ -16,7 +16,6 @@ import type {
   HostGoogleConnection,
   HostMeetingDefaults,
   HostNotificationSettings,
-  HostPageLanguage,
   HostReview,
   HostSale,
   HostThread,
@@ -158,10 +157,8 @@ export interface HostSessionView {
   /** The offer's name when it was booked. */
   offer: string;
   capacity: number | null;
-  /** 集合場所's public line; empty when the page has none. */
+  /** 集合場所's public line (English, as the experience site shows it); empty when the page has none. */
   meetingArea: string;
-  /** The language the page, and so its meeting line, is written in. */
-  pageLanguage: HostPageLanguage;
   /** Every booking of the session, whatever its state, with the phone the guest gave. */
   bookings: readonly HostBooking[];
 }
@@ -193,7 +190,6 @@ export function sessionOf(snapshot: Pick<HostConsoleSnapshot, "bookings" | "expe
       offer: first.offer,
       capacity: experience?.offers.find((offer) => offer.id === query.offer)?.capacity ?? null,
       meetingArea: experience?.meeting.area.trim() ?? "",
-      pageLanguage: experience?.language ?? "en",
       bookings,
     },
   };

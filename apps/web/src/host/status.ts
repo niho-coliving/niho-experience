@@ -1,4 +1,5 @@
 import type { HostProviderReviewStatus } from "@/lib/host/providers";
+import type { PageEnglishStatus } from "./page-english";
 import type { HostBookingStatus, HostReviewStatus, ListingStatus, PaymentReadinessReason } from "./types";
 
 /**
@@ -17,6 +18,14 @@ export const LISTING_STATUS: Record<ListingStatus, StatusLabel> = {
   review: { label: "審査待ち", tone: "wait" },
   draft: { label: "下書き", tone: "draft" },
   paused: { label: "停止中", tone: "stop" },
+};
+
+/** The English of a page written in Japanese (#110): 未作成 / 下書き / 確定済み / 古い (the Japanese changed since). */
+export const PAGE_ENGLISH_STATUS: Record<PageEnglishStatus, StatusLabel> = {
+  none: { label: "未作成", tone: "draft" },
+  draft: { label: "下書き", tone: "draft" },
+  confirmed: { label: "確定済み", tone: "ok" },
+  stale: { label: "古い", tone: "wait" },
 };
 
 export const BOOKING_STATUS: Record<HostBookingStatus, StatusLabel> = {

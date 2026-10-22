@@ -1,6 +1,6 @@
 import { HOST_EXPERIENCES_PATH } from "@/lib/host/routes";
 import { bookingSessions, bookingsHref, seatsLabel, sessionHref, type BookingDialogSubject, type BookingExperience, type BookingSession, type SessionQuery } from "./bookings";
-import { addDays, agoJa, dateWithWeekdayJa, dayOfMonth, durationJa, listJa, monthDayJa, remainingJa, shortDateWithWeekdayJa, weekdayJa, yen } from "./format";
+import { addDays, agoJa, dateWithWeekdayJa, dayOfMonth, durationJa, listJa, missingLine, monthDayJa, remainingJa, shortDateWithWeekdayJa, weekdayJa, yen } from "./format";
 import { guestMessageView, lastGuestMessage, messagesHref, quoteJa, sortThreads, threadKind, waitingSince } from "./messages";
 import { HOME_REVIEW_LIMIT, reviewerLabel, reviewReplyStage, reviewsHref, reviewsToAttend } from "./reviews";
 import { salesSummary, type SalesMonth } from "./sales";
@@ -165,7 +165,7 @@ export function homeTodos(
       status: LISTING_STATUS.draft,
       aside: null,
       title: `${experience.title} の原稿を仕上げる`,
-      detail: experience.missing.length ? `${listJa(experience.missing)}が未入力` : "掲載を申請できます",
+      detail: experience.missing.length ? missingLine(experience.missing, listJa) : "掲載を申請できます",
       approval: null,
       action: { label: "編集する", href: experiencePath(experience.id), primary: false },
     }));

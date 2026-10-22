@@ -26,6 +26,9 @@ describe("host formatting", () => {
     expect(experienceMeta(MOCK_KITCHEN_EXPERIENCES[0]!)).toBe("火・木・土 18:00 · 2時間 · 定員8 · ¥30,000〜");
     expect(experienceMeta(MOCK_KITCHEN_EXPERIENCES[2]!)).toBe("表紙写真・料金が未入力");
     expect(experienceMeta({ schedule: null, missing: [] })).toBe("日程と料金が未入力");
+    // The English of a page written in Japanese is confirmed, not typed in (#110).
+    expect(experienceMeta({ schedule: null, missing: ["表紙写真", "料金", "英語の確定"] })).toBe("表紙写真・料金が未入力 · 英語が未確定");
+    expect(experienceMeta({ schedule: null, missing: ["英語の確定"] })).toBe("英語が未確定");
   });
 });
 

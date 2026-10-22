@@ -1,3 +1,4 @@
+import type { ExperienceConditionKind } from "@niho-experience/api-client";
 import type { ExperienceProviderPaymentReadinessReason } from "@niho-experience/api-client/host";
 import type { HostProviderKind, HostProviderReviewStatus } from "@/lib/host/providers";
 import type { HostReviewTag } from "./reviews";
@@ -13,8 +14,12 @@ import type { HostReviewTag } from "./reviews";
 /** One listing state per experience page: draft → review → live (or paused). */
 export type ListingStatus = "draft" | "review" | "live" | "paused";
 
-/** The language a page is written in. The traveler site shows the page in it as it is. */
-export type HostPageLanguage = "ja" | "en";
+/**
+ * 書く言語 (#110): the language the host writes the page in. The experience site shows the page
+ * in English either way: written in English, the text is the public English as it is; written in
+ * Japanese, NIHO drafts the English and the host checks and confirms it (page-english.ts).
+ */
+export type HostWritingLanguage = "ja" | "en";
 
 /** 0 = Sunday … 6 = Saturday, as in NIHO's offers. Screens list them from Monday. */
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -29,7 +34,9 @@ export interface HostExperiencePhoto {
 
 /** One step of 当日の流れ. */
 export interface HostTimelineStep {
-  /** "18:00" (JST); empty until set. */
+  /** Stable while editing, so the step's Japanese stays with it (a local one for a step added in this browser). */
+  id: string;
+  /** "18:00" (JST); empty until set. Shared by both languages. */
   time: string;
   title: string;
   text: string;
@@ -63,10 +70,160 @@ export interface HostOffer {
   questions: readonly string[];
 }
 
-/** Everything 保存 keeps: the page text in the public order, its photos and its offers (#89). */
-export interface HostExperienceContent {
+/*
+ * 参加の条件 (#110, niho-app#19318): what a guest should know before booking, kept as the host's
+ * choices per kind, with a short note. NIHO writes the English the experience site shows from them
+ * (the headline, the detail and whether a guest agrees to it before booking: journey.ts
+ * ExperienceConditionItem); the console never writes that English. The kinds are the traveler
+ * side's (EXPERIENCE_CONDITION_KINDS), one of each at most.
+ * Hand-written from the screen's needs. TODO(#87): NIHO の API（niho-coliving/niho-app#19318）が入ったら合わせる。
+ */
+
+/** 年齢: the lowest age (null = 指定なし) and whether children join with an adult. */
+export interface HostAgeCondition {
+  minimumAge: number | null;
+  withAdult: boolean;
+  /** 補足, in the public English (the Japanese is the page's `japanese`). Empty when there is none. */
+  note: string;
+}
+
+/** 座る: なし / いす / 床に座る. */
+export type HostSeating = "NONE" | "CHAIR" | "FLOOR";
+/** 歩く: ほとんど歩かない / 少し歩く / よく歩く. */
+export type HostWalking = "LITTLE" | "SOME" | "LOTS";
+
+/** 体の負担: sitting (and for about how long) and walking. */
+export interface HostPhysicalCondition {
+  seating: HostSeating;
+  /** 時間の目安 (minutes) of sitting; null when not given. */
+  seatedMinutes: number | null;
+  walking: HostWalking;
+  note: string;
+}
+
+/** The host's English: 流暢 / 日常会話 / かんたん / 話さない. */
+export type HostEnglishLevel = "FLUENT" | "CONVERSATIONAL" | "BASIC" | "NONE";
+
+/** ホストの言語. */
+export interface HostLanguageCondition {
+  /** 日本語を話す. */
+  japanese: boolean;
+  english: HostEnglishLevel;
+  /** 英語の案内資料あり. */
+  englishGuide: boolean;
+  note: string;
+}
+
+/** What is served: 食事 / 軽食 / 飲み物だけ / 出ない. */
+export type HostFoodServed = "MEAL" | "SNACK" | "DRINKS" | "NONE";
+/** 対応できる食事: ベジタリアン / ヴィーガン / ハラール / グルテンフリー / アレルギーは相談. */
+export type HostDiet = "VEGETARIAN" | "VEGAN" | "HALAL" | "GLUTEN_FREE" | "ALLERGY_ASK";
+
+/** 食べもの. NIHO also asks guests their food wishes when they book (its own question, not this screen's). */
+export interface HostFoodCondition {
+  served: HostFoodServed;
+  /** In the order conditions.ts lists them. */
+  diets: readonly HostDiet[];
+  note: string;
+}
+
+/** 段差・車いす: 段差なし・車いす可 / 一部段差あり（相談）/ 段差あり・車いす不可. */
+export type HostAccess = "STEP_FREE" | "SOME_STEPS" | "STEPS";
+
+export interface HostAccessCondition {
+  access: HostAccess;
+  note: string;
+}
+
+/** 雨の日: 雨でも開催（屋内）/ 小雨なら開催 / 雨天は中止（全額返金）. */
+export type HostRainPlan = "INDOOR" | "LIGHT_RAIN" | "CANCELLED";
+
+export interface HostWeatherCondition {
+  rain: HostRainPlan;
+  note: string;
+}
+
+/** Each kind's choices. */
+export interface HostConditionValues {
+  AGE: HostAgeCondition;
+  PHYSICAL: HostPhysicalCondition;
+  HOST_LANGUAGE: HostLanguageCondition;
+  FOOD: HostFoodCondition;
+  ACCESS: HostAccessCondition;
+  WEATHER: HostWeatherCondition;
+}
+
+/** 参加の条件 by kind; null is 未設定 (none is required). */
+export type HostParticipationConditions = { readonly [K in ExperienceConditionKind]: HostConditionValues[K] | null };
+
+/** 当日の流れ's words for one step; its time is the step's own. */
+export interface HostTimelineText {
   title: string;
-  language: HostPageLanguage;
+  text: string;
+}
+
+/** An offer's words: its name and the questions asked when booking. Its prices and days are the offer's own. */
+export interface HostOfferText {
+  name: string;
+  questions: readonly string[];
+}
+
+/**
+ * The words of a page in one language (#110): the fields written once per language, in the public
+ * order. Photos, times, prices, capacity and the conditions' choices are shared and stay out of it.
+ */
+export interface HostPageText {
+  title: string;
+  lead: string;
+  dayLanguage: string;
+  highlights: readonly string[];
+  description: string;
+  included: readonly string[];
+  notIncluded: readonly string[];
+  notSuitableFor: readonly string[];
+  /** 参加の条件's notes, by kind. */
+  conditions: Readonly<Partial<Record<ExperienceConditionKind, string>>>;
+  /** By step id. */
+  timeline: Readonly<Record<string, HostTimelineText>>;
+  /** 公開する集合エリア and 入口の案内. */
+  meeting: { area: string; entrance: string };
+  knowBeforeYouGo: readonly string[];
+  /** By offer id. */
+  offers: Readonly<Record<string, HostOfferText>>;
+}
+
+/** One field of a page's words: what 日本語を変えました points at. */
+export type HostPageTextField = keyof HostPageText;
+
+/**
+ * Where the English of a page written in Japanese comes from (#110). NIHO drafts the English from
+ * the Japanese; the host corrects and confirms it. Only the English last confirmed goes to review
+ * and to the experience site. The rules are page-english.ts's.
+ */
+export interface HostEnglishSource {
+  /** The Japanese NIHO made the English from (英語の下書きを作る / 作り直す); null when it made none since the last 英語を確定. */
+  draftedFrom: HostPageText | null;
+  /** The Japanese the host confirmed the English against (英語を確定); null until the English is confirmed once. */
+  confirmedFrom: HostPageText | null;
+  /** The fields whose English the host corrected since NIHO made it or the host confirmed it. */
+  edited: readonly HostPageTextField[];
+}
+
+/**
+ * Everything 保存 keeps: the page text in the public order, its photos and its offers (#89), and
+ * its Japanese and conditions (#110). The text fields are the page's English: as the host writes
+ * it, or (written in Japanese) NIHO's draft as the host corrects and confirms it.
+ */
+export interface HostExperienceContent {
+  /** The English title, which the list and the other screens name the experience by. */
+  title: string;
+  writingLanguage: HostWritingLanguage;
+  /**
+   * The page's words in Japanese while it is written in Japanese; null for a page never written
+   * in Japanese. Kept when the host goes back to writing English, so it returns with 日本語.
+   */
+  japanese: HostPageText | null;
+  englishSource: HostEnglishSource;
   /** ひとこと紹介. */
   lead: string;
   /** 当日の言語 ("English and Japanese"). */
@@ -76,6 +233,7 @@ export interface HostExperienceContent {
   included: readonly string[];
   notIncluded: readonly string[];
   notSuitableFor: readonly string[];
+  conditions: HostParticipationConditions;
   timeline: readonly HostTimelineStep[];
   meeting: HostExperienceMeeting;
   knowBeforeYouGo: readonly string[];

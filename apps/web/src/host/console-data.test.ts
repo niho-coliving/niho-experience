@@ -56,8 +56,8 @@ describe("console data per provider", () => {
     expect(snapshot.notifications.email.addresses).toEqual(["studio@example.com"]);
     const home = hostHome(snapshot);
     expect(home.todos.map((todo) => [todo.title, todo.detail, todo.action?.href])).toEqual([
-      // Derived from the page (no photo, no offer yet), as the editor's 掲載までに必要 shows it.
-      ["Write Your Own Kanji with a Kamakura Calligrapher の原稿を仕上げる", "表紙写真と料金が未入力", "/host/experiences/calligraphy"],
+      // Derived from the page (no photo, no offer yet, written in Japanese with no English yet), as the editor's 掲載までに必要 shows it.
+      ["Write Your Own Kanji with a Kamakura Calligrapher の原稿を仕上げる", "表紙写真と料金が未入力 · 英語が未確定", "/host/experiences/calligraphy"],
     ]);
     expect(home.sessions).toEqual({ today: [], tomorrow: [], later: [] });
     expect(home.month).toEqual({ label: "10月", sales: "¥0", refunds: "¥0", expected: "¥0", confirmed: "0件" });
@@ -155,7 +155,6 @@ describe("console data per provider", () => {
       offer: "Dinner",
       capacity: 8,
       meetingArea: "Near Kamakura Station, 2-minute walk",
-      pageLanguage: "en",
       bookings: [
         ["bk-2041", null],
         ["bk-2038", "+44 7700 900123"],
