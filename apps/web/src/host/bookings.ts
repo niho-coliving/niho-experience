@@ -1,4 +1,4 @@
-import { HOST_BOOKINGS_PATH, withQuery } from "@/lib/host/routes";
+import { HOST_BOOKING_SESSION_PATH, HOST_BOOKINGS_PATH, withQuery } from "@/lib/host/routes";
 import { dateWithWeekdayJa, monthDayJa, yen } from "./format";
 import { BOOKING_STATUS, PAST_CONFIRMED_BOOKING, type StatusLabel } from "./status";
 import type {
@@ -8,7 +8,6 @@ import type {
   HostCancelReason,
   HostGuestLanguage,
   HostMeetingGuideCopy,
-  HostMessageStatus,
   HostOffer,
   HostRefundChoice,
 } from "./types";
@@ -17,7 +16,9 @@ import type {
  * The bookings screen's rules (#90), apart from the screen so they can be tested: what each
  * filter shows, how bookings group into sessions and count seats, what the host can do in
  * each state, how much a cancellation refunds and what each action changes. NIHO decides
- * these for real bookings; in mock mode the screen applies them itself.
+ * these for real bookings; in mock mode the screen applies them itself. Messages to the guest
+ * are the booking's thread in メッセージ (messages.ts, #106); one session's guests and attendance
+ * are この回 (session.ts, #107).
  * TODO(#87): send the actions to the provider API and show the booking NIHO reads back.
  */
 
@@ -67,7 +68,10 @@ export interface BookingSession {
   /** YYYY-MM-DD and HH:MM in Japan. */
   date: string;
   start: string;
+  /** HH:MM in Japan, as its bookings have it. */
+  end: string;
   experienceId: string;
+  offerId: string;
   /** The experience's title; empty when it is not among the provider's experiences. */
   title: string;
   capacity: number | null;
@@ -93,7 +97,19 @@ export function bookingSessions(bookings: readonly HostBooking[], experiences: r
     if (!session) {
       const experience = experiences.find((item) => item.id === booking.experienceId);
       const offer = experience?.offers.find((item) => item.id === booking.offerId);
-      session = { key, date: booking.date, start: booking.start, experienceId: booking.experienceId, title: experience?.title ?? "", capacity: offer?.capacity ?? null, durationMinutes: offer?.durationMinutes ?? null, guests: 0, count: 0 };
+      session = {
+        key,
+        date: booking.date,
+        start: booking.start,
+        end: booking.end,
+        experienceId: booking.experienceId,
+        offerId: booking.offerId,
+        title: experience?.title ?? "",
+        capacity: offer?.capacity ?? null,
+        durationMinutes: offer?.durationMinutes ?? null,
+        guests: 0,
+        count: 0,
+      };
       sessions.set(key, session);
     }
     if (SEATED.has(booking.status)) {
@@ -109,8 +125,8 @@ export function seatsLabel(session: Pick<BookingSession, "guests" | "capacity">)
   return session.capacity ? `${session.guests} / ${session.capacity}名` : `${session.guests}名`;
 }
 
-/** A heading of the list and the bookings under it. */
-export interface BookingGroup {
+/** A heading of the list and the bookings under it. The heading opens the session (この回, #107). */
+export interface BookingGroup extends SessionQuery {
   key: string;
   /** "10月22日（木）18:00" */
   label: string;
@@ -140,7 +156,14 @@ export function bookingGroups(bookings: readonly HostBooking[], experiences: rea
     let group = groups.get(key);
     if (!group) {
       const session = sessions.get(key);
-      group = { key, label: `${dateWithWeekdayJa(booking.date)}${booking.start}`, title: session?.title ?? "", seats: session ? seatsLabel(session) : "", bookings: [] };
+      group = {
+        key,
+        ...sessionOfBooking(booking),
+        label: `${dateWithWeekdayJa(booking.date)}${booking.start}`,
+        title: session?.title ?? "",
+        seats: session ? seatsLabel(session) : "",
+        bookings: [],
+      };
       groups.set(key, group);
     }
     group.bookings.push(booking);
@@ -157,8 +180,9 @@ export interface BookingActions {
 }
 
 /**
- * 承認・お断り: requests only. 取消（と返金）: bookings (確定・要返金). メッセージ: everyone
- * who booked, except requests that ended without a booking (お断り・期限切れ).
+ * 承認・お断り: requests only. 取消（と返金）: bookings (確定・要返金). メッセージ (a thread
+ * to start, #106): everyone who booked, except requests that ended without a booking
+ * (お断り・期限切れ).
  */
 export function bookingActions(status: HostBookingStatus): BookingActions {
   return {
@@ -229,8 +253,8 @@ export function defaultCancelMessage(booking: Pick<HostBooking, "status" | "lang
   return booking.status === "refund_needed" ? messages.guest : messages.host;
 }
 
-/** Lengths the forms accept (NIHO's booking messages; #87's contract replaces them). */
-export const BOOKING_TEXT_LIMITS = { cancelMessage: 2000, subject: 200, body: 4000 } as const;
+/** Lengths the forms accept (NIHO's booking messages; #87's contract replaces them). `body` is a message of a thread. */
+export const BOOKING_TEXT_LIMITS = { cancelMessage: 2000, body: 4000 } as const;
 
 /** 承認: the card is charged and the booking confirmed; NIHO sends the meeting guide with the confirmation. */
 export function approveBooking(booking: HostBooking, at: string): HostBooking {
@@ -273,23 +297,6 @@ export function cancelBooking(booking: HostBooking, cancellation: BookingCancell
   };
 }
 
-export interface BookingMessageInput {
-  subject: string;
-  body: string;
-}
-
-/** メッセージ: NIHO mails it to the guest; it joins 連絡の履歴 and 時系列. Nothing happens without a subject and a body. */
-export function sendBookingMessage(booking: HostBooking, input: BookingMessageInput, at: string): HostBooking {
-  const subject = input.subject.trim();
-  const body = input.body.trim();
-  if (!bookingActions(booking.status).message || !subject || !body) return booking;
-  return {
-    ...booking,
-    messages: [...booking.messages, { id: `${booking.id}-message-${booking.messages.length + 1}`, at, subject, body, status: "sent" }],
-    timeline: [...booking.timeline, { at, text: `メッセージ送信 · ${subject}` }],
-  };
-}
-
 /** When an action happens: the screen's day (mock mode keeps its own) at the current time in Japan. */
 export function actionTime(today: string, now: number): string {
   const time = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(now));
@@ -325,6 +332,9 @@ export function bookingRowDetail(booking: Pick<HostBooking, "guests" | "amountYe
   return [`${booking.guests}名`, yen(booking.amountYen), booking.channel].join(" · ");
 }
 
+/** What the approval and cancel dialogs show of a booking (ホーム approves from its row too). */
+export type BookingDialogSubject = Pick<HostBooking, "guest" | "date" | "start" | "end" | "offer" | "amountYen">;
+
 /** Under the guest's name: "10月22日（木）18:00–20:00 · Dinner". */
 export function bookingWhen(booking: Pick<HostBooking, "date" | "start" | "end" | "offer">): string {
   return `${dateWithWeekdayJa(booking.date)}${booking.start}–${booking.end} · ${booking.offer}`;
@@ -344,13 +354,15 @@ export function priceBreakdown(booking: Pick<HostBooking, "adults" | "children" 
 
 const LANGUAGE_LABELS: Record<HostGuestLanguage, string> = { en: "英語", ja: "日本語" };
 
+/** The language the guest booked in, in Japanese: "英語". */
+export function guestLanguageLabel(language: HostGuestLanguage): string {
+  return LANGUAGE_LABELS[language];
+}
+
 /** 集合案内: "v2 · 10月18日に送付", or "v2 · 承認後に送付" while the booking is not confirmed yet. */
 export function meetingGuideLabel(guide: HostMeetingGuideCopy): string {
   return `v${guide.version} · ${guide.sentAt ? `${monthDayJa(guide.sentAt.slice(0, 10))}に送付` : "承認後に送付"}`;
 }
-
-/** 連絡の履歴: whether NIHO could send the message. */
-export const MESSAGE_STATUS: Record<HostMessageStatus, string> = { sent: "送信済み", failed: "送れませんでした" };
 
 /** One row of 申込内容 or 状態: a value, or the answers to the offer's questions. */
 export type BookingRow = { label: string; value: string; multiline?: boolean } | { label: string; answers: readonly HostBookingAnswer[] };
@@ -360,7 +372,7 @@ function rows(items: readonly (BookingRow | false | "" | null)[]): BookingRow[] 
   return items.filter((item): item is BookingRow => Boolean(item));
 }
 
-/** 申込内容: what the guest booked and wrote. Rows with nothing to show are left out. */
+/** 申込内容: what the guest booked and wrote (never their email: NIHO keeps it). Rows with nothing to show are left out. */
 export function bookingRequestRows(booking: HostBooking, experienceTitle: string): BookingRow[] {
   return rows([
     Boolean(experienceTitle) && { label: "体験", value: experienceTitle },
@@ -368,8 +380,7 @@ export function bookingRequestRows(booking: HostBooking, experienceTitle: string
     { label: "人数", value: peopleLabel(booking) },
     { label: "金額", value: yen(booking.amountYen) },
     { label: "内訳", value: priceBreakdown(booking) },
-    { label: "連絡先", value: booking.email },
-    { label: "言語", value: LANGUAGE_LABELS[booking.language] },
+    { label: "言語", value: guestLanguageLabel(booking.language) },
     { label: "申込経路", value: booking.channel },
     Boolean(booking.note.trim()) && { label: "申込メモ", value: booking.note, multiline: true },
     booking.answers.length > 0 && { label: "回答", answers: booking.answers },
@@ -403,4 +414,24 @@ export interface BookingsQuery {
 /** The bookings screen's address: `?providerId=`, the filter (これから, the default, stays out), the experience and the booking. */
 export function bookingsHref({ providerId, filter, experience, booking }: BookingsQuery = {}): string {
   return withQuery(HOST_BOOKINGS_PATH, { providerId, filter: filter === "upcoming" ? null : filter, experience, booking });
+}
+
+/** One session as its screen's address names it (この回, #107): the day, the start, the experience and the offer. */
+export interface SessionQuery {
+  /** YYYY-MM-DD and HH:MM in Japan. */
+  date: string;
+  start: string;
+  /** The experience's and the offer's ids. */
+  experience: string;
+  offer: string;
+}
+
+/** この回's address, under 予約: `?providerId=`, then the session. */
+export function sessionHref({ providerId, ...session }: SessionQuery & { providerId?: string | null }): string {
+  return withQuery(HOST_BOOKING_SESSION_PATH, { providerId, date: session.date, start: session.start, experience: session.experience, offer: session.offer });
+}
+
+/** The session a booking belongs to, as この回's address names it. */
+export function sessionOfBooking(booking: Pick<HostBooking, "date" | "start" | "experienceId" | "offerId">): SessionQuery {
+  return { date: booking.date, start: booking.start, experience: booking.experienceId, offer: booking.offerId };
 }

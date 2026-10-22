@@ -4,8 +4,8 @@ import type { HostProviderKind, HostProviderReviewStatus } from "@/lib/host/prov
 /*
  * What the host console screens show (#84). The provider's own values (kind, review
  * status, payout readiness) are the host contract's types (#87). Experiences, bookings,
- * sales and the meeting and notification defaults are not in the contract yet, so they
- * stay hand-written from the screens' needs; the screens keep reading these shapes.
+ * messages, sales and the meeting and notification defaults are not in the contract yet, so
+ * they stay hand-written from the screens' needs; the screens keep reading these shapes.
  */
 
 /** One listing state per experience page: draft → review → live (or paused). */
@@ -132,17 +132,11 @@ export interface HostBookingEvent {
   text: string;
 }
 
-export type HostMessageStatus = "sent" | "failed";
-
-/** A message the host sent the guest through NIHO (連絡の履歴). */
-export interface HostBookingMessage {
-  id: string;
-  /** YYYY-MM-DDTHH:MM in Japan. */
-  at: string;
-  subject: string;
-  body: string;
-  status: HostMessageStatus;
-}
+/**
+ * 出欠 (#107): 来た / 来なかった, recorded by the host from the session's start (null = 未記録).
+ * NIHO sends no thanks and no review request for a booking that did not come.
+ */
+export type HostAttendance = "attended" | "no_show";
 
 /** The version of the meeting guide (集合案内) the guest has: NIHO sends it with the confirmation. */
 export interface HostMeetingGuideCopy {
@@ -157,9 +151,24 @@ export interface HostBooking {
   offerId: string;
   /** The offer's name when it was booked. */
   offer: string;
+  /** The guest's name. NIHO never shows hosts the guest's email address: they write through the thread (#103). */
   guest: string;
-  email: string;
   language: HostGuestLanguage;
+  /** Where the guest lives (ISO 3166-1 alpha-2, "GB"; the screens write it in Japanese); null when they gave none. */
+  country: string | null;
+  /**
+   * 食べものの希望 in short Japanese words ("ベジタリアン", "甲殻類なし"): NIHO's own field of the
+   * booking, apart from the offer's questions. One word per guest who has it: two vegetarians
+   * in one booking are written twice.
+   */
+  dietary: readonly string[];
+  /**
+   * The phone number the guest chose to give (optional). Only the session's own screen (この回,
+   * #107) shows it; 予約, メッセージ and ホーム never carry it (console-data.ts bookingList).
+   */
+  phone: string | null;
+  /** 出欠; null until the host records it. */
+  attendance: HostAttendance | null;
   /** Local date and times in Japan (YYYY-MM-DD, HH:MM). */
   date: string;
   start: string;
@@ -194,7 +203,72 @@ export interface HostBooking {
   /** 累計返金. */
   refundedYen: number;
   timeline: readonly HostBookingEvent[];
-  messages: readonly HostBookingMessage[];
+}
+
+/*
+ * メッセージ (#106, Epic #103): one thread per guest and experience. A question before booking
+ * and, once the guest books, the booking's messages are the same thread. The host's reply
+ * reaches the guest by email and the guest's email answer comes back into the thread; the
+ * guest's address stays with NIHO. NIHO translates the guest's words into Japanese, and the
+ * host checks the English of a reply before it is sent.
+ * TODO(#87): NIHO's questions (niho-app#19319), booking messages (#19238) and notifications
+ * (#19315) are not in the host contract yet.
+ */
+
+/** Whether NIHO could send the host's reply: 送信済み / 送れませんでした. */
+export type HostMessageStatus = "sent" | "failed";
+
+/** What a guest wrote, and NIHO's Japanese translation of it. */
+export interface HostGuestMessage {
+  id: string;
+  from: "guest";
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  at: string;
+  /** The guest's own words. */
+  original: string;
+  /** The language they are in (BCP 47: "en", "ko"). */
+  language: string;
+  /** NIHO's Japanese translation; null when NIHO could not translate it (the screen shows the original). Unused for Japanese. */
+  translation: string | null;
+  /** The guest answered NIHO's email instead of writing on the site. */
+  viaEmail: boolean;
+}
+
+/** What the host sent: the Japanese they wrote and the English they checked. */
+export interface HostReplyMessage {
+  id: string;
+  from: "host";
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  at: string;
+  /** Empty when the host wrote the English directly. */
+  japanese: string;
+  /** What reached the guest. */
+  english: string;
+  status: HostMessageStatus;
+}
+
+export type HostThreadMessage = HostGuestMessage | HostReplyMessage;
+
+/** The booking a thread is joined to, as 予約 has it. */
+export interface HostThreadBooking {
+  id: string;
+  /** YYYY-MM-DD and HH:MM in Japan. */
+  date: string;
+  start: string;
+  guests: number;
+}
+
+export interface HostThread {
+  id: string;
+  experienceId: string;
+  /** The guest's name as they gave it (never their email). */
+  guest: string;
+  /** What the question is about ("子ども"); null when NIHO names none. */
+  topic: string | null;
+  /** Null for a question before booking. */
+  booking: HostThreadBooking | null;
+  /** In time order. */
+  messages: readonly HostThreadMessage[];
 }
 
 /**

@@ -23,7 +23,7 @@ vi.mock("@/lib/host/server", async (importActual) => {
 });
 
 import { PREVIEW_STRIPE_TEXT, STRIPE_LINK_UNUSABLE_TEXT, STRIPE_SYNCED_TEXT } from "./connect";
-import { hostPageContext, loadHostBookings, loadHostConsoleData, loadHostPayout, loadHostSales, loadRegistrationConsent } from "./data";
+import { hostPageContext, loadHostBookings, loadHostConsoleData, loadHostMessages, loadHostPayout, loadHostSales, loadHostSession, loadRegistrationConsent } from "./data";
 import { HOST_ERROR_REASON_TEXT } from "./errors";
 import { MOCK_SALES_PERIOD } from "./mock/sales";
 
@@ -86,14 +86,14 @@ describe("loadHostConsoleData", () => {
       notificationEmail: "kitchen@example.com",
     });
     expect(data.experiences).toHaveLength(3);
-    expect(data.home.todos).toHaveLength(3);
+    expect(data.home.todos).toHaveLength(7);
   });
 
   it("mock: the studio is a business still in draft", async () => {
     const data = await loadHostConsoleData(STUDIO);
     expect(data.settings).toMatchObject({ displayName: "サンプル工房", kind: "BUSINESS", reviewStatus: "DRAFT", consentCurrent: true });
     expect(data.experiences.map((experience) => experience.status)).toEqual(["draft"]);
-    expect(data.home.upcoming).toEqual([]);
+    expect(data.home.sessions).toEqual({ today: [], tomorrow: [], later: [] });
   });
 
   it("http: reads the provider detail from NIHO with the session's token and shows nothing else yet", async () => {
@@ -113,7 +113,7 @@ describe("loadHostConsoleData", () => {
       notificationEmail: "",
     });
     expect(data.experiences).toEqual([]);
-    expect(data.home).toEqual({ todos: [], upcoming: [], month: null });
+    expect(data.home).toEqual({ todos: [], sessions: { today: [], tomorrow: [], later: [] }, month: null });
     // A provider who agreed to older terms cannot ask for the review until NIHO sorts it out.
     stubNiho(() => Response.json({ ...detailBody(detail), consent: { version: "sample-provider-consent-2", text: "新しい合成の同意文" } }));
     expect((await loadHostConsoleData(KITCHEN)).settings.consentCurrent).toBe(false);
@@ -137,7 +137,7 @@ describe("loadHostBookings", () => {
   it("mock: the kitchen's bookings, the one ?booking= names, and the experiences without their pages", async () => {
     const data = await loadHostBookings(KITCHEN, "bk-2041");
     expect([data.today, data.now]).toEqual(["2026-10-21", "2026-10-21T15:30"]);
-    expect(data.list.status === "ready" && data.list.bookings).toHaveLength(10);
+    expect(data.list.status === "ready" && data.list.bookings).toHaveLength(13);
     expect(data.requested).toMatchObject({ status: "ready", booking: { id: "bk-2041", guest: "Lucas & Mia Chen" } });
     expect(data.experiences[0]).toEqual({
       id: "community-dinner",
@@ -147,6 +147,8 @@ describe("loadHostBookings", () => {
         { id: "offer-tea", capacity: 8, durationMinutes: 120 },
       ],
     });
+    // The booking with a thread shows its last message (#106).
+    expect(data.conversations).toEqual([{ bookingId: "bk-2031", threadId: "th-3004", text: expect.stringContaining("スーツケース"), at: "2026-10-21T11:05" }]);
     expect((await loadHostBookings(KITCHEN, null)).requested).toBeNull();
     // The studio has no bookings, and the kitchen's are not its own.
     const studio = await loadHostBookings(STUDIO, "bk-2041");
@@ -157,7 +159,52 @@ describe("loadHostBookings", () => {
     state.config.apiMode = "http";
     const calls = stubNiho(() => new Response("unexpected", { status: 500 }));
     const data = await loadHostBookings(KITCHEN, "bk-2041");
-    expect([data.list, data.requested, data.now]).toEqual([{ status: "unavailable" }, { status: "unavailable" }, null]);
+    expect([data.list, data.requested, data.now, data.conversations]).toEqual([{ status: "unavailable" }, { status: "unavailable" }, null, []]);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("loadHostSession", () => {
+  const sofia = { date: "2026-10-27", start: "18:00", experience: "community-dinner", offer: "offer-dinner" };
+
+  it("mock: one session's bookings with the threads they have, at the preview's moment", async () => {
+    const data = await loadHostSession(KITCHEN, sofia);
+    expect(data.now).toBe("2026-10-21T15:30");
+    expect(data.lookup.status === "ready" && data.lookup.session.bookings.map((booking) => booking.guest)).toEqual(["Sofia Rossi"]);
+    expect(data.conversations).toEqual([{ bookingId: "bk-2031", threadId: "th-3004", text: expect.stringContaining("スーツケース"), at: "2026-10-21T11:05" }]);
+    // Tomorrow's dinner has no thread yet; the studio has no such session.
+    expect((await loadHostSession(KITCHEN, { ...sofia, date: "2026-10-22" })).conversations).toEqual([]);
+    expect(await loadHostSession(STUDIO, sofia)).toMatchObject({ lookup: { status: "missing" }, conversations: [] });
+  });
+
+  it("http: nothing to read until NIHO has the session's guests and attendance (#87)", async () => {
+    state.config.apiMode = "http";
+    const calls = stubNiho(() => new Response("unexpected", { status: 500 }));
+    expect(await loadHostSession(KITCHEN, sofia)).toMatchObject({ lookup: { status: "unavailable" }, conversations: [] });
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("loadHostMessages", () => {
+  it("mock: the kitchen's threads, the one ?thread= or ?booking= names, and the experiences' titles", async () => {
+    const data = await loadHostMessages(KITCHEN, { thread: "th-3012", booking: null });
+    expect([data.today, data.now]).toEqual(["2026-10-21", "2026-10-21T15:30"]);
+    expect(data.list.status === "ready" && data.list.threads.map((thread) => thread.id)).toEqual(["th-3012", "th-3007", "th-3004", "th-3010"]);
+    expect(data.requested).toMatchObject({ status: "thread", thread: { id: "th-3012" } });
+    expect(data.experiences[0]).toEqual({ id: "community-dinner", title: "Kamakura Community Dinner with Locals" });
+    // ?thread= wins over ?booking=.
+    expect((await loadHostMessages(KITCHEN, { thread: "th-3007", booking: "bk-2031" })).requested).toMatchObject({ status: "thread", thread: { id: "th-3007" } });
+    expect((await loadHostMessages(KITCHEN, { thread: null, booking: "bk-2044" })).requested).toMatchObject({ status: "new", thread: { id: "th-bk-2044" } });
+    expect((await loadHostMessages(KITCHEN, { thread: null, booking: null })).requested).toBeNull();
+    const studio = await loadHostMessages(STUDIO, { thread: "th-3012", booking: null });
+    expect([studio.list, studio.requested]).toEqual([{ status: "ready", threads: [] }, { status: "missing" }]);
+  });
+
+  it("http: nothing to read until NIHO's API has the messages (#87)", async () => {
+    state.config.apiMode = "http";
+    const calls = stubNiho(() => new Response("unexpected", { status: 500 }));
+    const data = await loadHostMessages(KITCHEN, { thread: "th-3012", booking: null });
+    expect([data.list, data.requested]).toEqual([{ status: "unavailable" }, { status: "unavailable" }]);
     expect(calls).toEqual([]);
   });
 });

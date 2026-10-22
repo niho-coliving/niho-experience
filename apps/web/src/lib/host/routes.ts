@@ -11,8 +11,12 @@ export const HOST_API_PREFIX = "/host/api/";
 /** Console sections (#84). HOST_NAV below lists the same paths for the menu. */
 export const HOST_EXPERIENCES_PATH = "/host/experiences";
 export const HOST_BOOKINGS_PATH = "/host/bookings";
+/** この回 (#107): one session's guests and attendance, a screen under 予約. */
+export const HOST_BOOKING_SESSION_PATH = "/host/bookings/session";
 export const HOST_SALES_PATH = "/host/sales";
 export const HOST_SETTINGS_PATH = "/host/settings";
+/** メッセージ (#106): a screen under ホーム, not in the menu. */
+export const HOST_MESSAGES_PATH = "/host/messages";
 
 export const HOST_NAV = [
   { href: HOST_HOME_PATH, label: "ホーム" },
