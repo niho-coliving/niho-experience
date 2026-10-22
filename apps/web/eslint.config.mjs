@@ -4,6 +4,7 @@ import nextTs from "eslint-config-next/typescript";
 
 const SERVER_ONLY_HOST_API = "ホスト API のクライアントはサーバー専用です（ID token を送る）。src/lib/host/server.ts の hostApiClient を使い、ブラウザからは /host/api/* を呼んでください。型だけの import はどこからでもよい。";
 const SERVER_ONLY_ADMIN_AUTH = "Admin認証SDKはサーバー専用です（tokenを扱う）。src/lib/admin/server.tsを経由し、ブラウザへtokenを渡さないでください。型だけのimportは許可されます。";
+const SERVER_ONLY_ADMIN_READ = "Admin read SDKはサーバー専用です（tokenを扱う）。src/lib/admin/server.tsを経由し、ブラウザからは/admin/api/*を呼んでください。型だけのimportは許可されます。";
 const hostSdkFiles = ["src/lib/host/server.ts", "src/lib/host/mock-niho.ts", "src/host/connect.ts"];
 const adminSdkFiles = ["src/lib/admin/server.ts", "src/lib/admin/http-session.ts", "src/app/(admin)/admin/auth/login/route.ts"];
 const hostSdkImports = [
@@ -12,6 +13,7 @@ const hostSdkImports = [
 ];
 const adminSdkImports = [
   { name: "@niho-experience/api-client/admin-auth", message: SERVER_ONLY_ADMIN_AUTH, allowTypeImports: true },
+  { name: "@niho-experience/api-client/admin-read", message: SERVER_ONLY_ADMIN_READ, allowTypeImports: true },
 ];
 
 export default defineConfig([

@@ -8,6 +8,11 @@ import {
   createExperienceAdminAuthClient,
   type ExperienceAdminVerifiedSession,
 } from "@niho-experience/api-client/admin-auth";
+import {
+  createExperienceAdminReadApiClient,
+  type ExperienceAdminReadApiClient,
+  type ExperienceAdminReadFailure,
+} from "@niho-experience/api-client/admin-read";
 import { cookieSealer } from "@/lib/host/cookie-seal";
 import { signInWithCustomToken } from "@/lib/host/niho-auth";
 import { ID_TOKEN_MIN_REMAINING_MS, REFRESH_WINDOW_MS } from "@/lib/host/timing";
@@ -31,6 +36,8 @@ import {
 
 export const isAdminPreview = () => config.apiMode === "mock" && config.adminSupportConsoleEnabled;
 export const isAdminHttp = () => config.apiMode === "http" && config.adminSupportConsoleEnabled;
+export const isAdminHttpRead = () => isAdminHttp() && config.adminSupportReadApiEnabled;
+export const isAdminReadPreview = () => isAdminPreview() && config.adminSupportReadPreviewEnabled;
 
 export function requireAdminConsole() {
   if (!config.adminSupportConsoleEnabled) notFound();
@@ -42,6 +49,31 @@ export const adminHttpLoginSealer = () => cookieSealer(config.adminSessionSecret
 
 export function adminAuthClient() {
   return createExperienceAdminAuthClient({ nihoWebOrigin: config.nihoWebOrigin, fetch });
+}
+
+export function adminReadApiClient(session: AdminHttpSession): ExperienceAdminReadApiClient {
+  return createExperienceAdminReadApiClient({ nihoWebOrigin: config.nihoWebOrigin, idToken: session.idToken, fetch });
+}
+
+export function adminReadFailureJson(failure: ExperienceAdminReadFailure): NextResponse {
+  if (failure.kind === "rejected") {
+    const response = adminJson({ error: "signed_out" }, 401);
+    clearAdminHttpSessionCookie(response);
+    return response;
+  }
+  if (failure.kind === "not_found") return adminJson({ error: "not_found" }, 404);
+  if (failure.kind === "invalid_request") return adminJson({ error: "invalid_input" }, 400);
+  return adminJson({ error: "unavailable" }, 503);
+}
+
+export async function loadAdminReadClient(): Promise<{ ok: true; client: ExperienceAdminReadApiClient } | { ok: false; response: NextResponse }> {
+  if (!isAdminHttpRead()) return { ok: false, response: adminJson({ error: "not_found" }, 404) };
+  const load = await loadAdminHttpSession();
+  if (load.status === "ok") return { ok: true, client: adminReadApiClient(load.session) };
+  if (load.status === "error") return { ok: false, response: adminJson({ error: "unavailable" }, 503) };
+  const response = adminJson({ error: load.status === "refresh" ? "refresh_required" : "signed_out" }, 401);
+  if (load.status === "rejected") clearAdminHttpSessionCookie(response);
+  return { ok: false, response };
 }
 
 export const readAdminSession = cache(async (): Promise<AdminSession | null> => {

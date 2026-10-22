@@ -6,9 +6,15 @@
 
 `/admin/bookings` は、複数ホストの申込一覧、絞り込み、予約詳細、支援条件、相談、担当、運営メモ、連絡先の種類、Admin本人の対応履歴を確認する画面である。`/admin/notifications` は、サポートONで受け付けた合成予約について、新規申込、変更、取消、返金確認、新しい連絡の受信を確認する画面である。`EXPERIENCE_API_MODE=mock` と `ADMIN_SUPPORT_CONSOLE_ENABLED=true` の両方が設定されたときだけ、明示的な合成Adminログイン、合成予約、合成通知を表示する。フラグの既定値はOFFである。
 
-HTTPモードは、選別済み v1.0.0 契約によるAdmin専用app-connect認証だけを接続する。NIHOで現在のplatform ADMINと専用clientを確認できた場合に、検証済みactorと8時間の絶対期限を表示する。予約支援APIと通知APIはまだ接続せず、各画面は「準備中」として実予約、通知本文、未読件数、操作成功を表示しない。NIHO側の認証実装も未配備の先行契約であり、本番完成とは扱わない。
+HTTPモードは、選別済み v1.0.0 契約によるAdmin専用app-connect認証を使う。NIHOで現在のplatform ADMINと専用clientを確認できた場合に、検証済みactorと8時間の絶対期限を表示する。予約・通知のread契約もv1.0.0で固定済みだが未配備で、独立した `ADMIN_SUPPORT_READ_API_ENABLED` は既定OFFである。OFFの間は各画面を「準備中」とし、実予約、通知本文、未読件数、操作成功を表示しない。
 
-契約配布物は `packages/api-client/contract/experience-admin-auth-api.openapi.json` と同SHAファイルに固定する。manifestはNIHO側source commit `b1bee0090e`、契約版、未配備状態、認証だけの範囲を記録する。予約・料金・通知・ホスト設定のschemaを推測して追加しない。
+認証の契約配布物は `packages/api-client/contract/experience-admin-auth-api.openapi.json`（source `b1bee0090e`）に固定する。予約・通知の読取契約は別配布物 `experience-admin-read-api.openapi.json`（source `08736836328976b130b919bef0ebcdad7d5ba7bb`、SHA `054bcc96e3f3818066512a185fdeeffe6da447f44340ea005d600eb63c8c4d8a`）に固定する。どちらもmanifestに未配備状態を記録し、API配備・三者受入・app-connect scope接続が完了するまで本番でread flagをONにしない。
+
+read flagをONにしたHTTP画面は、予約一覧・deep link詳細・通知一覧・本人の既読だけをNIHOへ接続する。予約検索はBFFから `POST /api/admin/experience-bookings/query` へJSON本文で送り、検索語をブラウザURLやNIHOへのrequest URLへ載せない。cursorはAPI側の継続位置として扱い、表示件数は「読み込み済み」と明示する。通知は全対象の `unreadCount` とpage cursorを使い、既読操作は対象pageを明示し、成功応答後だけ反映する。リアルタイム配信とは表示しない。
+
+`ADMIN_SUPPORT_READ_PREVIEW_ENABLED=true` はmockモード専用のUI確認flagである。既存の合成Admin session上でread-only UIだけを描画し、BFFはmockデータへfallbackせず404のままにする。Playwrightがブラウザ要求へ契約形の合成stubを返し、HTTP session・SDK・BFF境界はunitで別に検証する。HTTPモードではこのflagを無視する。
+
+予約の承認・辞退・取消／返金、連絡送信、担当・内部メモ編集はread flagをONにしても表示しない。旧予約や不正な支援snapshotをOFF・10%へ補完せず、読取契約にない担当・内部メモ・履歴・連絡スレッドも空値で作らない。
 
 ## 支援条件
 
@@ -36,7 +42,7 @@ HTTPモードは、選別済み v1.0.0 契約によるAdmin専用app-connect認�
 - logoutは自分のNIHO接続の失効を試み、通信結果にかかわらずlocal cookieを消す。2xxまたは既に接続がない404だけを解除確認済みとし、401・その他の失敗・通信失敗では、端末からのlogout完了、NIHO側の解除未確認、接続が発行から最長8時間で失効することを表示する。
 - `/admin` 全体を `private, no-store`、`noindex, nofollow` とし、旅行者向けの分析・計測を読み込まない。公開cacheやイベント計測へ予約者・ホスト情報を送らない。
 
-HTTPで有効にするには `ADMIN_SUPPORT_CONSOLE_ENABLED=true`、専用の `ADMIN_SESSION_SECRET`、Firebase Web API key、`SITE_URL` と完全一致する `NIHO_EXPERIENCE_ADMIN_ORIGIN` が必要である。originは本番HTTPS、ローカルはloopback HTTPだけを許し、NIHO側の `APP_CONNECT_EXPERIENCE_ADMIN_ORIGIN` と同じ値を明示する。公開ドメインはコードへ固定しない。
+HTTPでAdmin認証を有効にするには `ADMIN_SUPPORT_CONSOLE_ENABLED=true`、専用の `ADMIN_SESSION_SECRET`、Firebase Web API key、`SITE_URL` と完全一致する `NIHO_EXPERIENCE_ADMIN_ORIGIN` が必要である。予約・通知の読取には、これらに加えて配備・受入後に `ADMIN_SUPPORT_READ_API_ENABLED=true` を設定する。originは本番HTTPS、ローカルはloopback HTTPだけを許し、NIHO側の `APP_CONNECT_EXPERIENCE_ADMIN_ORIGIN` と同じ値を明示する。公開ドメインはコードへ固定しない。
 
 ## NIHO側に必要な契約
 

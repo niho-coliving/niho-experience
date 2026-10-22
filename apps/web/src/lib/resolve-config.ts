@@ -30,6 +30,12 @@ export function resolveConfig(env: Env) {
   // The support console has no NIHO admin contract yet. Its explicit gate is useful only for
   // the synthetic preview; http mode renders a preparation boundary and never accepts a mock role.
   const adminSupportConsoleEnabled = env.ADMIN_SUPPORT_CONSOLE_ENABLED === "true";
+  // The selected booking/notification contract is agreed but not deployed. Keep its
+  // transport behind a second switch so enabling Admin auth alone still reads no data.
+  const adminSupportReadApiEnabled = env.ADMIN_SUPPORT_READ_API_ENABLED === "true";
+  // Synthetic UI-only preview. Its BFF remains closed in mock mode; Playwright stubs
+  // the browser requests with contract-shaped fixtures. Never accepted in HTTP mode.
+  const adminSupportReadPreviewEnabled = apiMode === "mock" && env.ADMIN_SUPPORT_READ_PREVIEW_ENABLED === "true";
   const hostSessionSecret = env.HOST_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
   const nihoFirebaseWebApiKey = env.NIHO_FIREBASE_WEB_API_KEY?.trim() ?? "";
   const adminSessionSecret = env.ADMIN_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
@@ -73,6 +79,8 @@ export function resolveConfig(env: Env) {
     umamiWebsiteId: env.UMAMI_WEBSITE_ID?.trim() ?? "",
     hostConsoleEnabled,
     adminSupportConsoleEnabled,
+    adminSupportReadApiEnabled,
+    adminSupportReadPreviewEnabled,
     // Comma-separated keys: the first seals new cookies, the rest still open old ones while keys rotate.
     hostSessionSecret,
     adminSessionSecret,

@@ -28,6 +28,14 @@ export const EXPERIENCE_ADMIN_AUTH_API_CONTRACT = {
   deploymentStatus: "not-deployed",
 } as const;
 
+/** Selected Admin booking/notification read contract. Agreed, but not deployed by NIHO yet. */
+export const EXPERIENCE_ADMIN_READ_API_CONTRACT = {
+  version: "1.0.0",
+  sourceCommit: "08736836328976b130b919bef0ebcdad7d5ba7bb",
+  status: "agreed-not-deployed",
+  deploymentStatus: "not-deployed",
+} as const;
+
 /** 予約に関わる時刻の基準。表示も日本時間（Asia/Tokyo）で行う。 */
 export const EXPERIENCE_TIME_ZONE = "Asia/Tokyo";
 
