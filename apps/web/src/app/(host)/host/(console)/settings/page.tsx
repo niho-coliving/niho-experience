@@ -4,6 +4,7 @@ import { FieldRow, FieldSection } from "@/components/host/fields";
 import { HostIcon } from "@/components/host/HostIcon";
 import { HostRegisterPrompt } from "@/components/host/HostRegisterPrompt";
 import { HostSettingsForm } from "@/components/host/HostSettingsForm";
+import { HostSupportSettingsPanel } from "@/components/host/HostSupportSettingsPanel";
 import { consoleButtonClass } from "@/components/host/host-ui";
 import { AccountAvatar, HostPageBody, PageHead } from "@/components/host/ui";
 import { hostPageContext, loadHostConsoleData, loadHostPayout } from "@/host/data";
@@ -71,7 +72,7 @@ export default async function HostSettingsPage({ searchParams }: { searchParams:
         payout={payout.load}
         connectNotice={payout.notice}
         preview={isHostMock()}
-        account={accountPanel}
+        account={<><HostSupportSettingsPanel providerId={provider.id} role={provider.memberRole} preview={isHostMock()} />{accountPanel}</>}
       />
     </HostPageBody>
   );

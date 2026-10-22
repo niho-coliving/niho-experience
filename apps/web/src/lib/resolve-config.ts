@@ -13,6 +13,9 @@ export function resolveConfig(env: Env) {
   const apiMode = env.EXPERIENCE_API_MODE === "http" ? "http" : "mock";
   // The host console (/host/home and below, #86) stays off unless explicitly enabled.
   const hostConsoleEnabled = env.HOST_CONSOLE_ENABLED === "true";
+  // The support console has no NIHO admin contract yet. Its explicit gate is useful only for
+  // the synthetic preview; http mode renders a preparation boundary and never accepts a mock role.
+  const adminSupportConsoleEnabled = env.ADMIN_SUPPORT_CONSOLE_ENABLED === "true";
   const hostSessionSecret = env.HOST_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
   const nihoFirebaseWebApiKey = env.NIHO_FIREBASE_WEB_API_KEY?.trim() ?? "";
   if (apiMode === "http" && hostConsoleEnabled) assertHostConsoleSecrets(hostSessionSecret, nihoFirebaseWebApiKey);
@@ -44,6 +47,7 @@ export function resolveConfig(env: Env) {
     // Only the production runtime receives this public Umami website ID.
     umamiWebsiteId: env.UMAMI_WEBSITE_ID?.trim() ?? "",
     hostConsoleEnabled,
+    adminSupportConsoleEnabled,
     // Comma-separated keys: the first seals new cookies, the rest still open old ones while keys rotate.
     hostSessionSecret,
     nihoFirebaseWebApiKey,

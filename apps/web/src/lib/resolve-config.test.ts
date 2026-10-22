@@ -54,3 +54,11 @@ describe("host console settings", () => {
     expect(ok).toMatchObject({ hostConsoleEnabled: true, hostSessionSecret: secret, nihoFirebaseWebApiKey: "key" });
   });
 });
+
+describe("admin support console settings", () => {
+  it("stays off unless its dedicated flag is exactly true", () => {
+    expect(resolveConfig({}).adminSupportConsoleEnabled).toBe(false);
+    expect(resolveConfig({ ADMIN_SUPPORT_CONSOLE_ENABLED: "1" }).adminSupportConsoleEnabled).toBe(false);
+    expect(resolveConfig({ ADMIN_SUPPORT_CONSOLE_ENABLED: "true" }).adminSupportConsoleEnabled).toBe(true);
+  });
+});
