@@ -1,25 +1,21 @@
 import type { Metadata } from "next";
-import type { PageDocument } from "@niho/web/core";
 import { redirect } from "next/navigation";
 import { EN_STATIC_COPY_V1, HostViewV1 } from "@niho/experience-presentation/v1";
-import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { TrackView, TrackedLink } from "@/components/Analytics";
 import { HandIcon } from "@/components/HandIcon";
 import { buttonClass } from "@/components/ui";
 import { PRESENTATION_PRIMITIVES_V1 } from "@/components/PresentationV1";
 import { config } from "@/lib/config";
 import { safeHttpsUrl } from "@/lib/safe-url";
-import { getPublishedPageDocument, getPublishedPageMetadata } from "@/lib/page-documents";
 import { HOST_BAND_VIDEO } from "@/lib/site-media";
 import { publicMetadata } from "@/lib/public-metadata";
 import { nihoIdOrNull } from "@/lib/host/providers";
 import { HOST_LOGIN_PATH, hostLandingPath } from "@/lib/host/routes";
 import { isHostMock, readHostSession } from "@/lib/host/server";
-import { assertSameJapaneseRelease, getJapaneseCopy, getJapanesePage, japaneseRenderableDocument, type SiteLocale } from "@/lib/localized-content";
+import { getJapaneseCopy, type SiteLocale } from "@/lib/localized-content";
 import { JapaneseUnavailable } from "@/components/JapaneseUnavailable";
 import { englishAlternates } from "@/lib/locale-metadata";
 import { japaneseStaticMetadata } from "@/lib/locale-metadata";
-import { getEnglishStaticCopy, getPresentationSource } from "@/lib/presentation-source";
 
 function hostStartUrl(value: string, nihoOrigin: string): string | null {
   try {
@@ -30,8 +26,7 @@ function hostStartUrl(value: string, nihoOrigin: string): string | null {
 }
 
 export async function englishHostMetadata(): Promise<Metadata> {
-  const page = await getPublishedPageMetadata("host");
-  return { ...publicMetadata(page.title ?? "Host an experience with NIHO", page.description ?? "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.", `${config.siteUrl}/host`), alternates: await englishAlternates("/host") };
+  return { ...publicMetadata("Host an experience with NIHO", "Share a meal, a craft or a favorite walk with travelers in Kamakura. NIHO helps you prepare, list and take bookings.", `${config.siteUrl}/host`), alternates: await englishAlternates("/host") };
 }
 export async function japaneseHostMetadata(): Promise<Metadata> {
   try { return await japaneseStaticMetadata("host"); }
@@ -73,18 +68,12 @@ async function hostConsoleEntry(query: SearchParams): Promise<{ loginHref: strin
 
 export async function HostPageContent({ searchParams, locale }: { searchParams: Promise<SearchParams>; locale: SiteLocale }) {
   const consoleEntry = await hostConsoleEntry(await searchParams);
-  let document: PageDocument | null, copy = EN_STATIC_COPY_V1;
-  let hostVideo = HOST_BAND_VIDEO;
+  let copy = EN_STATIC_COPY_V1;
+  const hostVideo = HOST_BAND_VIDEO;
   if (locale === "ja") {
     try {
-      const [siteCopy, page] = await Promise.all([getJapaneseCopy(), getJapanesePage("host")]);
-      assertSameJapaneseRelease(siteCopy.releaseId, page); document = japaneseRenderableDocument(page); copy = siteCopy.copy;
+      copy = (await getJapaneseCopy()).copy;
     } catch { return <JapaneseUnavailable />; }
-  } else {
-    const [published, staticCopy, source] = await Promise.all([getPublishedPageDocument("host"), getEnglishStaticCopy(), config.presentationSourceDisplayEnabled ? getPresentationSource() : Promise.resolve(null)]);
-    document = published; copy = staticCopy;
-    const asset = source?.assets["home.hostBand"];
-    if (asset?.kind === "video") hostVideo = { src: asset.src, poster: asset.poster };
   }
   const nihoProviderUrl = hostStartUrl(config.nihoHostStartUrl, config.nihoWebOrigin);
   // The console login replaces the links to NIHO's provider screen.
@@ -92,27 +81,26 @@ export async function HostPageContent({ searchParams, locale }: { searchParams: 
   const startUrl = config.hostSignupMode === "open" ? managementUrl : null;
   const openSignup = config.hostSignupMode === "open" && Boolean(consoleEntry || nihoProviderUrl);
   const contactUrl = safeHttpsUrl(config.hostPilotContactUrl);
-  const releasedCopy = locale === "ja" || config.presentationSourceDisplayEnabled;
-  const signup = (props: BlockProps = {}) => (
+  const signup = (
     // Full width under the hero on desktop. Phone-only values are max-lg: so package-scoped base classes cannot override the lg: ones.
-    <section className="max-lg:mt-7 max-lg:max-w-2xl lg:mt-10" aria-label={releasedCopy ? copy.text("host.start") : "How to start"}>
+    <section className="max-lg:mt-7 max-lg:max-w-2xl lg:mt-10" aria-label={copy.text("host.start")}>
       {consoleEntry && openSignup ? null : startUrl ? (
         <div className="space-y-3">
           <TrackedLink href={startUrl} event="host_start" props={{ signup_mode: "open" }} className={buttonClass("primary", "text-lg")}>
-            {blockText(props, "label", releasedCopy ? copy.text("host.start") : "Start with your NIHO account")}
+            {locale === "ja" ? "NIHOアカウントで始める" : "Start with your NIHO account"}
           </TrackedLink>
           <p className="text-sm text-muted">
-            {releasedCopy ? copy.text("host.feesBody") : "Use your NIHO account for experiences, bookings and sales. Listings need NIHO review; Stripe may request identity checks."}
+            {copy.text("host.feesBody")}
           </p>
         </div>
       ) : (
         <div className="flex items-start gap-3.5 rounded-[22px] bg-leaf-pale max-lg:p-5 lg:px-7 lg:py-6">
           <HandIcon name="house" className="size-10 text-moss [stroke-width:1.5]" />
           <div>
-            <p className="text-[1.0625rem] font-extrabold">{releasedCopy ? copy.text("host.peopleTitle") : "We're starting with a small group of hosts"}</p>
-            <p className="mt-1 text-[0.9375rem] text-ink-soft">{releasedCopy ? copy.text("host.peopleBody") : <>During the first season we work directly with a few hosts we know. Online sign-up opens after that.{contactUrl ? null : " If you'd like to be one of them, ask us at NIHO in Kamakura."}</>}</p>
+            <p className="text-[1.0625rem] font-extrabold">{copy.text("host.peopleTitle")}</p>
+            <p className="mt-1 text-[0.9375rem] text-ink-soft">{copy.text("host.peopleBody")}</p>
             {contactUrl ? <p className="mt-3"><TrackedLink href={contactUrl} event="host_start" props={{ signup_mode: "pilot" }} className="font-bold text-moss underline">
-              {blockText(props, "label", releasedCopy ? copy.text("host.start") : "Tell us you're interested")}
+              {copy.text("host.start")}
             </TrackedLink></p> : null}
           </div>
         </div>
@@ -133,6 +121,15 @@ export async function HostPageContent({ searchParams, locale }: { searchParams: 
       ) : null}
     </section>
   );
-  const fallback = locale === "ja" ? <JapaneseUnavailable /> : <HostViewV1 primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} model={{ video: hostVideo, steps: openSignup ? OPEN_STEPS : PILOT_STEPS, you: YOU, niho: NIHO, signup: signup(), signupOpen: Boolean(startUrl || consoleEntry) }} />;
-  return <>{locale === "en" ? <TrackView event="host_view" props={{ signup_mode: openSignup ? "open" : "pilot" }} /> : null}<PageDocumentContent document={document} pageId="host" fallback={fallback} slots={{ HostSignupCTA: (props) => <div className="container-page">{signup(props)}</div> }} /></>;
+  const steps = locale === "ja" ? [
+    { title: copy.text("host.ideaTitle"), body: copy.text("host.ideaBody") },
+    { title: copy.text("host.prepareTitle"), body: copy.text("host.prepareBody") },
+    { title: copy.text("host.accountTitle"), body: copy.text("host.accountBody") },
+    { title: copy.text("host.welcomeTitle"), body: copy.text("host.welcomeBody") },
+  ] : openSignup ? OPEN_STEPS : PILOT_STEPS;
+  const roles = locale === "ja" ? {
+    you: ["体験を実施し、ゲストを迎える", "日程と定員を最新に保つ", "掲載内容と集合案内を確認する", "必要な本人確認と受取口座の手続きを行う"],
+    niho: ["英語の掲載原稿づくりを支援する", "写真・価格・条件を一緒に整える", "旅行者への掲載と予約・決済を扱う", "開催前のゲストの質問を支援する"],
+  } : { you: YOU, niho: NIHO };
+  return <>{locale === "en" ? <TrackView event="host_view" props={{ signup_mode: openSignup ? "open" : "pilot" }} /> : null}<HostViewV1 primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} model={{ video: hostVideo, steps, you: roles.you, niho: roles.niho, signup, signupOpen: Boolean(startUrl || consoleEntry) }} /></>;
 }

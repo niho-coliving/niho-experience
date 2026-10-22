@@ -132,18 +132,18 @@ describe("v1 portable presentation", () => {
     for (const marker of ["Meet the people who make Kamakura", "Experiences hosted by", "Slow down", "Small on purpose", "Simple, in yen", "Kamakura is small", "Experiences in Kamakura", "What you&#x27;ll do", "Show all 2 photos", "data-booking-screen=\"selection\"", "data-booking-screen=\"checkout\"", "What name should the host use?", "Select accessibility preferences", "Booking terms:", "Synthetic dates controller", "Booking help", "Share what you love with travelers", "NIHO Experience"]) expect(routes).toContain(marker);
   });
 
-  it("keeps every English code-default route on v1 while retaining PageDocument fallback selection", async () => {
+  it("keeps every English code-owned route on v1", async () => {
     const consumers = {
-      "apps/web/src/app/(site)/page.tsx": ["HomeViewV1", "PageDocumentContent", "fallback={fallback}"],
-      "apps/web/src/app/(site)/experiences/(list)/page.tsx": ["CatalogueViewV1", "PageDocumentContent"],
+      "apps/web/src/app/(site)/page.tsx": ["HomeViewV1"],
+      "apps/web/src/app/(site)/experiences/(list)/page.tsx": ["CatalogueViewV1"],
       "apps/web/src/app/(site)/experiences/[slug]/page.tsx": ['ExperiencePageContent({ ...props, locale: "en" })'],
-      "apps/web/src/components/pages/ExperiencePageContent.tsx": ["DetailViewV1", "PageDocumentContent"],
+      "apps/web/src/components/pages/ExperiencePageContent.tsx": ["DetailViewV1"],
       "apps/web/src/app/(site)/experiences/[slug]/book/page.tsx": ['BookingPageContent({ ...props, locale: "en" })'],
-      "apps/web/src/components/pages/BookingPageContent.tsx": ["BookingPageViewV1", "PageDocumentContent"],
+      "apps/web/src/components/pages/BookingPageContent.tsx": ["BookingPageViewV1"],
       "apps/web/src/app/(site)/help/page.tsx": ["HelpViewV1"],
       "apps/web/src/app/(site)/host/page.tsx": ['HostPageContent({ ...props, locale: "en" })'],
-      "apps/web/src/components/pages/HostPageContent.tsx": ["HostViewV1", "PageDocumentContent"],
-      "apps/web/src/components/DocumentChrome.tsx": ["PresentationRootV1", "PageDocumentContent"],
+      "apps/web/src/components/pages/HostPageContent.tsx": ["HostViewV1"],
+      "apps/web/src/components/SiteChrome.tsx": ["PresentationRootV1", "SiteHeaderV1", "SiteFooterV1"],
       "apps/web/src/components/BookingParts.tsx": ["BookingSummaryV1", "BookingStepHeadingV1", "BookingBarV1"],
       "apps/web/src/components/SlotPicker.tsx": ["BookingSelectionViewV1", "BookingSelectionViewModelV1"],
       "apps/web/src/components/BookingForm.tsx": ["BookingCheckoutViewV1", "BookingCheckoutViewModelV1"],

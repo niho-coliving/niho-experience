@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { CatalogueViewV1 } from "@niho/experience-presentation/v1";
+import { CatalogueViewV1, EN_STATIC_COPY_V1 } from "@niho/experience-presentation/v1";
 import { TrackView } from "@/components/Analytics";
-import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { ExperienceList } from "@/components/ExperienceList";
 import { ExperienceFiltersForm } from "@/components/ExperienceFiltersForm";
 import { EmptyResults, ErrorState } from "@/components/States";
@@ -11,17 +10,14 @@ import { loadDetails } from "@/lib/catalog";
 import { config, isPilotPreview, isPreview } from "@/lib/config";
 import { dayOption, parseDateParam, parseGuestsParam, upcomingDays } from "@/lib/date-filter";
 import { filterExperienceSummaries, normalizeExperienceDate, normalizeExperienceQuery, normalizeExperienceTheme, type SearchParams } from "@/lib/filters";
-import { getPublishedPageDocument, getPublishedPageMetadata } from "@/lib/page-documents";
 import { EXPERIENCE_LIST_DESCRIPTION, EXPERIENCE_LIST_TITLE, publicMetadata } from "@/lib/public-metadata";
 import { englishAlternates } from "@/lib/locale-metadata";
-import { getEnglishStaticCopy } from "@/lib/presentation-source";
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParams> }): Promise<Metadata> {
   const query = await searchParams;
   const filtered = query.theme !== undefined || query.date !== undefined || query.guests !== undefined || normalizeExperienceQuery(query.q) !== "";
-  const page = await getPublishedPageMetadata("experiences");
   return {
-    ...publicMetadata(page.title ?? EXPERIENCE_LIST_TITLE, page.description ?? EXPERIENCE_LIST_DESCRIPTION, `${config.siteUrl}/experiences`), alternates: await englishAlternates("/experiences"),
+    ...publicMetadata(EXPERIENCE_LIST_TITLE, EXPERIENCE_LIST_DESCRIPTION, `${config.siteUrl}/experiences`), alternates: await englishAlternates("/experiences"),
     ...(filtered ? { robots: { index: false, follow: true } } : {}),
   };
 }
@@ -33,7 +29,8 @@ const FINDER_DAYS = 14;
 export default async function ExperiencesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const query = await searchParams;
   const searchQuery = normalizeExperienceQuery(query.q);
-  const [api, result, document, copy] = await Promise.all([getApi(query), listExperiencesForSite("kamakura", query), getPublishedPageDocument("experiences"), getEnglishStaticCopy()]);
+  const [api, result] = await Promise.all([getApi(query), listExperiencesForSite("kamakura", query)]);
+  const copy = EN_STATIC_COPY_V1;
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const catalog = result.ok ? result.data.experiences : [];
   const items = filterExperienceSummaries(catalog, searchQuery);
@@ -57,8 +54,8 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
     filtersEnabled: config.publicApiVersion === "1.2",
     filtersActive: Boolean(searchQuery || theme || date || initialGuests !== null),
   };
-  const listContent = (props: BlockProps = {}) => (
-    <CatalogueViewV1 copy={copy} heading={blockText(props, "heading", copy.text("catalogue.title"))} content={
+  const listContent = (
+    <CatalogueViewV1 copy={copy} heading={copy.text("catalogue.title")} content={
       <ExperienceList
         key={JSON.stringify([searchQuery, theme, initialDate, initialGuests])}
         cards={cards}
@@ -71,13 +68,13 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
         nihoWebOrigin={config.nihoWebOrigin}
         search={<ExperienceFiltersForm key="bar-search" {...searchProps} placement="bar" />}
         inlineSearch={<ExperienceFiltersForm key="inline-search" {...searchProps} placement="inline" />}
-        columns={props.columns === "two" ? "two" : "three"}
-        empty={<><EmptyResults key="empty-results" clearHref={searchQuery || theme || date || initialGuests !== null ? "/experiences" : null} searchActive={Boolean(searchQuery)} />{props.emptyMessage ? <p key="empty-message">{String(props.emptyMessage)}</p> : null}</>}
+        columns="three"
+        empty={<EmptyResults key="empty-results" clearHref={searchQuery || theme || date || initialGuests !== null ? "/experiences" : null} searchActive={Boolean(searchQuery)} />}
       />
     } />
   );
   return <>
     <TrackView event="list_view" props={{ theme: theme ?? "all", date_filtered: initialDate !== null, result_count: items.length }} />
-    <PageDocumentContent document={document} pageId="experiences" fallback={listContent()} slots={{ ExperienceGrid: (props) => listContent(props) }} />
+    {listContent}
   </>;
 }

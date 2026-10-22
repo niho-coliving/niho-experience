@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultStaticCopyValuesV1 } from "@niho/experience-presentation/v1";
-import type { PageDocument } from "@niho/web/core";
-import { publishedDocument } from "./testing/page-document-fixtures";
-import { assertSameJapaneseRelease, JapaneseReleaseUnavailable, japaneseBookingAllowed, japaneseRenderableDocument } from "./localized-release";
-import { EXPERIENCE_PRESENTATION_IDENTITY } from "./presentation-identity";
+import { assertSameJapaneseRelease, JapaneseReleaseUnavailable, japaneseBookingAllowed } from "./localized-release";
 
 const state = vi.hoisted(() => ({ releaseId: "release-1", responses: new Map<string, unknown | null>() }));
 
@@ -18,19 +15,15 @@ vi.mock("./api", () => ({
 const authored = { schemaVersion: 1, renderingMode: "authored", presentation: null } as const;
 const sourcePaths = { home: "/", experiences: "/experiences", host: "/host", help: "/help" } as const;
 
-function japaneseDocument(pageId: keyof typeof sourcePaths | "chrome"): PageDocument {
-  return { ...publishedDocument(pageId), locale: "ja" };
-}
-
 function pageFixture(pageId: keyof typeof sourcePaths, releaseId = state.releaseId) {
   const sourcePath = sourcePaths[pageId];
   return {
     releaseId,
     locale: "ja",
-    document: japaneseDocument(pageId),
+    document: { ignoredVisualDocument: pageId },
     route: { pageId, sourcePath, path: sourcePath === "/" ? "/ja/" : `/ja${sourcePath}`, indexable: pageId !== "help" },
     seo: { pageId, title: `Japanese ${pageId}`, indexable: pageId !== "help" },
-    display: { navigation: [], supportedBlocks: [], chrome: japaneseDocument("chrome") },
+    display: { navigation: [], supportedBlocks: [], chrome: { ignoredVisualChrome: true } },
     presentation: authored,
   };
 }
@@ -39,15 +32,6 @@ function installValidRelease() {
   for (const pageId of Object.keys(sourcePaths) as (keyof typeof sourcePaths)[]) {
     state.responses.set(`/api/public/experiences/pages/localized/${pageId}/ja`, pageFixture(pageId));
   }
-  state.responses.set("/api/public/experiences/pages/localized/sidecars/chrome/ja", {
-    releaseId: state.releaseId,
-    locale: "ja",
-    sidecarId: "chrome",
-    kind: "shared",
-    sourcePath: "/",
-    document: japaneseDocument("chrome"),
-    presentation: authored,
-  });
 }
 
 beforeEach(() => {
@@ -65,12 +49,6 @@ describe("Japanese release selection", () => {
   it("requires every document, copy, and business projection to use one release", () => {
     expect(() => assertSameJapaneseRelease("r1", { releaseId: "r1" }, { releaseId: "r1" })).not.toThrow();
     expect(() => assertSameJapaneseRelease("r1", { releaseId: "r1" }, { releaseId: "r2" })).toThrow(JapaneseReleaseUnavailable);
-  });
-
-  it("does not present code-default Japanese as complete without localized frozen assets", () => {
-    const document = japaneseDocument("home");
-    expect(() => japaneseRenderableDocument({ document, presentation: { schemaVersion: 1, renderingMode: "code-default", presentation: EXPERIENCE_PRESENTATION_IDENTITY } })).toThrow(/unsupported-renderer/);
-    expect(japaneseRenderableDocument({ document, presentation: authored })).toBe(document);
   });
 
   it("keeps checkout closed when translated booking terms are not release-ready", () => {
@@ -107,19 +85,14 @@ describe("Japanese release selection", () => {
     await expect(getJapanesePage("experiences")).rejects.toMatchObject({ reason: "invalid" });
   });
 
-  it("prepares the whole authored shell and fails it closed when chrome is missing", async () => {
+  it("prepares a release from copy and route/SEO projections without fetching visual chrome", async () => {
     const valid = await import("./localized-content");
     await expect(valid.getPreparedJapaneseStaticRelease()).resolves.toMatchObject({
       releaseId: "release-1",
-      chrome: { pageId: "chrome", locale: "ja" },
       counterparts: { "/": "/ja", "/experiences": "/ja/experiences", "/host": "/ja/host", "/help": "/ja/help" },
     });
     await expect(valid.getJapaneseIndexablePaths()).resolves.toEqual(["/ja", "/ja/experiences", "/ja/host"]);
-
-    vi.resetModules();
-    state.responses.set("/api/public/experiences/pages/localized/sidecars/chrome/ja", null);
-    const missing = await import("./localized-content");
-    await expect(missing.getPreparedJapaneseStaticRelease()).rejects.toMatchObject({ reason: "missing" });
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining("/sidecars/chrome/"), expect.anything());
   });
 
   it("rejects mismatched page releases through the actual whole-release loader", async () => {
@@ -128,12 +101,15 @@ describe("Japanese release selection", () => {
     await expect(getPreparedJapaneseStaticRelease()).rejects.toMatchObject({ reason: "mismatch" });
   });
 
-  it("rejects a supported but code-default static page from release readiness", async () => {
+  it("ignores unknown visual metadata while keeping route release readiness", async () => {
+    const { document: _document, display: _display, ...safeProjection } = pageFixture("home");
+    void _document;
+    void _display;
     state.responses.set("/api/public/experiences/pages/localized/home/ja", {
-      ...pageFixture("home"),
-      presentation: { schemaVersion: 1, renderingMode: "code-default", presentation: EXPERIENCE_PRESENTATION_IDENTITY },
+      ...safeProjection,
+      presentation: { schemaVersion: 999, renderingMode: "future-editor", presentation: { unexpected: true } },
     });
     const { getPreparedJapaneseStaticRelease } = await import("./localized-content");
-    await expect(getPreparedJapaneseStaticRelease()).rejects.toMatchObject({ reason: "unsupported-renderer" });
+    await expect(getPreparedJapaneseStaticRelease()).resolves.toMatchObject({ releaseId: "release-1" });
   });
 });

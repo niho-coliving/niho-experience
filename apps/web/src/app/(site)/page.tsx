@@ -1,11 +1,7 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { HomeViewV1, type AssetBindingsV1, type DisplayImageV1, type DisplayVideoV1, type ExperienceCardModelV1, type HomeViewModelV1, type StaticCopyAccessorV1 } from "@niho/experience-presentation/v1";
-import { PageDocumentContent, blockText } from "@/components/PageDocument";
-import { ExperienceCard, InviteCard } from "@/components/ExperienceCard";
+import { EN_STATIC_COPY_V1, HomeViewV1, type AssetBindingsV1, type DisplayImageV1, type DisplayVideoV1, type ExperienceCardModelV1, type HomeViewModelV1, type StaticCopyAccessorV1 } from "@niho/experience-presentation/v1";
 import { HomeFinder } from "@/components/HomeFinder";
 import { EmptyResults, ErrorState } from "@/components/States";
-import { SectionHeading } from "@/components/ui";
 import { PRESENTATION_PRIMITIVES_V1 } from "@/components/PresentationV1";
 import { CardDates, type CardDatesSource } from "@/components/CardDates";
 import { getApi, listExperiencesForSite } from "@/lib/api";
@@ -18,18 +14,15 @@ import { scheduleLine } from "@/lib/schedule";
 import { BANNER_VIDEO, HERO_PHOTO, HOST_BAND_VIDEO, POSTCARDS, STRIP_VIDEOS, type SitePhoto, type SiteVideo } from "@/lib/site-media";
 import { editorialOf, FEATURED_HOST, FEATURED_STORY, shortName, themeEntries, themeOf, topicsLine, type Theme } from "@/lib/themes";
 import type { ExperienceDetailForSite, PublicImageForSite } from "@/lib/experience-types";
-import { getPublishedPageDocument, getPublishedPageMetadata } from "@/lib/page-documents";
 import { imageAlt } from "@/lib/experience-copy";
 import { publicMetadata, SITE_DESCRIPTION } from "@/lib/public-metadata";
 import { englishAlternates } from "@/lib/locale-metadata";
-import { getEnglishStaticCopy, getPresentationSource } from "@/lib/presentation-source";
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPublishedPageMetadata("home");
-  return { ...publicMetadata(page.title ?? "Meet the people of Kamakura", page.description ?? SITE_DESCRIPTION, `${config.siteUrl}/`), alternates: await englishAlternates("/") };
+  return { ...publicMetadata("Meet the people of Kamakura", SITE_DESCRIPTION, `${config.siteUrl}/`), alternates: await englishAlternates("/") };
 }
 
 const displayPhoto = (photo: SitePhoto): DisplayImageV1 => ({ src: photo.src, alt: photo.alt, position: photo.position });
@@ -99,15 +92,12 @@ function homeModel(summaries: Parameters<typeof themeEntries>[0], cards: CardMod
 
 export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const query = await searchParams;
-  const [api, result, document, copy, source] = await Promise.all([getApi(query), listExperiencesForSite("kamakura", query), getPublishedPageDocument("home"), getEnglishStaticCopy(), config.presentationSourceDisplayEnabled ? getPresentationSource() : Promise.resolve(null)]);
+  const [api, result] = await Promise.all([getApi(query), listExperiencesForSite("kamakura", query)]);
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const summaries = result.ok ? result.data.experiences : [];
   const details = await loadDetails(api, summaries, config.publicApiVersion !== "1.0");
   const cards = buildCardModels(summaries, details, isPilotPreview);
   const listed = summaries.map((summary) => details.get(summary.slug)).filter((detail): detail is ExperienceDetailForSite => Boolean(detail));
   const cardDates: CardDatesSource = { kind: "read", preview: isPreview, nihoWebOrigin: config.nihoWebOrigin };
-  const fallback = <HomeViewV1 model={homeModel(summaries, cards, listed, cardDates, upcomingDays(new Date(), 14), copy, source?.assets ?? null)} primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} />;
-  return <PageDocumentContent document={document} pageId="home" fallback={fallback} slots={{ ExperienceGrid: (props) => (
-    <section className="container-page pt-14 lg:pt-[88px]" aria-label="Experiences"><SectionHeading eyebrow={cards.length ? `${numberWord(cards.length)} to choose from` : undefined} title={blockText(props, "heading", "Experiences hosted by neighbors")} action={cards.length ? <Link href="/experiences" className="link-leaf">See all</Link> : null} />{cards.length ? <ul className={`grid gap-x-6 gap-y-11 sm:grid-cols-2 ${props.columns === "two" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>{cards.map((card, index) => <li key={card.slug}><ExperienceCard card={card} priority={index === 0} dates={cardDates} /></li>)}<li><InviteCard /></li></ul> : <><EmptyResults clearHref={null} />{props.emptyMessage ? <p>{String(props.emptyMessage)}</p> : null}</>}</section>
-  ) }} />;
+  return <HomeViewV1 model={homeModel(summaries, cards, listed, cardDates, upcomingDays(new Date(), 14), EN_STATIC_COPY_V1, null)} primitives={PRESENTATION_PRIMITIVES_V1} copy={EN_STATIC_COPY_V1} />;
 }
