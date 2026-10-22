@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { ExperienceApiClient } from "@niho-experience/api-client";
+import { NO_JOURNEY_EXTRAS, type ExperienceApiClient, type JourneyDetailExtras } from "@niho-experience/api-client";
 import type { ExperienceDetailForSite } from "@/lib/experience-types";
 import { getBrowserApi } from "@/lib/browser-api";
 import { BookingForm, type BookingDraft, type CheckoutAttempt } from "./BookingForm";
 import { SlotPicker, type BookingSelection } from "./SlotPicker";
 
 /** Two screens on one page: date and party size (SlotPicker), then details and checkout (BookingForm). `titleAs="p"` when a published document supplies the page heading. */
-export function BookingFlow({ experience, preview, availabilityIsProvisional, nihoWebOrigin, attributionEnabled, publicApiVersion = "1.1", initialOfferId, initialDate, initialAdultCount, titleAs = "h1" }: { experience: ExperienceDetailForSite; preview: boolean; availabilityIsProvisional: boolean; nihoWebOrigin: string; attributionEnabled: boolean; publicApiVersion?: "1.0" | "1.1" | "1.2"; initialOfferId?: string; initialDate?: string; initialAdultCount?: number; titleAs?: "h1" | "p" }) {
+export function BookingFlow({ experience, preview, availabilityIsProvisional, nihoWebOrigin, attributionEnabled, publicApiVersion = "1.1", journey = NO_JOURNEY_EXTRAS, initialOfferId, initialDate, initialAdultCount, titleAs = "h1" }: { experience: ExperienceDetailForSite; preview: boolean; availabilityIsProvisional: boolean; nihoWebOrigin: string; attributionEnabled: boolean; publicApiVersion?: "1.0" | "1.1" | "1.2"; journey?: JourneyDetailExtras; initialOfferId?: string; initialDate?: string; initialAdultCount?: number; titleAs?: "h1" | "p" }) {
   const [freshExperience, setFreshExperience] = useState<{ source: ExperienceDetailForSite; value: ExperienceDetailForSite } | null>(null);
   const currentExperience = freshExperience?.source === experience ? freshExperience.value : experience;
   const [api, setApi] = useState<ExperienceApiClient | null>(null);
@@ -20,7 +20,7 @@ export function BookingFlow({ experience, preview, availabilityIsProvisional, ni
   const [selection, setSelection] = useState<BookingSelection | null>(null);
   const [lastSelection, setLastSelection] = useState<BookingSelection | null>(null);
   // Contact data stays in this page's memory only; answers belong to one offer and question fingerprint.
-  const [draft, setDraft] = useState<BookingDraft>({ guestName: "", guestEmail: "", note: "", answerSets: {} });
+  const [draft, setDraft] = useState<BookingDraft>({ guestName: "", guestEmail: "", guestPhone: "", note: "", answerSets: {} });
   const attemptRef = useRef<CheckoutAttempt | null>(null);
   const offer = currentExperience.offers.find((item) => item.id === selection?.offerId);
   function continueBooking(next: BookingSelection) {
@@ -42,7 +42,7 @@ export function BookingFlow({ experience, preview, availabilityIsProvisional, ni
     setFreshExperience({ source: experience, value: updated });
     return true;
   }
-  return <div ref={top} tabIndex={-1} className="scroll-mt-20 outline-none">{selection && offer ? <BookingForm key={formKey} api={api} apiUnavailable={apiUnavailable} experience={currentExperience} offer={offer} selection={selection} preview={preview} attributionEnabled={attributionEnabled} publicApiVersion={publicApiVersion} onExperienceRefresh={acceptFreshExperience} draft={draft} onDraftChange={setDraft} attemptRef={attemptRef} onBack={() => setSelection(null)} titleAs={titleAs} /> : <SlotPicker experience={currentExperience} titleAs={titleAs} slug={currentExperience.slug} offers={currentExperience.offers} preview={preview} availabilityIsProvisional={availabilityIsProvisional} nihoWebOrigin={nihoWebOrigin} onContinue={continueBooking} initialOfferId={lastSelection?.offerId ?? initialOfferId} initialDate={lastSelection?.date ?? initialDate} initialAdultCount={lastSelection?.adultCount ?? initialAdultCount} initialChildCount={lastSelection?.childCount} />}</div>;
+  return <div ref={top} tabIndex={-1} className="scroll-mt-20 outline-none">{selection && offer ? <BookingForm key={formKey} api={api} apiUnavailable={apiUnavailable} experience={currentExperience} offer={offer} selection={selection} preview={preview} attributionEnabled={attributionEnabled} publicApiVersion={publicApiVersion} journey={journey} onExperienceRefresh={acceptFreshExperience} draft={draft} onDraftChange={setDraft} attemptRef={attemptRef} onBack={() => setSelection(null)} titleAs={titleAs} /> : <SlotPicker experience={currentExperience} titleAs={titleAs} slug={currentExperience.slug} offers={currentExperience.offers} preview={preview} availabilityIsProvisional={availabilityIsProvisional} nihoWebOrigin={nihoWebOrigin} onContinue={continueBooking} initialOfferId={lastSelection?.offerId ?? initialOfferId} initialDate={lastSelection?.date ?? initialDate} initialAdultCount={lastSelection?.adultCount ?? initialAdultCount} initialChildCount={lastSelection?.childCount} />}</div>;
 }
 
 function bookingFormKey(experience: ExperienceDetailForSite, selection: BookingSelection | null, offer: ExperienceDetailForSite["offers"][number] | undefined) {

@@ -83,6 +83,8 @@
 | 予約フォーム | `BookingForm.tsx` | 画面2。同じサマリーカード → "step 3" と "Your details"（`.fld` の見た目の入力欄、申込時の質問）→ "step 4" と "Check and pay"（承認制は "Check and send"）：日付・人数・内訳・合計の行カード、取消・受付方式・Stripe と販売者の注記（アイコン付き）、規約リンクと同意 → 下端の固定バーに合計と送信ボタン。ラベル・説明・エラーを近接。失敗しても入力を保持 |
 | 予約の部品 | `BookingParts.tsx` | サマリーカード（表紙の小さな写真・題名・"所要時間 · 開始時刻 JST · 商品名"。公開文書が無いとき題名が h1）、手書きの step 見出し、下端の固定バー。2列のときはサマリーカードを右列の縦長のカード（写真は 16:10）に、下端のバーを同じ要素のまま右列で追従するカード（`top: 88px`）にする。読み上げと focus の順は「要約 → step → 合計と送信」のまま。表示だけで業務の判断を持たない |
 | 取消条件 | `Policy.tsx` | 取消条件の見出し（"Free cancellation until 48 hours before the start" / "Non-refundable"） |
+| 参加の条件 | presentation `views.tsx` `DetailConditionsV1`・`lib/journey-ui.ts` | 「Good to know」の先頭に並べる行（Epic #103・仮契約）。種類ごとの手描きアイコン（AGE=people・PHYSICAL=clock・HOST_LANGUAGE=chat・FOOD=bowl・ACCESS=house・WEATHER=umbrella）＋太字の要点＋その下に小さな補足、行の間は細い線。文言は NIHO が用意した英語をそのまま出し、画面は文を組み立てない。提供者が書いた従来の一覧（`knowBeforeYouGo`）はその下に残す。条件が無い体験は従来の一覧だけ |
+| 予約前の質問 | `AskHost.tsx` | 「Ask {host} a question」は枠の副ボタン（アイコン＋文）。押すとスマホは下から出るシート、PC は中央のダイアログ（`<dialog>`。Esc・閉じるボタン・背景のクリックで閉じ、閉じると押したボタンへ focus が戻る）。話題のチップ（Children / Food & allergies / Access / Language / Other。ラジオ・既定は Other・高さ 44px）→ 質問 → 名前 → メール。状態：送信中（ボタンが "Sending…"）・受付後（"Question sent"・返事が届くメールの宛先を出す・Done へ focus）・入力の誤り（その欄へ focus）・回数の上限（待つ秒数を出してボタンを止める）・受付停止・通信失敗（入力は残し、同じ内容は同じ key で再送）。入力は URL・storage・計測・ログに入れず、受け付けたら消す |
 
 カードの表示モデルは `lib/card-model.ts`。一覧の要約（契約の `ExperienceSummary`）にはホスト・曜日・定員が無いので、SSR で各体験の詳細を並列に読み（HTTP では 60 秒の共有キャッシュ）合成する。詳細を読めなかった体験は要約だけでカードを描き、落とさない。
 
@@ -120,24 +122,28 @@
 
 - スマホ：先頭に横スワイプのギャラリー（"1 / N"、一覧へ戻る丸ボタン）。PC：パンくず → タイトル → 表紙＋4枚のモザイク（ページの幅の中・角丸）、"Show all N photos"（`<dialog>`。Esc・閉じるボタン、読み上げ見出し付き）。文書の順はタイトルが先で、スマホではギャラリーを見た目だけ先頭に出す。
 - タイトル部：手書きの開催曜日と時刻、h1（題名の下にピルは出さない）、ホストの行（顔写真／頭文字の重なり＋"Hosted by …"＋提供者名）、手描きアイコン付きの事実（所要時間と時刻 JST、言語、人数と子どもの条件、集合を公開している場合は accessNote の要約）。
-- 本文：リード、highlights（語でアイコンを選ぶ）、What you'll do（3段落目以降は畳む）、行程（写真付き、時刻は手書きの12時間表記、写真なしはアイコンのタイル）、ホスト（見出しは Your host(s)、ホストがいなければ Who runs it。切手の縁の写真＝photos[1] か表紙（オーナー判断 2026-10-20）、丸スタンプ、`provider.tagline` を手書きの引用、顔写真付きのホストのチップ）、含む／含まない（手描きの ✓ / ×）、集合場所、Good to know（3件＋"Show all N"）、Not suitable for、取消（全商品共通の条件のときだけ要約。補足は全商品が承認制なら "Your hosts confirm each request. You are only charged if they accept."、即時確定なら "Your booking is confirmed as soon as you pay."、混在なら "This policy applies to the option and date you select."）、販売者と Seller information。決済取消からの戻りは案内を出す。
+- 本文：リード、highlights（語でアイコンを選ぶ）、What you'll do（3段落目以降は畳む）、行程（写真付き、時刻は手書きの12時間表記、写真なしはアイコンのタイル）、ホスト（見出しは Your host(s)、ホストがいなければ Who runs it。切手の縁の写真＝photos[1] か表紙（オーナー判断 2026-10-20）、丸スタンプ、`provider.tagline` を手書きの引用、顔写真付きのホストのチップ）、含む／含まない（手描きの ✓ / ×）、集合場所、Good to know（参加の条件の行 → 提供者の一覧 3件＋"Show all N"）、Not suitable for、"Ask {host} a question"、取消（全商品共通の条件のときだけ要約。補足は全商品が承認制なら "Your hosts confirm each request. You are only charged if they accept."、即時確定なら "Your booking is confirmed as soon as you pay."、混在なら "This policy applies to the option and date you select."）、販売者と Seller information。決済取消からの戻りは案内を出す。
+- Good to know と質問（Epic #103・仮契約。`EXPERIENCE_API_MODE=mock` のときだけ出し、実 API の配備では出さない）：条件は種類ごとの行（§3 参加の条件）。質問のボタンは Good to know の下（Good to know が無い体験は、取消の前にボタンだけ）。予約を受けていない体験には出さない。条件が空の体験は従来の一覧だけで、崩れない。
 - 集合場所：PUBLIC なら名前・住所・アクセス・入口の案内・"Open in Maps"（https のみ）と、`exteriorPhotoIndex` の写真をアーチ形で。AFTER_BOOKING は「予約確定後に案内」。
 - 予約：PC は右の固定カード（"¥X / adult"、子ども料金、税込、開催曜日と時刻、ブラウザで読んだ次の開催日を最大3つ＝押すと `/book?date=&offer=` でその日を選んだ状態から、"Check dates and book"、取消の時間、承認制なら "Your hosts confirm each request — you're only charged if they accept"、"No account needed"、"Secure payment by Stripe"）。人数・合計は置かない（予約入力の役割）。スマホは下端の固定バー（価格＋次回日 or 曜日の要約＋"Check dates"。次回日は商品が1つなら "Next: Thu 22 Oct · 6:00 PM" と商品名を付けない）。予約停止中（`BOOKINGS_ENABLED=false` か `checkoutAvailable=false`）は停止の案内だけで、予約の入口を出さない。
 - NIHO の公開 DTO から表示する。正規 URL は API の `canonicalUrl`。プレビューの fixture は構造化データとして出さない。
 
 ### 予約入力（`/experiences/[slug]/book`）
 
-- 見た目はモック v2（pBook）。2画面の流れ（SlotPicker → Continue → BookingForm）はそのまま。戻るリンク "‹ 短い名前"、サマリーカード（公開文書が無いとき題名が h1）、手書きの step 1〜4、下端の固定バー（§3）。公開文書（`booking` / `BookingPanel`）を使うときは文書の見出しがあるので題名は h1 にしない。
+- 見た目はモック v2（pBook）。2画面の流れ（SlotPicker → Continue → BookingForm）はそのまま。戻るリンク "‹ 短い名前"、サマリーカード（公開文書が無いとき題名が h1）、手書きの step 1〜4（参加の条件に同意の対象がある体験は "Before you book" が step 3 に入り、"Your details" が 4、確認が 5）、下端の固定バー（§3）。公開文書（`booking` / `BookingPanel`）を使うときは文書の見出しがあるので題名は h1 にしない。
 - PC（部品の幅が 56rem 以上）は2列：左に戻るリンクの下の step（商品の選択、step 1〜2／3〜4、案内、確認の行、注記、同意）、右の 380px にサマリーカード（スクロールで流れる）と、その下で追従する合計のカード（合計・日付と時刻・Continue／送信）。下端の固定バーは出さない。公開文書があるときと予約停止中は従来の幅（1列）。
 - ブラウザから `getAvailability` を読み、商品・開催日・大人/子どもの人数を選ぶ。連絡先・回答は URL や Server Action へ送らない。詳細ページから来た `date`・`offer`（公開の日程だけ）は選択の初期値にする。
-- 送信前に開催日（JST）、商品、料金内訳・税込総額、販売者、取消条件、同意文書と版を表示する。
-- 入力は氏名・メール・任意の備考と、商品に定義された申込時の質問だけ。未対応の電話・国は収集しない。
+- 送信前に開催日（JST）、商品、料金内訳・税込総額、販売者、取消条件、同意文書と版を表示する。取消が無料の商品は、確認の行に "Free cancellation — Until Thu 12 Nov, 7:00 AM Japan time"（開催回の開始から契約の取消時間を引いた日時を、曜日・日付・Japan time で）を出す。その時間をすでに過ぎる日は "Not available for this date"。返金なしの商品には出さない。
+- "Before you book"（Epic #103・仮契約）：同意の対象がある条件（`consentText`）を持つ体験だけ。枠の中に "Everyone in my group is OK with:" とその項目を並べ、チェックしないと進めない（チェック時は枠が緑の面になる）。利用規約への同意（"agree to version"）とは別の欄で、同意した条件の版を予約に添えて送る。
+- 入力は氏名・メール・任意の携帯電話（"Mobile number (optional, for the day)"。当日の連絡用で、提供者の当日の画面だけに出す＝owner 決定 2026-10-22。数字 7〜15 桁・mock のみ）・任意の備考と、商品に定義された申込時の質問だけ。国は収集しない。質問の見出しは "Questions from {host}"（ホスト名が長いときは従来の "Questions from your host"）。
 - ブラウザから選別クライアントの `startCheckout` で NIHO へ直接送る。内容が同じ再送は同じ `clientRequestKey`、内容変更後は新しい key を使う。
-- mock ではブラウザ内で合成 checkout を処理し、個人情報を伴わず `/preview/checkout` へ進む。
+- mock ではブラウザ内で合成 checkout を処理し、個人情報を伴わず `/preview/checkout` へ進む。この模擬ページは、決済後のページ（下）の 3 通りの見え方へのリンクを持つ。
 
 ### 決済からの復帰
 
-- 決済後の確認画面は NIHO が所有する。サイトの旧 `/booking/return` は予約成立を表示せず、NIHO の案内だけを出す。
+- 決済後の確認画面と予約の状態は NIHO が所有する。サイトの `/booking/return` は、予約成立・決済済みを**断定しない**（戻り URL は何も証明しない）。「次に何が起きるか」だけを出す。
+- 構成：手書きのひとこと（"almost there" / "thank you"）、h1、1〜2 文、"What happens next"（NIHO のメール → 前日の案内 → 当日 → レビューの依頼。手描きのアイコンを点線でつなぐ。状態の ✓ は付けない）、「この画面は予約の状態を見せない。NIHO のメールのリンクで見られる」の注記、"Didn't get the email?"（`/help`。メールの再案内の契約 niho-coliving/niho-app#19241 の後に接続）と "Browse experiences"。レビューの段は、レビューがある配備（今は mock）だけ。
+- 見出しは戻り URL の `?type=instant|approval`（NIHO が足す固定の語。自由文は受けない）で分ける：instant＝"Check your email for your booking"、approval＝"The host will review your request"（"You are charged only if they accept"）、それ以外・無し＝"Check your email"。storage には何も残さない。NIHO の Stripe の戻り先は今は NIHO の状態ページで、この URL へは戻らない（`cancelUrl` だけ体験サイト）。戻り先をこの URL にするかは #103 で確認中。
 
 ### 提供者入口（`/host`）
 

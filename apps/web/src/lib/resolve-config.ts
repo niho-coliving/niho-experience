@@ -21,6 +21,9 @@ export function resolveConfig(env: Env) {
     apiMode,
     // v1.2 is opt-in after NIHO deploys the approved catalog and checkout contract.
     publicApiVersion: env.EXPERIENCE_PUBLIC_API_VERSION === "1.2" ? "1.2" : env.EXPERIENCE_PUBLIC_API_VERSION === "1.1" ? "1.1" : "1.0",
+    // The guest-journey additions (participation conditions, questions to the host, a mobile number: Epic #103) have no NIHO
+    // contract yet. Only the mock serves them (packages/api-client/src/journey.ts); a real deployment shows none of it.
+    journeyApi: apiMode === "mock" ? "mock" : "off",
     // Japanese routes remain an explicit deployment gate. Visual presentation
     // source-display is intentionally not configurable: public layout is code-owned.
     presentationSourceDisplayEnabled: false,

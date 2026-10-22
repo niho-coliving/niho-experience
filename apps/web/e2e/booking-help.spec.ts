@@ -13,7 +13,7 @@ test("the footer leads to English booking help without asking for a guest accoun
 
 test("booking return and service failure have a help route without claiming payment success or failure", async ({ page }) => {
   await page.goto("/booking/return");
-  await page.getByRole("main").getByRole("link", { name: "Booking help" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Didn't get the email?" }).click();
   await expect(page).toHaveURL(/\/help$/);
   await page.goto("/experiences?mock=error");
   const error = page.getByRole("main").getByRole("alert");
