@@ -12,6 +12,7 @@ NIHO 共通基盤の公開 API（体験の一覧・詳細・残席・ゲスト�
 | `@niho-experience/api-client/testing` | 契約の検証器と監査（公開・ホスト。Node・test だけ） |
 | `@niho-experience/api-client/host` | ホスト API の型・`createExperienceHostApiClient`（**サーバー専用**。ID token を Bearer で送る） |
 | `@niho-experience/api-client/host/mock` | ホスト API の合成データの fetch（プレビュー・テストだけ） |
+| `@niho-experience/api-client/admin-auth` | Experience Admin のapp-connect認証（**サーバー専用**。予約APIは含まない） |
 
 ```sh
 npm ci                                     # リポジトリのrootで一度だけ（lockfileはrootの1つ）
@@ -24,6 +25,7 @@ npm -C packages/api-client run verify:live -- --origin https://app-stg.niho.life
 - `contract/public-field-policy.json`：公開してはいけない名前と、要求にだけ置ける個人情報の項目。
 - `contract/experience-host-api.openapi.json`（＋`.sha256`）：ホスト API の契約（**状態：draft・v0.2.0**。NIHO の `contracts/exports` の書き出しをそのまま置く。操作は 29）。`src/generated/host-openapi.ts` はここから生成する。
 - `contract/host-field-policy.json`：ホスト API の範囲（path・Bearer）、閉じない schema の許可リスト（`openSchemas`：`ExperienceHostAuthMe`・写真の form の項目 `ExperienceProviderUploadPolicyFields`）、入れてはいけない名前・語と、その例外（`allowedPropertyNames`：写真の識別子 `objectKey` 系と集合場所の `address` を、理由と一緒に schema ごと・名前ごとに許す。語そのものの禁止は残す）。監査は `auditHostContractDocument`（公開の `auditContractDocument` とは別。`oneOf` の各組も閉じた形として見る）。
+- `contract/experience-admin-auth-api.openapi.json`（＋`.sha256`・manifest）：Admin認証だけのv1.0.0選別契約。NIHO側source commit `b1bee0090e` の先行実装で、まだ未配備。予約・料金・通知・ホスト設定のschemaは含めない。
 
 ### ホスト API
 

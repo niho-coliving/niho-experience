@@ -3,7 +3,7 @@ import { CookieSealer } from "@/lib/host/cookie-seal";
 import { decodeAdminSession, encodeAdminSession, startAdminSession } from "./session";
 
 describe("admin preview session", () => {
-  const admin = new CookieSealer(["a".repeat(40)], "admin-session");
+  const admin = new CookieSealer(["a".repeat(40)], "admin-preview-session");
   const host = new CookieSealer(["a".repeat(40)], "session");
 
   it("is sealed for the admin purpose and expires", () => {

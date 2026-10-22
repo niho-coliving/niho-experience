@@ -13,7 +13,7 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const HKDF_SALT = "niho-experience/host-cookie";
 
-export type SealPurpose = "session" | "login" | "admin-session";
+export type SealPurpose = "session" | "login" | "admin-preview-session" | "admin-http-login" | "admin-http-session";
 
 interface SealKey {
   id: string;
