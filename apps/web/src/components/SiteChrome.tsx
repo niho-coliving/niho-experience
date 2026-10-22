@@ -1,6 +1,6 @@
 import { EXPERIENCE_API_CONTRACT } from "@niho-experience/api-client";
 import type { ReactNode } from "react";
-import { EN_STATIC_COPY_V1, SiteFooterV1, SiteHeaderV1, type StaticCopyAccessorV1 } from "@niho/experience-presentation/v1";
+import { EN_STATIC_COPY_V1, PresentationRootV1, SiteFooterV1, SiteHeaderV1, type StaticCopyAccessorV1 } from "@niho/experience-presentation/v1";
 import { PRESENTATION_PRIMITIVES_V1 } from "./PresentationV1";
 import { NavLink } from "./NavLink";
 import { SITE_DESCRIPTION } from "@/lib/public-metadata";
@@ -44,4 +44,13 @@ export function SiteFooter({
   locale = "en",
 }: { description?: string; copyright?: string; preview?: PreviewCatalog | null; copy?: StaticCopyAccessorV1; locale?: SiteLocale } = {}) {
   return <SiteFooterV1 primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} description={description ?? (locale === "en" ? SITE_DESCRIPTION : copy.text("chrome.footerDescription"))} copyright={copyright} previewNote={preview ? <PreviewNote catalog={preview} /> : undefined} />;
+}
+
+/** Public chrome is code-owned. Published visual documents never replace it. */
+export function CodeSiteChrome({ children, preview = null, copy = EN_STATIC_COPY_V1, languageSwitch, locale = "en" }: { children?: ReactNode; preview?: PreviewCatalog | null; copy?: StaticCopyAccessorV1; languageSwitch?: ReactNode; locale?: SiteLocale }) {
+  return <PresentationRootV1 className="flex min-h-dvh flex-1 flex-col">
+    <SiteHeader copy={copy} languageSwitch={languageSwitch} />
+    <main id="main" className="flex-1">{children}</main>
+    <SiteFooter preview={preview} copy={copy} locale={locale} />
+  </PresentationRootV1>;
 }

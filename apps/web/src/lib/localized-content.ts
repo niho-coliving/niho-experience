@@ -1,7 +1,6 @@
 import "server-only";
 
 import { cache } from "react";
-import type { PageDocument } from "@niho/web/core";
 import {
   createStaticCopyV1,
   type StaticCopyAccessorV1,
@@ -14,22 +13,21 @@ import type {
 } from "@niho-experience/api-client";
 import { config } from "./config";
 import { getApi } from "./api";
-import { validatePublishedDocument, type PageId } from "./page-document-contract";
-import { parsePresentationProvenance, type PresentationProvenance } from "./presentation-identity";
-export { EXPERIENCE_PRESENTATION_IDENTITY, parsePresentationProvenance, type PresentationProvenance } from "./presentation-identity";
-import { assertSameJapaneseRelease, JapaneseReleaseUnavailable, japaneseRenderableDocument } from "./localized-release";
+import type { PageId } from "./page-document-contract";
+import { assertSameJapaneseRelease, JapaneseReleaseUnavailable } from "./localized-release";
 import { readBoundedJson } from "./read-bounded-json";
-export { assertSameJapaneseRelease, JapaneseReleaseUnavailable, japaneseBookingAllowed, japaneseRenderableDocument } from "./localized-release";
+export { assertSameJapaneseRelease, JapaneseReleaseUnavailable, japaneseBookingAllowed } from "./localized-release";
 
 export type SiteLocale = "en" | "ja";
 export type JapanesePage = Readonly<{
   releaseId: string;
   locale: "ja";
-  document: PageDocument;
+  /** Archived visual payload. It is retained by the producer but never rendered. */
+  document: unknown;
   route: { pageId: string; sourcePath: string; path: string; indexable: boolean };
   seo: { pageId: string; title: string; description?: string; indexable: boolean };
-  chrome: PageDocument;
-  presentation: PresentationProvenance;
+  chrome: unknown;
+  presentation: unknown;
 }>;
 
 export type JapaneseSidecar = Readonly<{
@@ -38,8 +36,8 @@ export type JapaneseSidecar = Readonly<{
   sidecarId: "experience-detail" | "booking" | "chrome";
   kind: "template" | "shared";
   sourcePath?: string;
-  document: PageDocument;
-  presentation: PresentationProvenance;
+  document: unknown;
+  presentation: unknown;
 }>;
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -92,12 +90,9 @@ export const getJapanesePage = cache(async (pageId: PageId): Promise<JapanesePag
   const value = await publicJson(`/api/public/experiences/pages/localized/${encodeURIComponent(pageId)}/ja`);
   if (!isObject(value)) throw new JapaneseReleaseUnavailable("missing");
   try {
-    if (!exactKeys(value, ["releaseId", "locale", "document", "route", "seo", "display", "presentation"]) || typeof value.releaseId !== "string" || !value.releaseId || value.locale !== "ja") throw new Error("Invalid localized page");
-    const display = value.display;
-    if (!isObject(display) || !exactKeys(display, ["navigation", "supportedBlocks", "chrome"]) || !Array.isArray(display.navigation) || !Array.isArray(display.supportedBlocks)) throw new Error("Invalid localized display");
-    const chrome = validatePublishedDocument(display.chrome, "chrome", "ja");
-    const presentation = parsePresentationProvenance(value.presentation);
-    return { releaseId: value.releaseId, locale: "ja", document: validatePublishedDocument(value.document, pageId, "ja"), route: parseRoute(value.route, pageId), seo: parseSeo(value.seo, pageId), chrome, presentation };
+    if (typeof value.releaseId !== "string" || !value.releaseId || value.locale !== "ja") throw new Error("Invalid localized page");
+    const display = isObject(value.display) ? value.display : null;
+    return { releaseId: value.releaseId, locale: "ja", document: value.document, route: parseRoute(value.route, pageId), seo: parseSeo(value.seo, pageId), chrome: display?.chrome, presentation: value.presentation };
   } catch (error) {
     if (error instanceof JapaneseReleaseUnavailable) throw error;
     throw new JapaneseReleaseUnavailable("invalid");
@@ -109,9 +104,8 @@ export const getJapaneseSidecar = cache(async (sidecarId: JapaneseSidecar["sidec
   const value = await publicJson(`/api/public/experiences/pages/localized/sidecars/${encodeURIComponent(sidecarId)}/ja`);
   if (!isObject(value)) throw new JapaneseReleaseUnavailable("missing");
   try {
-    if (!exactKeys(value, ["releaseId", "locale", "sidecarId", "kind", "document", "presentation"], ["sourcePath"]) || typeof value.releaseId !== "string" || !value.releaseId || value.locale !== "ja" || value.sidecarId !== sidecarId || !["template", "shared"].includes(String(value.kind))) throw new Error("Invalid localized sidecar");
-    const presentation = parsePresentationProvenance(value.presentation);
-    return { releaseId: value.releaseId, locale: "ja", sidecarId, kind: value.kind as JapaneseSidecar["kind"], ...(typeof value.sourcePath === "string" ? { sourcePath: value.sourcePath } : {}), document: validatePublishedDocument(value.document, sidecarId, "ja"), presentation };
+    if (typeof value.releaseId !== "string" || !value.releaseId || value.locale !== "ja" || value.sidecarId !== sidecarId || !["template", "shared"].includes(String(value.kind)) || !("document" in value)) throw new Error("Invalid localized sidecar");
+    return { releaseId: value.releaseId, locale: "ja", sidecarId, kind: value.kind as JapaneseSidecar["kind"], ...(typeof value.sourcePath === "string" ? { sourcePath: value.sourcePath } : {}), document: value.document, presentation: value.presentation };
   } catch { throw new JapaneseReleaseUnavailable("invalid"); }
 });
 
@@ -141,21 +135,17 @@ export const getJapaneseDetail = cache(async (slug: string): Promise<SelectedExp
 });
 
 export const getPreparedJapaneseStaticRelease = cache(async () => {
-  const [copy, chrome, ...pages] = await Promise.all([
+  const [copy, ...pages] = await Promise.all([
     getJapaneseCopy(),
-    getJapaneseSidecar("chrome"),
     getJapanesePage("home"),
     getJapanesePage("experiences"),
     getJapanesePage("host"),
     getJapanesePage("help"),
   ]);
-  assertSameJapaneseRelease(copy.releaseId, chrome, ...pages);
-  const preparedChrome = japaneseRenderableDocument(chrome);
-  for (const page of pages) japaneseRenderableDocument(page);
-  if (pages.some((page) => JSON.stringify(page.chrome) !== JSON.stringify(chrome.document))) throw new JapaneseReleaseUnavailable("mismatch");
+  assertSameJapaneseRelease(copy.releaseId, ...pages);
   const pageById = Object.freeze(Object.fromEntries(pages.map((page) => [page.route.pageId, page])) as Readonly<Record<keyof typeof STATIC_SOURCE_PATHS, JapanesePage>>);
   const counterparts = Object.freeze(Object.fromEntries(pages.map((page) => [page.route.sourcePath, page.route.path])));
-  return Object.freeze({ releaseId: copy.releaseId, copy, chrome: preparedChrome, pages: Object.freeze(pages), pageById, counterparts });
+  return Object.freeze({ releaseId: copy.releaseId, copy, pages: Object.freeze(pages), pageById, counterparts });
 });
 
 export const getJapaneseStaticCounterparts = cache(async (): Promise<Readonly<Record<string, string>>> => {

@@ -1,6 +1,9 @@
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Frozen integration contract: retained for future editor-source archaeology,
+// but intentionally excluded from the active *.test.ts acceptance suite.
 import type { PageDocument } from "@niho/web/core";
 import { createExperienceApiClient } from "@niho-experience/api-client";
 import { createStaticCopyV1, defaultStaticCopyValuesV1 } from "@niho/experience-presentation/v1";

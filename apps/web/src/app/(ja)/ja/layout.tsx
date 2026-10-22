@@ -1,7 +1,7 @@
 import "../../globals.css";
 import "@niho/experience-presentation/v1/styles.css";
 import type { Metadata, Viewport } from "next";
-import { DocumentChrome } from "@/components/DocumentChrome";
+import { CodeSiteChrome } from "@/components/SiteChrome";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { SiteLocaleProvider } from "@/components/SiteLocale";
 import { JapaneseUnavailable } from "@/components/JapaneseUnavailable";
@@ -34,7 +34,7 @@ export default async function JapaneseRootLayout({ children }: { children: React
   return <html lang="ja"><body className="flex min-h-dvh flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white">{data.copy.copy.text("chrome.skipToContent")}</a>
       <SiteLocaleProvider locale="ja" releaseId={data.copy.releaseId} values={data.copy.values}>
-        <DocumentChrome document={data.chrome} copy={data.copy.copy} locale="ja" languageSwitch={<LanguageSwitch counterparts={data.counterparts} />}>{children}</DocumentChrome>
+        <CodeSiteChrome copy={data.copy.copy} locale="ja" languageSwitch={<LanguageSwitch counterparts={data.counterparts} />}>{children}</CodeSiteChrome>
       </SiteLocaleProvider>
     </body></html>;
 }

@@ -2,7 +2,6 @@ import "server-only";
 import { createExperienceApiClient, type RegionKey } from "@niho-experience/api-client";
 import { config } from "./config";
 import { normalizeExperienceDate, normalizeExperienceTheme } from "./filters";
-import { getPresentationSource } from "./presentation-source";
 
 /** SSR reads only public catalog and detail data. Guest input never reaches this module. */
 export async function getApi(searchParams?: Record<string, string | string[] | undefined>) {
@@ -24,10 +23,6 @@ export async function getApi(searchParams?: Record<string, string | string[] | u
 
 /** Read the catalog version selected for this runtime; v1.2 stays opt-in until NIHO deploys it. */
 export async function listExperiencesForSite(region?: RegionKey, searchParams?: Record<string, string | string[] | undefined>) {
-  if (config.presentationSourceDisplayEnabled) {
-    const source = await getPresentationSource();
-    return { ok: true as const, status: 200, data: { experiences: source.experiences.map((entry) => entry.summary) } };
-  }
   const client = await getApi(searchParams);
   if (config.publicApiVersion === "1.2") {
     const theme = normalizeExperienceTheme(searchParams?.theme);
@@ -41,12 +36,6 @@ export async function listExperiencesForSite(region?: RegionKey, searchParams?: 
 
 /** Read the detail version selected for this runtime; older deployments keep using the v1.0 path. */
 export async function getExperienceForSite(slug: string, searchParams?: Record<string, string | string[] | undefined>) {
-  if (config.presentationSourceDisplayEnabled) {
-    const entry = (await getPresentationSource()).experiences.find((candidate) => candidate.detail.slug === slug);
-    return entry
-      ? { ok: true as const, status: 200, data: { experience: entry.detail } }
-      : { ok: false as const, kind: "not_found" as const, status: 404 };
-  }
   const client = await getApi(searchParams);
   return config.publicApiVersion === "1.1" || config.publicApiVersion === "1.2" ? client.getExperienceV11(slug) : client.getExperience(slug);
 }

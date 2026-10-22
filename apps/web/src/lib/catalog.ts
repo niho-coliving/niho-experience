@@ -1,8 +1,6 @@
 import "server-only";
 import type { ExperienceApiClient } from "@niho-experience/api-client";
 import type { ExperienceDetailForSite, ExperienceSummaryForSite } from "./experience-types";
-import { config } from "./config";
-import { getPresentationSource } from "./presentation-source";
 
 /**
  * Reads the public detail of every listed experience in parallel, for card data the
@@ -11,10 +9,6 @@ import { getPresentationSource } from "./presentation-source";
  * the caller can still render that card from its summary.
  */
 export async function loadDetails(api: ExperienceApiClient, summaries: ExperienceSummaryForSite[], useV11 = false, locale: "en" | "ja" = "en", releaseId?: string): Promise<Map<string, ExperienceDetailForSite>> {
-  if (locale === "en" && config.presentationSourceDisplayEnabled) {
-    const allowed = new Set(summaries.map((summary) => summary.slug));
-    return new Map((await getPresentationSource()).experiences.filter((entry) => allowed.has(entry.detail.slug)).map((entry) => [entry.detail.slug, entry.detail]));
-  }
   const results = await Promise.all(
     summaries.map(async (summary) => {
       try {

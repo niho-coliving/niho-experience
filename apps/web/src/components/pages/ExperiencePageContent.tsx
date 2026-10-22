@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import type { PageDocument } from "@niho/web/core";
 import { DetailViewV1, EN_STATIC_COPY_V1, type DetailViewModelV1, type StaticCopyAccessorV1 } from "@niho/experience-presentation/v1";
 import { notFound } from "next/navigation";
 import { TrackView } from "@/components/Analytics";
-import { PageDocumentContent, blockText, type BlockProps } from "@/components/PageDocument";
 import { BookingCard, BookingDatesController, MobileBookingBar, type BookingSummary } from "@/components/DetailBooking";
 import { bookingCardModel } from "@/lib/presentation-booking-model";
 import { browseHref, readBrowseContext } from "@/lib/browse-context";
@@ -25,13 +23,14 @@ import { addMinutesToClock, formatClock, scheduleLine, scheduleSummary } from "@
 import { seoDescription } from "@/lib/seo-description";
 import { breadcrumbJsonLd, experienceJsonLd } from "@/lib/structured-data";
 import { iconForText } from "@/lib/themes";
-import { getPublishedPageDocument } from "@/lib/page-documents";
 import { PRESENTATION_PRIMITIVES_V1 } from "@/components/PresentationV1";
 import { publicMetadata } from "@/lib/public-metadata";
-import { assertSameJapaneseRelease, getJapaneseCopy, getJapaneseDetail, getJapaneseSidecar, getPreparedJapaneseStaticRelease, japaneseBookingAllowed, japaneseRenderableDocument, type SiteLocale } from "@/lib/localized-content";
+import { assertSameJapaneseRelease, getJapaneseCopy, getJapaneseDetail, japaneseBookingAllowed, type SiteLocale } from "@/lib/localized-content";
 import { JapaneseUnavailable } from "@/components/JapaneseUnavailable";
 import { LocalizedLink as Link } from "@/components/LocalizedLink";
-import { getEnglishStaticCopy } from "@/lib/presentation-source";
+
+type BlockProps = Record<string, unknown>;
+const blockText = (props: BlockProps, key: string, fallback: string) => typeof props[key] === "string" ? String(props[key]) : fallback;
 
 export type ExperiencePageContentProps = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams>; locale: SiteLocale };
 async function readExperience(slug: string, query: SearchParams, locale: SiteLocale = "en") {
@@ -53,9 +52,8 @@ export async function englishExperienceMetadata({ params, searchParams }: Omit<E
 export async function japaneseExperienceMetadata({ params }: Omit<ExperiencePageContentProps, "locale">): Promise<Metadata> {
   try {
     const slug = (await params).slug;
-    const [detail, release, sidecar] = await Promise.all([getJapaneseDetail(slug), getPreparedJapaneseStaticRelease(), getJapaneseSidecar("experience-detail")]);
-    assertSameJapaneseRelease(release.releaseId, detail, sidecar);
-    japaneseRenderableDocument(sidecar);
+    const [detail, copy] = await Promise.all([getJapaneseDetail(slug), getJapaneseCopy()]);
+    assertSameJapaneseRelease(copy.releaseId, detail);
     const canonical = `${config.siteUrl}/ja/experiences/${detail.experience.slug}`;
     return { title: detail.experience.title, description: seoDescription(detail.experience.lead), alternates: { canonical }, robots: config.indexingAllowed ? undefined : { index: false, follow: false }, openGraph: { title: detail.experience.title, description: seoDescription(detail.experience.lead), url: canonical, locale: "ja_JP", images: [] } };
   } catch { return { title: "Japanese experience unavailable", robots: { index: false, follow: false } }; }
@@ -102,14 +100,14 @@ function accessFact(accessNote: string, placeName: string): { main: string; sub:
 export async function ExperiencePageContent({ params, searchParams, locale }: ExperiencePageContentProps) {
   const query = await searchParams;
   const slug = (await params).slug;
-  let e: ExperienceDetailForSite, document: PageDocument | null, copy = EN_STATIC_COPY_V1, japaneseBookingReady = true;
+  let e: ExperienceDetailForSite, copy = EN_STATIC_COPY_V1, japaneseBookingReady = true;
   try {
     if (locale === "ja") {
-      const [selected, siteCopy, sidecar] = await Promise.all([getJapaneseDetail(slug), getJapaneseCopy(), getJapaneseSidecar("experience-detail")]);
-      assertSameJapaneseRelease(siteCopy.releaseId, selected, sidecar);
-      e = selected.experience; copy = siteCopy.copy; document = japaneseRenderableDocument(sidecar); japaneseBookingReady = japaneseBookingAllowed(selected);
+      const [selected, siteCopy] = await Promise.all([getJapaneseDetail(slug), getJapaneseCopy()]);
+      assertSameJapaneseRelease(siteCopy.releaseId, selected);
+      e = selected.experience; copy = siteCopy.copy; japaneseBookingReady = japaneseBookingAllowed(selected);
     } else {
-      [e, document, copy] = await Promise.all([readExperience(slug, query), getPublishedPageDocument("experience-detail"), getEnglishStaticCopy()]);
+      e = await readExperience(slug, query);
     }
   } catch (error) {
     if (locale === "ja") return <JapaneseUnavailable />;
@@ -442,6 +440,9 @@ export async function ExperiencePageContent({ params, searchParams, locale }: Ex
       </div>
     </div>
   );
+  // Keep the previous code-native detail composition available for a future
+  // code review without making it part of the active rendering choice.
+  void renderDetail;
   const portableDetail = (props: BlockProps = {}, includeBooking = true) => {
     const toImage = (photo: PublicImageForSite | null, fallback = "") => photo ? { src: photo.url, alt: imageAlt(photo, fallback) } : null;
     const model: DetailViewModelV1 = {
@@ -484,10 +485,7 @@ export async function ExperiencePageContent({ params, searchParams, locale }: Ex
   };
   return <>
     {locale === "en" ? <><TrackView event="experience_view" props={{ experience: e.slug }} /><JsonLd data={breadcrumbJsonLd(config.siteUrl, [{ name: "Home", path: "/" }, { name: "Experiences", path: "/experiences" }, { name: e.title, path: `/experiences/${e.slug}` }])} /><JsonLd data={experienceJsonLd(e, config.siteUrl, isPreview, config.bookingsEnabled)} /></> : null}
-    <PageDocumentContent document={document} pageId="experience-detail" fallback={portableDetail()} slots={{
-      ExperienceDetail: (props) => locale === "ja" ? portableDetail(props, false) : renderDetail(props, false),
-      BookingCTA: (props) => canBook ? <div className="container-page mt-8 hidden lg:block"><aside id="book" aria-labelledby="book-heading"><BookingCard summary={booking} label={blockText(props, "label", copy.text("detail.checkDates"))} /></aside></div> : null
-    }} />
+    {portableDetail()}
     <MobileBookingBar summary={booking} />
   </>;
 }

@@ -15,12 +15,13 @@ describe("public API version rollout gate", () => {
   });
 });
 
-describe("presentation and Japanese release gates", () => {
-  it("keeps both production capabilities disabled unless each exact flag is true", () => {
-    expect(resolveConfig({})).toMatchObject({ presentationSourceDisplayEnabled: false, japaneseSiteEnabled: false });
-    expect(resolveConfig({ EXPERIENCE_PRESENTATION_SOURCE_DISPLAY_ENABLED: "1", EXPERIENCE_JAPANESE_SITE_ENABLED: "yes" })).toMatchObject({ presentationSourceDisplayEnabled: false, japaneseSiteEnabled: false });
-    expect(resolveConfig({ EXPERIENCE_PRESENTATION_SOURCE_DISPLAY_ENABLED: "true", EXPERIENCE_JAPANESE_SITE_ENABLED: "true" })).toMatchObject({ presentationSourceDisplayEnabled: false, japaneseSiteEnabled: false });
-    expect(resolveConfig({ EXPERIENCE_API_MODE: "http", EXPERIENCE_PRESENTATION_SOURCE_DISPLAY_ENABLED: "true", EXPERIENCE_JAPANESE_SITE_ENABLED: "true" })).toMatchObject({ presentationSourceDisplayEnabled: true, japaneseSiteEnabled: true });
+describe("code-owned presentation and Japanese release gate", () => {
+  it("ignores the retired visual source flag and gates only the approved Japanese release", () => {
+    expect(resolveConfig({})).toMatchObject({ japaneseSiteEnabled: false });
+    expect(resolveConfig({ EXPERIENCE_PRESENTATION_SOURCE_DISPLAY_ENABLED: "true", EXPERIENCE_JAPANESE_SITE_ENABLED: "true" })).toMatchObject({ japaneseSiteEnabled: false });
+    const config = resolveConfig({ EXPERIENCE_API_MODE: "http", EXPERIENCE_PRESENTATION_SOURCE_DISPLAY_ENABLED: "true", EXPERIENCE_JAPANESE_SITE_ENABLED: "true" });
+    expect(config).toMatchObject({ japaneseSiteEnabled: true });
+    expect(config.presentationSourceDisplayEnabled).toBe(false);
   });
 });
 
