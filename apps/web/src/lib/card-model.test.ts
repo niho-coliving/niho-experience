@@ -92,6 +92,9 @@ describe("display helpers", () => {
     expect(scheduleLine([{ weekdays: [0], startTime: "15:30" }], { compact: true })).toBe("Sun · 3:30 PM");
     expect(scheduleSummary([{ weekdays: [0, 1, 2, 3, 4, 5, 6], startTime: "09:00" }])).toBe("Every day · 9:00 AM");
     expect(scheduleSummary([{ weekdays: [], startTime: "09:00" }])).toBeNull();
+    expect(formatClock("18:00", "ja")).toBe("18:00");
+    expect(scheduleLine([{ weekdays: [2, 4, 6], startTime: "18:00" }], { locale: "ja" })).toBe("火曜・木曜・土曜 · 18:00");
+    expect(scheduleSummary([{ weekdays: [0, 6], startTime: "13:00" }], "ja")).toBe("土曜 · 日曜 · 13:00");
   });
 
   it("takes the first character of any script as the initial", () => {

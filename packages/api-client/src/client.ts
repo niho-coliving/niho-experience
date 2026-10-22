@@ -17,6 +17,11 @@ import type {
   OfferId,
   RegionKey,
   ExperienceSiteTheme,
+  ExperienceInterfaceCopyResponse,
+  SelectedExperienceCatalogResponse,
+  SelectedExperienceDetailResponse,
+  SelectedExperienceAvailabilityResponse,
+  LocalizedCheckoutOutdatedError,
 } from "./types.ts";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -49,6 +54,13 @@ export type CheckoutResult =
   | { ok: false; kind: "rejected"; status: number; error: ExperienceCheckoutError; retryAfterSeconds: number | null }
   | { ok: false; kind: "network_error" }
   | { ok: false; kind: "unexpected_response"; status: number };
+
+export type LocalizedCheckoutResult = CheckoutResult | {
+  ok: false;
+  kind: "localization_outdated";
+  status: 409;
+  error: LocalizedCheckoutOutdatedError;
+};
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const STRIPE_CHECKOUT_ORIGIN = "https://checkout.stripe.com";
@@ -177,6 +189,38 @@ function hasAvailabilityShape(value: unknown): boolean {
   );
 }
 
+const RELEASE_ID = /^.{1,200}$/s;
+const TERMS_FINGERPRINT = /^sha256:[a-f0-9]{64}$/;
+
+function hasSelectedIdentity(value: Record<string, unknown>): boolean {
+  return typeof value.releaseId === "string" && RELEASE_ID.test(value.releaseId) && value.locale === "ja";
+}
+
+function hasInterfaceCopyShape(value: unknown): boolean {
+  if (!isObject(value) || !hasSelectedIdentity(value) || value.schemaVersion !== 2 || !isObject(value.values)) return false;
+  const entries = Object.entries(value.values);
+  return entries.length === 342 && entries.every(([key, text]) => key.length > 0 && typeof text === "string" && text.length <= 2_000);
+}
+
+function hasSelectedCatalogShape(value: unknown): boolean {
+  return isObject(value) && hasSelectedIdentity(value) && value.displayLocale === "ja" &&
+    (value.copySchemaVersion === 1 || value.copySchemaVersion === 2) && hasExperienceCatalogV11Shape(value);
+}
+
+function hasSelectedDetailShape(value: unknown): boolean {
+  if (!isObject(value) || !hasSelectedIdentity(value) || value.displayLocale !== "ja" ||
+    (value.copySchemaVersion !== 1 && value.copySchemaVersion !== 2) || !hasExperienceDetailV11Shape(value) || !isObject(value.localization)) return false;
+  const localization = value.localization;
+  return typeof localization.termsFingerprint === "string" && TERMS_FINGERPRINT.test(localization.termsFingerprint) &&
+    typeof localization.bookingReady === "boolean" &&
+    (localization.unavailableCopyKey === null || localization.unavailableCopyKey === "booking.unavailableJa");
+}
+
+function hasSelectedAvailabilityShape(value: unknown): boolean {
+  return isObject(value) && hasSelectedIdentity(value) && value.timeZone === "Asia/Tokyo" && value.windowDays === 90 &&
+    typeof value.generatedAt === "string" && Number.isFinite(Date.parse(value.generatedAt)) && hasAvailabilityShape(value);
+}
+
 export function createExperienceApiClient(options: ExperienceApiClientOptions) {
   const origin = normalizeOrigin(options.nihoWebOrigin);
   const fetchImpl: FetchLike = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
@@ -218,6 +262,28 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
   }
 
   return {
+    /** 選択済み日本語 release の全342 UI文言。共有cacheへ置かない。 */
+    getJapaneseSiteCopy(): Promise<ReadResult<ExperienceInterfaceCopyResponse>> {
+      return readJson("/api/public/experiences/v1.2/ja/site", false, hasInterfaceCopyShape);
+    },
+
+    /** 同一 release に参加している日本語の一覧だけを返す。 */
+    listJapaneseExperiences(params: { region?: RegionKey } = {}): Promise<ReadResult<SelectedExperienceCatalogResponse>> {
+      const query = params.region ? `?region=${encodeURIComponent(params.region)}` : "";
+      return readJson(`/api/public/experiences/v1.2/ja/catalog${query}`, false, hasSelectedCatalogShape);
+    },
+
+    /** 現行の公開投影へ、選択済み release の日本語だけを重ねた詳細。 */
+    getJapaneseExperience(slug: string): Promise<ReadResult<SelectedExperienceDetailResponse>> {
+      return readJson(`/api/public/experiences/v1.2/ja/${encodeURIComponent(slug)}`, false, hasSelectedDetailShape);
+    },
+
+    /** 日本語 release 対象 offer の現行残席。 */
+    getJapaneseAvailability(slug: string, params: { offerId?: OfferId } = {}): Promise<ReadResult<SelectedExperienceAvailabilityResponse>> {
+      const query = params.offerId ? `?offerId=${encodeURIComponent(params.offerId)}` : "";
+      return readJson(`/api/public/experiences/v1.2/ja/${encodeURIComponent(slug)}/availability${query}`, false, hasSelectedAvailabilityShape);
+    },
+
     /** 掲載中の体験の一覧（SSR 可）。 */
     listExperiences(params: { region?: RegionKey } = {}): Promise<ReadResult<ExperienceCatalogResponse>> {
       const query = params.region ? `?region=${encodeURIComponent(params.region)}` : "";
@@ -286,6 +352,33 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
           error,
           retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
         };
+      }
+      return { ok: false, kind: "unexpected_response", status: response.status };
+    },
+
+    /** locale は path で固定し、backend が release・terms・consent を再照合する。 */
+    async startJapaneseCheckout(slug: string, body: ExperienceCheckoutRequest): Promise<LocalizedCheckoutResult> {
+      const response = await request(`/api/public/experiences/v1.2/ja/${encodeURIComponent(slug)}/checkout`, {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response) return { ok: false, kind: "network_error" };
+      if (response.status === 404) return { ok: false, kind: "not_found" };
+      const parsed: unknown = await response.json().catch(() => undefined);
+      if (response.status === 201) {
+        const checkoutUrl = isObject(parsed) ? parsed.checkoutUrl : undefined;
+        return typeof checkoutUrl === "string" && isAllowedCheckoutRedirect(checkoutUrl, origin)
+          ? { ok: true, checkoutUrl }
+          : { ok: false, kind: "unexpected_response", status: response.status };
+      }
+      const error = isObject(parsed) ? parsed.error : undefined;
+      if (response.status === 409 && isObject(error) && Object.keys(error).length === 2 && error.code === "LOCALIZATION_OUTDATED" && typeof error.message === "string" && error.message.length <= 2_000) {
+        return { ok: false, kind: "localization_outdated", status: 409, error: error as LocalizedCheckoutOutdatedError };
+      }
+      if (isCheckoutError(error, response.status)) {
+        const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
+        return { ok: false, kind: "rejected", status: response.status, error, retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null };
       }
       return { ok: false, kind: "unexpected_response", status: response.status };
     },

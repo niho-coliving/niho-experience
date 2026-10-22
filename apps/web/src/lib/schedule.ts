@@ -12,13 +12,13 @@ const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 type ScheduleOffer = Pick<ExperienceOffer, "weekdays" | "startTime">;
 
 /** "18:00" (JST local time) → "6:00 PM". */
-export function formatClock(hhmm: string): string {
+export function formatClock(hhmm: string, locale: "en" | "ja" = "en"): string {
   const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
   if (!match) return hhmm;
   const hours = Number(match[1]);
   const suffix = hours >= 12 ? "PM" : "AM";
   const hour12 = hours % 12 === 0 ? 12 : hours % 12;
-  return `${hour12}:${match[2]} ${suffix}`;
+  return locale === "ja" ? `${String(hours).padStart(2, "0")}:${match[2]}` : `${hour12}:${match[2]} ${suffix}`;
 }
 
 /** "18:00" + 120 minutes → "20:00" (same JST day or wrapping past midnight). */
@@ -35,27 +35,27 @@ function sortedWeekdays(offers: ScheduleOffer[]): number[] {
   return WEEK_ORDER.filter((day) => days.has(day));
 }
 
-function sortedTimes(offers: ScheduleOffer[]): string[] {
-  return [...new Set(offers.map((offer) => offer.startTime))].sort().map(formatClock);
+function sortedTimes(offers: ScheduleOffer[], locale: "en" | "ja"): string[] {
+  return [...new Set(offers.map((offer) => offer.startTime))].sort().map((time) => formatClock(time, locale));
 }
 
 /** "Tue · Thu · Sat · 6:00 PM" for cards and compact rows. Null when nothing is scheduled. */
-export function scheduleSummary(offers: ScheduleOffer[]): string | null {
+export function scheduleSummary(offers: ScheduleOffer[], locale: "en" | "ja" = "en"): string | null {
   const days = sortedWeekdays(offers);
-  const times = sortedTimes(offers);
+  const times = sortedTimes(offers, locale);
   if (!days.length) return null;
-  const dayPart = days.length === 7 ? "Every day" : days.map((day) => WEEKDAY_SHORT[day] ?? "").join(" · ");
+  const dayPart = days.length === 7 ? (locale === "ja" ? "毎日" : "Every day") : days.map((day) => locale === "ja" ? `${["日", "月", "火", "水", "木", "金", "土"][day]}曜` : WEEKDAY_SHORT[day] ?? "").join(" · ");
   return times.length ? `${dayPart} · ${times.join(" / ")}` : dayPart;
 }
 
 /** "Tue, Thu & Sat · 6:00 PM" for the short hand-written line above a heading ("6 PM" with `compact`). */
-export function scheduleLine(offers: ScheduleOffer[], { compact = false }: { compact?: boolean } = {}): string | null {
+export function scheduleLine(offers: ScheduleOffer[], { compact = false, locale = "en" }: { compact?: boolean; locale?: "en" | "ja" } = {}): string | null {
   const days = sortedWeekdays(offers);
-  const times = sortedTimes(offers).map((time) => (compact ? time.replace(":00 ", " ") : time));
+  const times = sortedTimes(offers, locale).map((time) => (compact && locale === "en" ? time.replace(":00 ", " ") : time));
   if (!days.length) return null;
-  const names = days.map((day) => WEEKDAY_SHORT[day] ?? "");
-  const dayPart = days.length === 7 ? "Every day" : joinAnd(names);
-  return times.length ? `${dayPart} · ${times.join(" & ")}` : dayPart;
+  const names = days.map((day) => locale === "ja" ? `${["日", "月", "火", "水", "木", "金", "土"][day]}曜` : WEEKDAY_SHORT[day] ?? "");
+  const dayPart = days.length === 7 ? (locale === "ja" ? "毎日" : "Every day") : locale === "ja" ? names.join("・") : joinAnd(names);
+  return times.length ? `${dayPart} · ${times.join(locale === "ja" ? "・" : " & ")}` : dayPart;
 }
 
 /** "A", "A & B", "A, B & C". */

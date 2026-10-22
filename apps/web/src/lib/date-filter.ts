@@ -26,20 +26,24 @@ export function jstToday(now: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
-export function dayOption(key: string): DayOption {
+export function dayOption(key: string, locale: "en" | "ja" = "en"): DayOption {
   const [y, m, d] = key.split("-").map(Number) as [number, number, number];
   const date = new Date(Date.UTC(y, m - 1, d));
-  const weekday = WEEKDAY_SHORT[date.getUTCDay()]!;
-  return { key, weekday, day: String(d), label: `${weekday} ${d} ${MONTH_SHORT[m - 1]}` };
+  const weekday = locale === "ja" ? `${["日", "月", "火", "水", "木", "金", "土"][date.getUTCDay()]}曜` : WEEKDAY_SHORT[date.getUTCDay()]!;
+  return { key, weekday, day: String(d), label: locale === "ja" ? `${m}月${d}日（${weekday}）` : `${weekday} ${d} ${MONTH_SHORT[m - 1]}` };
+}
+
+export function dayLabelWithoutWeekday(day: DayOption, locale: "en" | "ja" = "en"): string {
+  return locale === "ja" ? day.label.replace(/（[^）]+）$/, "") : day.label.slice(day.weekday.length + 1);
 }
 
 /** `count` consecutive JST days from today. */
-export function upcomingDays(now: Date, count: number): DayOption[] {
+export function upcomingDays(now: Date, count: number, locale: "en" | "ja" = "en"): DayOption[] {
   const [y, m, d] = jstToday(now).split("-").map(Number) as [number, number, number];
   return Array.from({ length: count }, (_, offset) => {
     const date = new Date(Date.UTC(y, m - 1, d + offset));
     const pad = (value: number) => String(value).padStart(2, "0");
-    return dayOption(`${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`);
+    return dayOption(`${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`, locale);
   });
 }
 

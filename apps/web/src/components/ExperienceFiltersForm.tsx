@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import type { FormEvent } from "react";
 import type { ExperienceSiteTheme } from "@niho-experience/api-client";
 import { EXPERIENCE_SITE_THEMES, EXPERIENCE_THEME_LABELS } from "@/lib/filters";
 import { HandIcon } from "./HandIcon";
 import { buttonClass } from "./ui";
+import { LocalizedLink } from "./LocalizedLink";
+import { localeHref, useSiteCopy, useSiteLocale } from "./SiteLocale";
 
 /**
  * Search (and, from API 1.2, the theme filter) behind a small round magnifier button.
@@ -32,6 +33,8 @@ export function ExperienceFiltersForm({
   placement?: "bar" | "inline";
 }) {
   const router = useRouter();
+  const copy = useSiteCopy();
+  const { locale } = useSiteLocale();
 
   function submitWithClientNavigation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,7 +43,8 @@ export function ExperienceFiltersForm({
       if (typeof value === "string") params.append(name, value);
     }
     const query = params.toString();
-    router.push(query ? `/experiences?${query}` : "/experiences");
+    const target = localeHref("/experiences", locale);
+    router.push(query ? `${target}?${query}` : target);
   }
 
   const field = "min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3 text-base font-normal";
@@ -52,26 +56,26 @@ export function ExperienceFiltersForm({
         }`}
       >
         <HandIcon name="search" className="size-6" />
-        <span className="sr-only">Search</span>
+        <span className="sr-only">{copy.text("catalogue.search")}</span>
       </summary>
-      <form role="search" action="/experiences" method="get" onSubmit={submitWithClientNavigation} className="mt-3 space-y-3 rounded-[18px] border border-line bg-white p-3">
+      <form role="search" action={localeHref("/experiences", locale)} method="get" onSubmit={submitWithClientNavigation} className="mt-3 space-y-3 rounded-[18px] border border-line bg-white p-3">
         <label htmlFor="experience-search" className="sr-only">
-          Search experiences and hosts
+          {copy.text("catalogue.searchLabel")}
         </label>
         <div className="flex gap-2">
-          <input id="experience-search" name="q" type="search" maxLength={80} defaultValue={searchQuery} placeholder="Try pottery, cycling or dinner" className={`${field} min-w-0 flex-1`} />
+          <input id="experience-search" name="q" type="search" maxLength={80} defaultValue={searchQuery} placeholder={copy.text("catalogue.searchPlaceholder")} className={`${field} min-w-0 flex-1`} />
           {filtersEnabled ? null : (
             <button type="submit" className={buttonClass("primary", "min-h-12 shrink-0 px-5")}>
-              Search
+              {copy.text("catalogue.search")}
             </button>
           )}
         </div>
         {filtersEnabled ? (
           <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <label htmlFor="experience-theme" className="block text-sm font-extrabold">
-              Theme
+              {copy.text("catalogue.theme")}
               <select id="experience-theme" name="theme" defaultValue={theme ?? ""} className={`${field} mt-1`}>
-                <option value="">Any theme</option>
+                <option value="">{copy.text("catalogue.anyTheme")}</option>
                 {EXPERIENCE_SITE_THEMES.map((value) => (
                   <option key={value} value={value}>
                     {EXPERIENCE_THEME_LABELS[value]}
@@ -80,7 +84,7 @@ export function ExperienceFiltersForm({
               </select>
             </label>
             <button type="submit" className={buttonClass("primary", "min-h-12")}>
-              Apply filters
+              {copy.text("catalogue.applyFilters")}
             </button>
           </div>
         ) : null}
@@ -88,9 +92,9 @@ export function ExperienceFiltersForm({
         {guests != null ? <input type="hidden" name="guests" value={guests} /> : null}
         {filtersEnabled && filtersActive ? (
           <div>
-            <Link href="/experiences" className="text-sm font-bold text-moss underline">
-              Clear filters
-            </Link>
+            <LocalizedLink href="/experiences" className="text-sm font-bold text-moss underline">
+              {copy.text("catalogue.clearFilters")}
+            </LocalizedLink>
           </div>
         ) : null}
       </form>

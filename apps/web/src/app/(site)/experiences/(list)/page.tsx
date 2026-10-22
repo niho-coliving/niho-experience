@@ -11,15 +11,17 @@ import { loadDetails } from "@/lib/catalog";
 import { config, isPilotPreview, isPreview } from "@/lib/config";
 import { dayOption, parseDateParam, parseGuestsParam, upcomingDays } from "@/lib/date-filter";
 import { filterExperienceSummaries, normalizeExperienceDate, normalizeExperienceQuery, normalizeExperienceTheme, type SearchParams } from "@/lib/filters";
-import { getPublishedPageDocument } from "@/lib/page-documents";
+import { getPublishedPageDocument, getPublishedPageMetadata } from "@/lib/page-documents";
 import { EXPERIENCE_LIST_DESCRIPTION, EXPERIENCE_LIST_TITLE, publicMetadata } from "@/lib/public-metadata";
+import { englishAlternates } from "@/lib/locale-metadata";
+import { getEnglishStaticCopy } from "@/lib/presentation-source";
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParams> }): Promise<Metadata> {
   const query = await searchParams;
   const filtered = query.theme !== undefined || query.date !== undefined || query.guests !== undefined || normalizeExperienceQuery(query.q) !== "";
-  const document = await getPublishedPageDocument("experiences");
+  const page = await getPublishedPageMetadata("experiences");
   return {
-    ...publicMetadata(document?.title ?? EXPERIENCE_LIST_TITLE, EXPERIENCE_LIST_DESCRIPTION, `${config.siteUrl}/experiences`),
+    ...publicMetadata(page.title ?? EXPERIENCE_LIST_TITLE, page.description ?? EXPERIENCE_LIST_DESCRIPTION, `${config.siteUrl}/experiences`), alternates: await englishAlternates("/experiences"),
     ...(filtered ? { robots: { index: false, follow: true } } : {}),
   };
 }
@@ -31,7 +33,7 @@ const FINDER_DAYS = 14;
 export default async function ExperiencesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const query = await searchParams;
   const searchQuery = normalizeExperienceQuery(query.q);
-  const [api, result, document] = await Promise.all([getApi(query), listExperiencesForSite("kamakura", query), getPublishedPageDocument("experiences")]);
+  const [api, result, document, copy] = await Promise.all([getApi(query), listExperiencesForSite("kamakura", query), getPublishedPageDocument("experiences"), getEnglishStaticCopy()]);
   if (!result.ok && result.kind !== "not_found") return <ErrorState title="We couldn't load experiences" />;
   const catalog = result.ok ? result.data.experiences : [];
   const items = filterExperienceSummaries(catalog, searchQuery);
@@ -56,7 +58,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
     filtersActive: Boolean(searchQuery || theme || date || initialGuests !== null),
   };
   const listContent = (props: BlockProps = {}) => (
-    <CatalogueViewV1 heading={blockText(props, "heading", "Experiences in Kamakura")} content={
+    <CatalogueViewV1 copy={copy} heading={blockText(props, "heading", copy.text("catalogue.title"))} content={
       <ExperienceList
         key={JSON.stringify([searchQuery, theme, initialDate, initialGuests])}
         cards={cards}

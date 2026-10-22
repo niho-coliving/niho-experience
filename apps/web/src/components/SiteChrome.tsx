@@ -1,8 +1,10 @@
 import { EXPERIENCE_API_CONTRACT } from "@niho-experience/api-client";
-import { SiteFooterV1, SiteHeaderV1 } from "@niho/experience-presentation/v1";
+import type { ReactNode } from "react";
+import { EN_STATIC_COPY_V1, SiteFooterV1, SiteHeaderV1, type StaticCopyAccessorV1 } from "@niho/experience-presentation/v1";
 import { PRESENTATION_PRIMITIVES_V1 } from "./PresentationV1";
 import { NavLink } from "./NavLink";
 import { SITE_DESCRIPTION } from "@/lib/public-metadata";
+import type { SiteLocale } from "@/lib/localized-content";
 
 export type PreviewCatalog = "synthetic" | "pilot";
 
@@ -29,14 +31,17 @@ export function PreviewNote({ catalog }: { catalog: PreviewCatalog }) {
   );
 }
 
-export function SiteHeader({ brandLabel, exploreLabel = "Experiences", hostLabel }: { brandLabel?: string; exploreLabel?: string; hostLabel?: string } = {}) {
-  return <SiteHeaderV1 primitives={PRESENTATION_PRIMITIVES_V1} labels={{ brand: brandLabel, experiences: exploreLabel, host: hostLabel }} experiencesLink={<NavLink href="/experiences" className="rounded-full px-2.5 py-2 hover:bg-sand sm:px-3">{exploreLabel}</NavLink>} />;
+export function SiteHeader({ brandLabel, exploreLabel, hostLabel, copy = EN_STATIC_COPY_V1, languageSwitch }: { brandLabel?: string; exploreLabel?: string; hostLabel?: string; copy?: StaticCopyAccessorV1; languageSwitch?: ReactNode } = {}) {
+  const experiences = exploreLabel ?? copy.text("chrome.experiences");
+  return <>{languageSwitch ? <div className="border-b border-line bg-sand"><div className="container-page flex justify-end py-1.5">{languageSwitch}</div></div> : null}<SiteHeaderV1 primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} labels={{ brand: brandLabel, experiences, host: hostLabel }} experiencesLink={<NavLink href="/experiences" className="rounded-full px-2.5 py-2 hover:bg-sand sm:px-3">{experiences}</NavLink>} /></>;
 }
 
 export function SiteFooter({
-  description = SITE_DESCRIPTION,
+  description,
   copyright,
   preview = null,
-}: { description?: string; copyright?: string; preview?: PreviewCatalog | null } = {}) {
-  return <SiteFooterV1 primitives={PRESENTATION_PRIMITIVES_V1} description={description} copyright={copyright} previewNote={preview ? <PreviewNote catalog={preview} /> : undefined} />;
+  copy = EN_STATIC_COPY_V1,
+  locale = "en",
+}: { description?: string; copyright?: string; preview?: PreviewCatalog | null; copy?: StaticCopyAccessorV1; locale?: SiteLocale } = {}) {
+  return <SiteFooterV1 primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} description={description ?? (locale === "en" ? SITE_DESCRIPTION : copy.text("chrome.footerDescription"))} copyright={copyright} previewNote={preview ? <PreviewNote catalog={preview} /> : undefined} />;
 }

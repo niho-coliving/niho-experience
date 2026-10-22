@@ -1,6 +1,6 @@
 import { parsePageDocument, type BlockContracts, type PageDocument, type PageNode } from "@niho/web/core";
 
-export const PAGE_IDS = ["home", "experiences", "experience-detail", "booking", "host", "chrome"] as const;
+export const PAGE_IDS = ["home", "experiences", "experience-detail", "booking", "host", "help", "chrome"] as const;
 export type PageId = typeof PAGE_IDS[number];
 // NIHO API #19171 の表示契約。実データ・価格・リンク・認証設定は props に持たせない。
 export const DOCUMENT_BLOCKS = {
@@ -9,6 +9,7 @@ export const DOCUMENT_BLOCKS = {
   BookingCTA: { props: { label: { type: "string", maxLength: 100 } } },
   BookingPanel: { props: {} },
   HostSignupCTA: { props: { label: { type: "string", maxLength: 100 } } },
+  HelpContent: { props: {} },
   SiteHeader: { props: { brandLabel: { type: "string", maxLength: 80 }, exploreLabel: { type: "string", maxLength: 80 }, hostLabel: { type: "string", maxLength: 80 } } },
   SiteFooter: { props: { description: { type: "string", maxLength: 300 }, copyright: { type: "string", maxLength: 160 } } }
 } satisfies BlockContracts;
@@ -19,14 +20,15 @@ const required: Record<PageId, readonly [string, DocumentBlock][]> = {
   "experience-detail": [["experience-detail", "ExperienceDetail"], ["booking-cta", "BookingCTA"]],
   booking: [["booking-panel", "BookingPanel"]],
   host: [["host-signup-cta", "HostSignupCTA"]],
+  help: [["help-content", "HelpContent"]],
   chrome: [["site-header", "SiteHeader"], ["site-footer", "SiteFooter"]]
 };
 export function documentComponents(nodes: PageNode[]): Extract<PageNode, { type: "component" }>[] {
   return nodes.flatMap((node) => node.type === "component" ? [node] : node.type === "element" ? documentComponents(node.children) : []);
 }
-export function validatePublishedDocument(input: unknown, pageId: PageId): PageDocument {
+export function validatePublishedDocument(input: unknown, pageId: PageId, locale: "en" | "ja" = "en"): PageDocument {
   const document = parsePageDocument(input, DOCUMENT_BLOCKS);
-  if (document.siteId !== "experience" || document.pageId !== pageId || document.locale !== "en") throw new Error("Document identity mismatch");
+  if (document.siteId !== "experience" || document.pageId !== pageId || document.locale !== locale) throw new Error("Document identity mismatch");
   const components = documentComponents(document.body);
   const allowed = new Set(required[pageId].map(([, block]) => block));
   if (components.some((node) => !allowed.has(node.block as DocumentBlock))) throw new Error("Block unavailable on this page");

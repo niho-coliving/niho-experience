@@ -37,6 +37,48 @@ describe("isAllowedCheckoutRedirect", () => {
 });
 
 describe("createExperienceApiClient", () => {
+  it("日本語releaseのcopy・catalog・availabilityをlocale pathからno-storeで読む", async () => {
+    const values = Object.fromEntries(Array.from({ length: 342 }, (_, index) => [`copy.${index}`, `値${index}`]));
+    const bodies = [
+      { schemaVersion: 2, releaseId: "release-ja-1", locale: "ja", values },
+      { releaseId: "release-ja-1", locale: "ja", displayLocale: "ja", copySchemaVersion: 2, experiences: [] },
+      { releaseId: "release-ja-1", locale: "ja", generatedAt: "2026-10-22T00:00:00.000Z", timeZone: "Asia/Tokyo", windowDays: 90, occurrences: [] },
+    ];
+    const fetchMock: FetchLike = vi.fn(async () => Response.json(bodies.shift()));
+    const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: fetchMock, cacheableReadInit: { cache: "force-cache" } });
+    expect((await client.getJapaneseSiteCopy()).ok).toBe(true);
+    expect((await client.listJapaneseExperiences({ region: "kamakura" })).ok).toBe(true);
+    expect((await client.getJapaneseAvailability("x-y", { offerId: "offer_1" })).ok).toBe(true);
+    const calls = (fetchMock as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
+    expect(calls.map(([url]) => url)).toEqual([
+      `${ORIGIN}/api/public/experiences/v1.2/ja/site`,
+      `${ORIGIN}/api/public/experiences/v1.2/ja/catalog?region=kamakura`,
+      `${ORIGIN}/api/public/experiences/v1.2/ja/x-y/availability?offerId=offer_1`,
+    ]);
+    expect(calls.every(([, init]) => init.cache === "no-store" && init.credentials === "omit")).toBe(true);
+  });
+
+  it("日本語release identityの欠落・不一致形を拒否する", async () => {
+    const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: respond(200, { releaseId: "", locale: "en", displayLocale: "ja", copySchemaVersion: 2, experiences: [] }) });
+    expect(await client.listJapaneseExperiences()).toEqual({ ok: false, kind: "unexpected_response", status: 200 });
+  });
+
+  it("未公開・撤回済みの日本語releaseを404のまま扱う", async () => {
+    const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: respond(404, null) });
+    expect(await client.getJapaneseSiteCopy()).toEqual({ ok: false, kind: "not_found" });
+    expect(await client.listJapaneseExperiences()).toEqual({ ok: false, kind: "not_found" });
+  });
+
+  it("日本語checkoutでtermsの更新を専用結果にし、入力をURLへ出さない", async () => {
+    const fetchMock = respond(409, { error: { code: "LOCALIZATION_OUTDATED", message: "Published terms changed" } });
+    const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: fetchMock });
+    expect(await client.startJapaneseCheckout("x-y", BODY)).toEqual({ ok: false, kind: "localization_outdated", status: 409, error: { code: "LOCALIZATION_OUTDATED", message: "Published terms changed" } });
+    const [url, init] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${ORIGIN}/api/public/experiences/v1.2/ja/x-y/checkout`);
+    expect(url).not.toContain(BODY.guestEmail);
+    expect(init).toMatchObject({ cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
+  });
+
   it("cookie を送らず、旅行者の入力を URL に載せない", async () => {
     const fetchMock = respond(201, { checkoutUrl: "https://checkout.stripe.com/c/pay/cs_test_abc" });
     const client = createExperienceApiClient({ nihoWebOrigin: ORIGIN, fetch: fetchMock });

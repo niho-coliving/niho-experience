@@ -11,6 +11,7 @@ import { formatTime, pluralize } from "@/lib/format";
 import { ExperienceCard } from "./ExperienceCard";
 import { HandIcon } from "./HandIcon";
 import { buttonClass } from "./ui";
+import { useSiteCopy, useSiteLocale } from "./SiteLocale";
 
 type Availability = { state: "loading" } | { state: "failed" } | { state: "ready"; bySlug: Map<string, Occurrence[]> };
 
@@ -51,6 +52,8 @@ export function ExperienceList({
   inlineSearch: ReactNode;
 }) {
   const router = useRouter();
+  const copy = useSiteCopy();
+  const { locale, releaseId } = useSiteLocale();
   const [date, setDate] = useState<string | null>(initialDate);
   const [guests, setGuests] = useState<number | null>(initialGuests);
   const [availability, setAvailability] = useState<Availability>({ state: "loading" });
@@ -67,7 +70,7 @@ export function ExperienceList({
   useEffect(() => {
     if (!cards.length) return;
     let active = true;
-    Promise.all(cards.map((card) => readAvailability(card.slug, preview, nihoWebOrigin))).then((reads) => {
+    Promise.all(cards.map((card) => readAvailability(card.slug, preview, nihoWebOrigin, locale, releaseId))).then((reads) => {
       if (!active) return;
       if (reads.some((read) => !read.ok)) {
         setAvailability({ state: "failed" });
@@ -82,7 +85,7 @@ export function ExperienceList({
     return () => {
       active = false;
     };
-  }, [cards, preview, nihoWebOrigin, readAttempt]);
+  }, [cards, preview, nihoWebOrigin, readAttempt, locale, releaseId]);
 
   const ready = availability.state === "ready" ? availability.bySlug : null;
   const failed = availability.state === "failed";
@@ -111,7 +114,7 @@ export function ExperienceList({
     );
 
   const visible = cards.filter((card) => fitsPartySize(card.offers, guests) && (failed || !matches || matches.has(card.slug)));
-  const chosenDay = date ? (days.find((day) => day.key === date) ?? dayOption(date)) : null;
+  const chosenDay = date ? (days.find((day) => day.key === date) ?? dayOption(date, locale)) : null;
 
   function syncUrl(nextDate: string | null, nextGuests: number | null) {
     const params = new URLSearchParams(window.location.search);
@@ -131,12 +134,12 @@ export function ExperienceList({
     syncUrl(date, next);
   }
 
-  const party = guests === null ? "" : ` for ${guests} guest${guests === 1 ? "" : "s"}`;
+  const party = guests === null ? "" : locale === "ja" ? `（${guests}名）` : ` for ${guests} guest${guests === 1 ? "" : "s"}`;
   let status: ReactNode;
-  const count = <b className="font-extrabold text-ink">{pluralize(visible.length, "experience")}</b>;
-  if (chosenDay && !failed && !ready) status = `Checking which experiences run on ${chosenDay.label}…`;
-  else if (chosenDay && !failed) status = <>{count} on {chosenDay.label}{party}</>;
-  else status = <>{count}{party} · prices in yen, tax included · times in JST</>;
+  const count = <b className="font-extrabold text-ink">{locale === "ja" ? `${visible.length}件の体験` : pluralize(visible.length, "experience")}</b>;
+  if (chosenDay && !failed && !ready) status = locale === "ja" ? `${chosenDay.label}の開催を確認しています…` : `Checking which experiences run on ${chosenDay.label}…`;
+  else if (chosenDay && !failed) status = locale === "ja" ? <>{chosenDay.label}：{count}{party}</> : <>{count} on {chosenDay.label}{party}</>;
+  else status = <>{count}{party} · {copy.text("catalogue.priceTimeNote")}</>;
 
   return (
     <div>
@@ -144,11 +147,11 @@ export function ExperienceList({
         <div className="container-page mt-6 space-y-4">
           <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-sand p-4 text-ink-soft">
             <HandIcon name="cal" className="size-6 text-moss" />
-            <p role="status" className="min-w-0 flex-1">Dates couldn&apos;t be checked. Showing experiences for your group.</p>
+            <p role="status" className="min-w-0 flex-1">{copy.text("catalogue.availabilityWarning")}</p>
             <button type="button" className={buttonClass("secondary")} onClick={() => {
               setAvailability({ state: "loading" });
               setReadAttempt((attempt) => attempt + 1);
-            }}>Retry dates</button>
+            }}>{copy.text("common.tryAgain")}</button>
           </div>
           {inlineSearch}
         </div>
@@ -158,29 +161,29 @@ export function ExperienceList({
           <div className="container-page flex py-3 max-lg:flex-col max-lg:gap-2.5 lg:gap-4">
             <label className="relative flex shrink-0 items-center gap-2 self-start rounded-full border border-line-strong bg-white text-sm font-extrabold max-lg:py-1.5 max-lg:pr-3 max-lg:pl-2.5 lg:mt-[11px] lg:h-[46px] lg:pr-4 lg:pl-3">
               <HandIcon name="people" className="size-[22px]" />
-              <span className="sr-only">Guests</span>
+              <span className="sr-only">{copy.text("home.guests")}</span>
               <select
                 value={guests ?? ""}
                 onChange={(event) => chooseGuests(event.target.value ? Number(event.target.value) : null)}
                 className="cursor-pointer appearance-none bg-transparent px-1"
               >
-                <option value="">Any group</option>
+                <option value="">{copy.text("catalogue.anyGroup")}</option>
                 {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
                   <option key={n} value={n}>
-                    {pluralize(n, "guest")}
+                    {locale === "ja" ? `${n}名` : pluralize(n, "guest")}
                   </option>
                 ))}
               </select>
             </label>
             <div className="relative lg:min-w-0 lg:flex-1 lg:border-l lg:border-line lg:pl-4">
-              <div ref={chips} role="group" aria-label="Date (Japan time)" className="scrollbar-none relative flex min-w-0 gap-2 overflow-x-auto pr-[60px]">
+              <div ref={chips} role="group" aria-label={copy.text("catalogue.date")} className="scrollbar-none relative flex min-w-0 gap-2 overflow-x-auto pr-[60px]">
                 <button
                   type="button"
                   aria-pressed={date === null}
                   onClick={() => chooseDate(null)}
                   className={`flex h-[68px] shrink-0 items-center rounded-2xl border px-4 text-sm font-extrabold ${date === null ? "border-ink bg-ink text-white" : "border-line-strong bg-white"}`}
                 >
-                  Any day
+                  {copy.text("home.anyDay")}
                 </button>
                 {days.map((day) => {
                   const selected = date === day.key;
@@ -192,7 +195,7 @@ export function ExperienceList({
                       type="button"
                       aria-pressed={selected}
                       disabled={disabled}
-                      aria-label={`${day.label}${count === undefined ? "" : `, ${count ? pluralize(count, "experience") : "nothing on this day"}`}`}
+                      aria-label={`${day.label}${count === undefined ? "" : `, ${count ? (locale === "ja" ? `${count}件` : pluralize(count, "experience")) : (locale === "ja" ? "開催なし" : "nothing on this day")}`}`}
                       onClick={() => chooseDate(day.key)}
                       className={`flex h-[68px] w-14 shrink-0 flex-col items-center justify-center rounded-2xl border leading-[1.15] disabled:cursor-not-allowed disabled:opacity-40 ${selected ? "border-ink bg-ink text-white" : "border-line-strong bg-white"}`}
                     >
@@ -211,7 +214,7 @@ export function ExperienceList({
         </div>
       )}
 
-      <section className="container-page" aria-label="Experiences">
+      <section className="container-page" aria-label={copy.text("chrome.experiences")}>
         <p role="status" className="py-[22px] text-[0.9375rem] text-ink-soft">
           {status}
         </p>
@@ -228,7 +231,7 @@ export function ExperienceList({
                     variant="list"
                     priority={index < 2}
                     dates={{ kind: "given", occurrences: ready ? (ready.get(card.slug) ?? []) : null }}
-                    highlight={occurrence ? `${dayOption(occurrence.date).label} · ${formatTime(occurrence.startAt)}` : null}
+                    highlight={occurrence ? `${dayOption(occurrence.date, locale).label} · ${formatTime(occurrence.startAt, locale)}` : null}
                   />
                 </li>
               );
@@ -236,16 +239,16 @@ export function ExperienceList({
           </ul>
         ) : (
           <div className="rounded-[var(--radius-card)] border border-dashed border-line-strong bg-sand px-6 py-12 text-center">
-            <h2 className="text-2xl">{chosenDay ? `Nothing on ${chosenDay.label}${party}` : `No experiences for ${guests} guests`}</h2>
-            <p className="mx-auto mt-3 max-w-md text-ink-soft">{chosenDay ? "Try another day or fewer guests." : "Each experience has a party-size limit. Try a smaller group."}</p>
+            <h2 className="text-2xl">{chosenDay ? (locale === "ja" ? `${chosenDay.label}${party}に開催する体験はありません` : `Nothing on ${chosenDay.label}${party}`) : (locale === "ja" ? `${guests}名で参加できる体験はありません` : `No experiences for ${guests} guests`)}</h2>
+            <p className="mx-auto mt-3 max-w-md text-ink-soft">{copy.text(chosenDay ? "catalogue.noDayMatch" : "catalogue.noGroupMatch")}</p>
             <div className="mt-6 flex justify-center">
               {chosenDay ? (
                 <button type="button" className={buttonClass("primary")} onClick={() => chooseDate(null)}>
-                  Show any day
+                  {copy.text("catalogue.showAnyDay")}
                 </button>
               ) : (
                 <button type="button" className={buttonClass("primary")} onClick={() => chooseGuests(null)}>
-                  Show all experiences
+                  {copy.text("catalogue.showAll")}
                 </button>
               )}
             </div>

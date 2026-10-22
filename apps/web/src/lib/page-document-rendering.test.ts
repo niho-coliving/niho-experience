@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PageDocument } from "@niho/web/core";
 import { createExperienceApiClient } from "@niho-experience/api-client";
+import { createStaticCopyV1, defaultStaticCopyValuesV1 } from "@niho/experience-presentation/v1";
 import { buildFixtureExperiences, createMockExperienceFetch } from "@niho-experience/api-client/mock";
 import type { PageId } from "./page-document-contract";
 import { splitChromeDocument, validatePublishedDocument } from "./page-document-contract";
@@ -10,18 +11,23 @@ import { publishedDocument } from "./testing/page-document-fixtures";
 import { PageDocumentContent } from "@/components/PageDocument";
 import { DocumentChrome } from "@/components/DocumentChrome";
 
-const state = vi.hoisted(() => ({ documents: {} as Partial<Record<PageId, PageDocument>>, config: {
+const state = vi.hoisted(() => ({ documents: {} as Partial<Record<PageId, PageDocument>>, missingExperience: false, config: {
   publicApiVersion: "1.2", siteUrl: "https://experience.example.com", bookingsEnabled: true,
   hostSignupMode: "open", nihoWebOrigin: "https://niho.example", nihoHostStartUrl: "https://niho.example/experiences/provider", hostPilotContactUrl: ""
 } }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/navigation")>()), useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("./config", () => ({ config: state.config, isPreview: false, isPilotPreview: false }));
-vi.mock("./page-documents", () => ({ getPublishedPageDocument: async (pageId: PageId) => state.documents[pageId] ?? null }));
+vi.mock("./page-documents", () => ({
+  getPublishedPageDocument: async (pageId: PageId) => state.documents[pageId] ?? null,
+  getPublishedPageMetadata: async (pageId: PageId) => ({ title: state.documents[pageId]?.title }),
+}));
 vi.mock("./api", () => ({
   getApi: async () => createExperienceApiClient({ nihoWebOrigin: "https://niho.example", fetch: createMockExperienceFetch() }),
   listExperiencesForSite: async () => createExperienceApiClient({ nihoWebOrigin: "https://niho.example", fetch: createMockExperienceFetch() }).listExperiences(),
-  getExperienceForSite: async () => ({ ok: true, data: { experience: buildFixtureExperiences({ imageBaseUrl: "https://images.example.com" })[0] } })
+  getExperienceForSite: async () => state.missingExperience
+    ? ({ ok: false as const, kind: "not_found" as const, status: 404 })
+    : ({ ok: true as const, data: { experience: buildFixtureExperiences({ imageBaseUrl: "https://images.example.com" })[0] } })
 }));
 vi.mock("@/components/Analytics", () => ({ TrackView: () => null, TrackedLink: ({ href, children }: { href: string; children: ReactNode }) => createElement("a", { href }, children) }));
 // Router hooks are exercised by the existing browser search suite.
@@ -35,7 +41,7 @@ import BookPage, { metadata as bookingMetadata } from "@/app/(site)/experiences/
 
 const NO_QUERY = { searchParams: Promise.resolve({}) };
 
-beforeEach(() => { state.documents = {}; state.config.bookingsEnabled = true; state.config.hostSignupMode = "open"; state.config.nihoHostStartUrl = "https://niho.example/experiences/provider"; });
+beforeEach(() => { state.documents = {}; state.missingExperience = false; state.config.bookingsEnabled = true; state.config.hostSignupMode = "open"; state.config.nihoHostStartUrl = "https://niho.example/experiences/provider"; });
 describe("published documents use the existing server-rendered business components", () => {
   it("pilot中も既存提供者は固定の管理入口へ戻れ、セルフ登録のCTAは開かない", async () => {
     state.config.hostSignupMode = "pilot";
@@ -73,6 +79,11 @@ describe("published documents use the existing server-rendered business componen
     expect(paused).toContain("Bookings are paused"); expect(paused).not.toContain("Choose your date"); expect(paused).not.toContain('href="/experiences/home-cooked-dinner-with-locals/book"');
     expect(paused).toContain('"@type":"TouristTrip"');
     expect(paused).not.toContain('"@type":"Offer"');
+  });
+  it("英語詳細が見つからないときはNextの404 sentinelをそのまま投げる", async () => {
+    state.missingExperience = true;
+    await expect(ExperiencePage({ params: Promise.resolve({ slug: "missing" }), searchParams: Promise.resolve({}) }))
+      .rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
   });
   it("hostのラベルを編集しても登録先・開放条件はhost設定に固定する", async () => {
     const document = publishedDocument("host"); document.body = document.body.map((node) => node.type === "component" ? { ...node, props: { label: "Join NIHO" } } : node); state.documents.host = document;
@@ -139,6 +150,11 @@ describe("published documents use the existing server-rendered business componen
     const fallbackHtml = renderToStaticMarkup(createElement(DocumentChrome, { document: null }, createElement("p", null, "Page")));
     expect(fallbackHtml).toContain("independent hosts and local businesses");
     expect(fallbackHtml).not.toContain("shared living room");
+
+    const japaneseValues = { ...defaultStaticCopyValuesV1(), "chrome.footerDescription": "鎌倉の人と過ごす小さな体験です。" };
+    const japaneseHtml = renderToStaticMarkup(createElement(DocumentChrome, { document: null, locale: "ja", copy: createStaticCopyV1(japaneseValues) }, createElement("p", null, "ページ")));
+    expect(japaneseHtml).toContain("鎌倉の人と過ごす小さな体験です。");
+    expect(japaneseHtml).not.toContain("independent hosts and local businesses");
 
     const document = publishedDocument("chrome");
     document.body = document.body.map((node) => node.type === "component" && node.block === "SiteFooter"

@@ -1,15 +1,18 @@
 "use client";
-import Link from "next/link";
 import type { CheckoutErrorCode } from "@niho-experience/api-client";
 import { ButtonLink, buttonClass } from "./ui";
+import { LocalizedLink } from "./LocalizedLink";
+import { useSiteCopy } from "./SiteLocale";
 
 export function ErrorState({ title = "We couldn't load this page", message = "Please try again. If you already paid, use your confirmation email to check your booking.", onRetry }: { title?: string; message?: string; onRetry?: () => void }) {
-  return <div role="alert" className="container-page max-w-2xl py-16 text-center"><p className="eyebrow">Something went wrong</p><h1 className="mt-2 text-3xl">{title}</h1><p className="mt-4 text-ink-soft">{message}</p><div className="mt-8 flex flex-wrap justify-center gap-3">{onRetry ? <button type="button" onClick={onRetry} className={buttonClass("primary")}>Try again</button> : null}<Link href="/experiences" className={buttonClass(onRetry ? "secondary" : "primary")}>See all experiences</Link></div><p className="mt-5"><Link href="/help" className="font-bold text-moss underline">Booking help</Link></p></div>;
+  const copy = useSiteCopy();
+  return <div role="alert" className="container-page max-w-2xl py-16 text-center"><p className="eyebrow">{copy.text("error.pageTitle")}</p><h1 className="mt-2 text-3xl">{title}</h1><p className="mt-4 text-ink-soft">{message}</p><div className="mt-8 flex flex-wrap justify-center gap-3">{onRetry ? <button type="button" onClick={onRetry} className={buttonClass("primary")}>{copy.text("common.tryAgain")}</button> : null}<LocalizedLink href="/experiences" className={buttonClass(onRetry ? "secondary" : "primary")}>{copy.text("catalogue.showAll")}</LocalizedLink></div><p className="mt-5"><LocalizedLink href="/help" className="font-bold text-moss underline">{copy.text("chrome.help")}</LocalizedLink></p></div>;
 }
 export function EmptyResults({ clearHref, searchActive = false }: { clearHref: string | null; searchActive?: boolean }) {
-  const title = searchActive ? "No experiences match your search" : clearHref ? "Nothing matches these filters" : "No experiences are listed right now";
-  const message = searchActive ? "Try a different word or clear your search to see all experiences." : "Please check back soon for more experiences.";
-  const clearLabel = searchActive ? "Clear search" : "Clear filters";
+  const copy = useSiteCopy();
+  const title = copy.text(searchActive ? "catalogue.emptySearch" : clearHref ? "catalogue.emptyFilters" : "catalogue.empty");
+  const message = copy.text(searchActive ? "catalogue.emptySearchBody" : "catalogue.emptyBody");
+  const clearLabel = copy.text("catalogue.clearFilters");
   return <div className="rounded-[var(--radius-card)] border border-dashed border-line-strong bg-surface px-6 py-12 text-center"><h2 className="text-2xl">{title}</h2><p className="mx-auto mt-3 max-w-md text-ink-soft">{message}</p>{clearHref ? <div className="mt-6 flex justify-center"><ButtonLink href={clearHref}>{clearLabel}</ButtonLink></div> : null}</div>;
 }
 export const checkoutErrorCopy: Record<CheckoutErrorCode, string> = {

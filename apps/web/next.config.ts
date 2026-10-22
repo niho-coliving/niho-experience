@@ -15,6 +15,7 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "img-src 'self' data: https:",
+      `media-src 'self' ${process.env.NEXT_PUBLIC_NIHO_WEB_ORIGIN ?? "https://niho.life"}`,
       "font-src 'self'",
       "style-src 'self' 'unsafe-inline'",
       // Next.js inlines its bootstrap script. A nonce-based policy is planned with #12/#15.
@@ -52,7 +53,9 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       { source: "/experiences/:slug/book", headers: privatePageHeaders },
+      { source: "/ja/experiences/:slug/book", headers: privatePageHeaders },
       { source: "/booking/:path*", headers: privatePageHeaders },
+      { source: "/ja/booking/:path*", headers: privatePageHeaders },
       { source: "/preview/:path*", headers: privatePageHeaders },
       // `:path+` leaves /host itself (the public introduction) indexable.
       { source: "/host/:path+", headers: hostConsoleHeaders },

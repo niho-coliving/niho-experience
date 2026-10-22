@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildFixtureExperiences } from "@niho-experience/api-client/mock";
 import { resolveConfig } from "./resolve-config";
 import { breadcrumbJsonLd, experienceJsonLd, serializeJsonLd } from "./structured-data";
+import nextConfig from "../../next.config";
 
 const SITE = "https://experience.example.com";
 const experiences = buildFixtureExperiences({ imageBaseUrl: "https://images.example.com" });
@@ -28,6 +29,19 @@ describe("runtime config", () => {
     expect(resolveConfig({ SITE_URL: "https://a.example/" }).siteUrl).toBe("https://a.example");
     expect(resolveConfig({}).nihoWebOrigin).toBe("https://niho.life");
     expect(resolveConfig({ NEXT_PUBLIC_NIHO_WEB_ORIGIN: "https://app-stg.niho.life" }).nihoWebOrigin).toBe("https://app-stg.niho.life");
+  });
+});
+
+describe("Japanese private page headers", () => {
+  it("keeps booking input and return routes private, no-store, and non-indexable", async () => {
+    const headers = await nextConfig.headers!();
+    for (const source of ["/ja/experiences/:slug/book", "/ja/booking/:path*"]) {
+      const rule = headers.find((candidate) => candidate.source === source);
+      expect(rule?.headers).toEqual(expect.arrayContaining([
+        { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        { key: "X-Robots-Tag", value: "noindex, nofollow" },
+      ]));
+    }
   });
 });
 

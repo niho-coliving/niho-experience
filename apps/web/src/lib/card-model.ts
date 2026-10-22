@@ -1,5 +1,6 @@
 import type { ExperienceOffer } from "@niho-experience/api-client";
 import type { ExperienceDetailForSite, ExperienceSummaryForSite, PublicImageForSite } from "./experience-types";
+import { EN_STATIC_COPY_V1, type StaticCopyAccessorV1 } from "@niho/experience-presentation/v1";
 import { formatDuration, formatYen } from "./format";
 import { joinAnd, scheduleSummary } from "./schedule";
 import { editorialOf } from "./themes";
@@ -60,15 +61,15 @@ export function hostNames(e: Pick<ExperienceDetailForSite, "hosts" | "provider">
 }
 
 /** Show the per-party limit; when every option needs more than one guest, label it private. */
-export function groupSizeLabel(offers: Pick<ExperienceOffer, "capacity" | "maxPartySize" | "minimumParticipants">[]): string | null {
+export function groupSizeLabel(offers: Pick<ExperienceOffer, "capacity" | "maxPartySize" | "minimumParticipants">[], locale: "en" | "ja" = "en", copy: StaticCopyAccessorV1 = EN_STATIC_COPY_V1): string | null {
   if (!offers.length) return null;
   if (offers.every((offer) => offer.minimumParticipants > 1)) {
     const min = Math.min(...offers.map((offer) => offer.minimumParticipants));
     const max = Math.max(...offers.map((offer) => offer.maxPartySize));
-    return min === max ? `Private · ${max} guests` : `Private · ${min}–${max} guests`;
+    return locale === "ja" ? copy.text("card.privateGuests", { min, max }) : min === max ? `Private · ${max} guests` : `Private · ${min}–${max} guests`;
   }
   const maxPartySize = Math.max(...offers.map((offer) => offer.maxPartySize));
-  return maxPartySize === 1 ? "1 guest" : `Up to ${maxPartySize} guests`;
+  return locale === "ja" ? copy.text("card.upToGuests", { count: maxPartySize }) : maxPartySize === 1 ? "1 guest" : `Up to ${maxPartySize} guests`;
 }
 
 const LANGUAGE_CODES: Record<string, string> = { English: "EN", Japanese: "JA" };
@@ -89,25 +90,25 @@ export function shortLanguageNote(note: string): string {
   return parts.map((part) => part.replace(/\b(English|Japanese)\b/g, (word) => LANGUAGE_CODES[word] ?? word)).join(" · ");
 }
 
-function durationLabel(summary: ExperienceSummaryForSite): string {
+function durationLabel(summary: ExperienceSummaryForSite, locale: "en" | "ja"): string {
   const { minMinutes, maxMinutes } = summary.duration;
-  return minMinutes === maxMinutes ? formatDuration(minMinutes) : `${formatDuration(minMinutes)}–${formatDuration(maxMinutes)}`;
+  return minMinutes === maxMinutes ? formatDuration(minMinutes, locale) : `${formatDuration(minMinutes, locale)}–${formatDuration(maxMinutes, locale)}`;
 }
 
-export function buildCardModel(summary: ExperienceSummaryForSite, detail: ExperienceDetailForSite | null, pilotPreview = false): CardModel {
+export function buildCardModel(summary: ExperienceSummaryForSite, detail: ExperienceDetailForSite | null, pilotPreview = false, locale: "en" | "ja" = "en", copy: StaticCopyAccessorV1 = EN_STATIC_COPY_V1): CardModel {
   const base = {
     slug: summary.slug,
     title: summary.title,
     lead: summary.lead,
     cover: summary.cover,
-    durationLabel: durationLabel(summary),
-    priceLabel: formatYen(summary.priceFrom.amountYen),
+    durationLabel: durationLabel(summary, locale),
+    priceLabel: formatYen(summary.priceFrom.amountYen, locale),
   };
   const withOverride = editorialOf(summary, pilotPreview)?.withLabel;
   if (!detail) {
     return {
       ...base,
-      withLabel: `with ${withOverride ?? summary.provider.name}`,
+      withLabel: locale === "ja" ? `${withOverride ?? summary.provider.name}と一緒に` : `with ${withOverride ?? summary.provider.name}`,
       face: { name: summary.provider.name, initial: initialOf(summary.provider.name), image: null },
       groupLabel: null,
       language: null,
@@ -118,16 +119,16 @@ export function buildCardModel(summary: ExperienceSummaryForSite, detail: Experi
   }
   return {
     ...base,
-    withLabel: `with ${withOverride ?? hostNames(detail)}`,
+    withLabel: locale === "ja" ? `${withOverride ?? hostNames(detail)}と一緒に` : `with ${withOverride ?? hostNames(detail)}`,
     face: cardFaceOf(detail, pilotPreview),
-    groupLabel: groupSizeLabel(detail.offers),
+    groupLabel: groupSizeLabel(detail.offers, locale, copy),
     language: { short: shortLanguageNote(detail.languageNote), full: detail.languageNote },
-    scheduleLabel: scheduleSummary(detail.offers),
+    scheduleLabel: scheduleSummary(detail.offers, locale),
     priceIsFrom: new Set(detail.offers.map((offer) => offer.pricing.adultPriceYen)).size > 1,
     offers: detail.offers.map((offer) => ({ id: offer.id, minimumParticipants: offer.minimumParticipants, maxPartySize: offer.maxPartySize })),
   };
 }
 
-export function buildCardModels(summaries: ExperienceSummaryForSite[], details: ReadonlyMap<string, ExperienceDetailForSite>, pilotPreview = false): CardModel[] {
-  return summaries.map((summary) => buildCardModel(summary, details.get(summary.slug) ?? null, pilotPreview));
+export function buildCardModels(summaries: ExperienceSummaryForSite[], details: ReadonlyMap<string, ExperienceDetailForSite>, pilotPreview = false, locale: "en" | "ja" = "en", copy: StaticCopyAccessorV1 = EN_STATIC_COPY_V1): CardModel[] {
+  return summaries.map((summary) => buildCardModel(summary, details.get(summary.slug) ?? null, pilotPreview, locale, copy));
 }
