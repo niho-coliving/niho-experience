@@ -34,9 +34,18 @@
       "types": "./src/admin-auth/index.ts",
       "default": "./src/admin-auth/index.ts"
     },
+    "./admin-read": {
+      "types": "./src/admin-read/index.ts",
+      "default": "./src/admin-read/index.ts"
+    },
+    "./admin-read-schema": {
+      "types": "./src/admin-read/schema.ts",
+      "default": "./src/admin-read/schema.ts"
+    },
     "./contract/experience-public-api.openapi.json": "./contract/experience-public-api.openapi.json",
     "./contract/experience-host-api.openapi.json": "./contract/experience-host-api.openapi.json",
-    "./contract/experience-admin-auth-api.openapi.json": "./contract/experience-admin-auth-api.openapi.json"
+    "./contract/experience-admin-auth-api.openapi.json": "./contract/experience-admin-auth-api.openapi.json",
+    "./contract/experience-admin-read-api.openapi.json": "./contract/experience-admin-read-api.openapi.json"
   },
   "scripts": {
     "gen:types": "node ./scripts/gen-types.ts",
