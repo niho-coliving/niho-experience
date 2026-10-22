@@ -3,8 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 // A second server with the host console on (#86); the first keeps today's /host (console off).
 const HOST_PORT = Number(process.env.E2E_HOST_PORT ?? 3101);
-// The console's sign-in and frame (#86) and its screens (#84/#88/#89/#90/#91/#106/#107) run against the second server.
-const HOST_CONSOLE_SPEC = /host-(console|screens|editor|bookings|sales|messages|session)\.spec\.ts/;
+// The console's sign-in and frame (#86) and its screens (#84/#88/#89/#90/#91/#106/#107/#108/#109/#110) run against the second server.
+const HOST_CONSOLE_SPEC = /host-(console|screens|editor|editor-english|bookings|sales|messages|session|reviews|settings)\.spec\.ts/;
 // Cloud sandboxes ship a pre-installed Chromium; CI installs the matching one.
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
 const serverEnv = { HOSTNAME: "127.0.0.1", EXPERIENCE_API_MODE: "mock", EXPERIENCE_PUBLIC_API_VERSION: "1.2", SITE_INDEXING: "block", NEXT_TELEMETRY_DISABLED: "1", HOST_SIGNUP_MODE: "pilot", NIHO_HOST_START_URL: "https://niho.life/experiences/provider" };

@@ -21,8 +21,8 @@ function connectStep(value: string | string[] | undefined): "return" | "refresh"
 }
 
 /**
- * 設定 (mock v2): provider (and its review), payout account, default meeting point, notifications
- * and the NIHO account. `?connect=return` (back from Stripe's page) reads the account from Stripe
+ * 設定 (mock v2): provider (and its review), payout account, calendar (#109), default meeting point,
+ * notifications (#109) and the NIHO account. `?connect=return` (back from Stripe's page) reads the account from Stripe
  * again first; `?connect=refresh` (its link expired) sends the host back to Stripe with a new one.
  */
 export default async function HostSettingsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -33,7 +33,7 @@ export default async function HostSettingsPage({ searchParams }: { searchParams:
   if (!provider) return <HostRegisterPrompt title="設定" />;
   // Stripe's way back belongs to the provider it names, never to the one shown in its place.
   const connect = providerNotFound ? null : connectStep(query.connect);
-  const [{ settings }, payout] = await Promise.all([loadHostConsoleData(provider), loadHostPayout(provider, { connect })]);
+  const [{ settings, googleConnection }, payout] = await Promise.all([loadHostConsoleData(provider), loadHostPayout(provider, { connect })]);
   if (payout.redirectTo) redirect(payout.redirectTo);
   const account = { displayName: session.displayName, iconUrl: session.iconUrl };
 
@@ -70,6 +70,7 @@ export default async function HostSettingsPage({ searchParams }: { searchParams:
         settings={settings}
         payout={payout.load}
         connectNotice={payout.notice}
+        googleConnection={googleConnection}
         preview={isHostMock()}
         account={accountPanel}
       />
