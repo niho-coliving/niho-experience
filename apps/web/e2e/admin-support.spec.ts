@@ -132,7 +132,7 @@ test("notification load and read failures keep state and can retry", async ({ pa
     await route.continue();
   });
   await page.getByRole("link", { name: /通知/ }).click();
-  await expect(page.getByRole("alert")).toContainText("通知を読み込めませんでした");
+  await expect(page.getByRole("region", { name: "通知一覧" }).getByRole("alert")).toContainText("通知を読み込めませんでした");
   await page.getByRole("button", { name: "もう一度試す" }).click();
   await expect(page.getByRole("article")).toHaveCount(5);
 
@@ -147,7 +147,7 @@ test("notification load and read failures keep state and can retry", async ({ pa
   const first = page.getByRole("article").first();
   await expect(first).toContainText("未読");
   await first.getByRole("button", { name: "既読にする" }).click();
-  await expect(page.getByRole("alert")).toContainText("表示は更新していません");
+  await expect(page.getByRole("region", { name: "通知一覧" }).getByRole("alert")).toContainText("表示は更新していません");
   await expect(first).toContainText("未読");
   await expect(page.getByRole("link", { name: /未読5件/ })).toBeVisible();
 });
