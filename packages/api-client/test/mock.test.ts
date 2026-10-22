@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { computeExpectedTotalYen } from "../src/booking-rules.ts";
 import { createExperienceApiClient } from "../src/client.ts";
+import { journeyExtrasFor } from "../src/fixtures/journey.ts";
+import { conditionConsentTexts, type ExperienceCheckoutJourneyFields } from "../src/journey.ts";
 import { createMockExperienceFetch, isMockCheckoutUrl, MOCK_SCENARIOS, type MockScenario } from "../src/mock/index.ts";
 import { createContractValidator, findSensitiveValues } from "../src/testing/index.ts";
 import type { ExperienceCheckoutRequest, ExperienceDetail, Occurrence } from "../src/types.ts";
@@ -30,11 +32,14 @@ async function firstBookable(slug: string, offerId: string): Promise<Occurrence>
   return occurrence;
 }
 
-async function checkoutBody(slug: string, overrides: Partial<ExperienceCheckoutRequest> = {}): Promise<ExperienceCheckoutRequest> {
+async function checkoutBody(slug: string, overrides: Partial<ExperienceCheckoutRequest> = {}): Promise<ExperienceCheckoutRequest & ExperienceCheckoutJourneyFields> {
   const experience = await detail(slug);
   const offer = experience.offers[0]!;
   const occurrence = await firstBookable(slug, offer.id);
+  // 参加の条件に同意の対象がある体験（仮契約・journey.ts）は、同意した版も送る。
+  const conditions = journeyExtrasFor(slug).conditions;
   return {
+    ...(conditionConsentTexts(conditions).length ? { conditionsConsent: { version: conditions!.version } } : {}),
     offerId: offer.id,
     occurrenceDate: occurrence.date,
     adultCount: 2,

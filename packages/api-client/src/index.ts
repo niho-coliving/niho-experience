@@ -1,6 +1,7 @@
 export * from "./types.ts";
 export * from "./contract-meta.ts";
 export * from "./booking-rules.ts";
+export * from "./journey.ts";
 export {
   createExperienceApiClient,
   isAllowedCheckoutRedirect,
