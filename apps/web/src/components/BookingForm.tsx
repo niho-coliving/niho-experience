@@ -70,6 +70,18 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     }).catch(() => { if (active) { setAvailabilityOk(false); setStartAt(null); setChecking(false); } });
     return () => { active = false; };
   }, [api, experience.slug, offer.id, selection.date, headCount, selectionValid, locale, releaseId]);
+  // The free-cancellation row follows the clock: if the deadline passes while the form is open, it turns to "Not available for this date".
+  const freeHours = offer.cancellationPolicy.freeCancellationHoursBefore;
+  useEffect(() => {
+    if (!startAt || freeHours === null) return;
+    const start = Date.parse(startAt);
+    if (!Number.isFinite(start)) return;
+    const wait = start - freeHours * 3_600_000 - Date.now();
+    if (wait <= 0) return;
+    // A timer cannot wait longer than 2^31 ms: a longer wait wakes early, updates the clock, and arms the next one here.
+    const timer = window.setTimeout(() => setClockNow(Date.now()), Math.min(wait + 500, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [startAt, freeHours, clockNow]);
   useEffect(() => {
     if (!problem) return;
     const id = invalidField === "consent" || invalidField === "consent.agreedVersion" ? "booking-consent"

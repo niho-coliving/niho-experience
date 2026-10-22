@@ -94,6 +94,18 @@ test("a non-refundable option shows no free-cancellation deadline, a refundable 
   await expect(page.getByText(/^Until /)).toBeVisible();
 });
 
+test("the free-cancellation deadline turns to \"Not available\" when it passes while the form is open", async ({ page }) => {
+  await page.clock.install();
+  await page.goto(`${indigo}/book`);
+  await chooseLaterDate(page);
+  await expect(page.getByText(/^Until [A-Z][a-z]{2} \d{1,2} [A-Z][a-z]{2}, \d{1,2}:\d{2} (AM|PM) Japan time$/)).toBeVisible();
+  // Forty days later every date offered is past its deadline (48 hours before the start). One jump is limited to 2^31 ms, so two.
+  await page.clock.fastForward(20 * 24 * 60 * 60 * 1000);
+  await page.clock.fastForward(20 * 24 * 60 * 60 * 1000);
+  await expect(page.getByText("Not available for this date")).toBeVisible();
+  await expect(page.getByText(/^Until /)).toHaveCount(0);
+});
+
 test("the booking form with conditions fits a 320px phone", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-360");
   await page.setViewportSize({ width: 320, height: 640 });
