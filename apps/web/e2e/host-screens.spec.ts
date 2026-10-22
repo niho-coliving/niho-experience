@@ -5,7 +5,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 // (HOST_CONSOLE_ENABLED=true, mock mode; see playwright.config.ts): the mock sign-in
 // makes a session for the synthetic NIHO, and nothing here talks to NIHO.
 
-const CONSOLE_PAGES = ["/host/home", "/host/experiences", "/host/experiences/community-dinner", "/host/bookings", "/host/messages", "/host/sales", "/host/settings", "/host/register"];
+const CONSOLE_PAGES = ["/host/home", "/host/experiences", "/host/experiences/community-dinner", "/host/bookings", "/host/messages", "/host/reviews", "/host/sales", "/host/settings", "/host/register"];
 const PREVIEW_NOTE = "プレビュー（合成データ）· 体験・予約・売上・口座は架空で、保存されません";
 
 /** The sidebar (PC) and the bottom tabs (phones) share one name; only the one for the width is exposed. */
@@ -24,14 +24,16 @@ test("ホーム shows what to do next, the sessions coming up and the month", as
 
   const todo = page.getByRole("region", { name: "次にすること" });
   const todos = todo.getByRole("listitem");
-  // Each request, the threads waiting for an answer, then a draft and a listing under review (host-messages.spec.ts follows the first ones).
-  await expect(todos).toHaveCount(7);
+  // Each request, the threads waiting for an answer, the reviews, then a draft and a listing under review
+  // (host-messages.spec.ts follows the first ones, host-reviews.spec.ts the reviews).
+  await expect(todos).toHaveCount(10);
   await expect(todos.nth(0)).toContainText("承認待ち");
-  await expect(todos.nth(5)).toContainText("下書き");
-  await expect(todos.nth(6)).toContainText("審査待ち");
+  await expect(todos.nth(5)).toContainText("未返信");
+  await expect(todos.nth(8)).toContainText("下書き");
+  await expect(todos.nth(9)).toContainText("審査待ち");
   await expect(todo.getByRole("link", { name: "編集する" })).toHaveAttribute("href", "/host/experiences/coffee");
   // Listings under review wait for NIHO: no button.
-  await expect(todos.nth(6).getByRole("link")).toHaveCount(0);
+  await expect(todos.nth(9).getByRole("link")).toHaveCount(0);
   await expect(todo.getByRole("link", { name: "メッセージを見る" })).toHaveAttribute("href", "/host/messages");
 
   // Today's tea time, over with its attendance still to record; tomorrow's dinner; then the sessions after tomorrow.
@@ -134,7 +136,8 @@ test("体験: the list, one experience, and back", async ({ page }, testInfo) =>
   await expect(menu(page).getByRole("link", { name: "体験" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("button", { name: "新しい体験" })).toBeVisible();
 
-  const rows = page.getByRole("region", { name: "体験の一覧" }).getByRole("link");
+  // Each row opens its editor (its title's link covers the row); the dinner's reviews have a link of their own (host-reviews.spec.ts).
+  const rows = page.getByRole("region", { name: "体験の一覧" }).getByRole("listitem");
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText("Kamakura Community Dinner with Locals");
   await expect(rows.nth(0)).toContainText("火・木・土 18:00 · 2時間 · 定員8 · ¥30,000〜");

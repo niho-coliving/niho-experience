@@ -1,10 +1,11 @@
 import type { ExperienceProviderPaymentReadinessReason } from "@niho-experience/api-client/host";
 import type { HostProviderKind, HostProviderReviewStatus } from "@/lib/host/providers";
+import type { HostReviewTag } from "./reviews";
 
 /*
  * What the host console screens show (#84). The provider's own values (kind, review
  * status, payout readiness) are the host contract's types (#87). Experiences, bookings,
- * messages, sales and the meeting and notification defaults are not in the contract yet, so
+ * messages, reviews, sales and the meeting and notification defaults are not in the contract yet, so
  * they stay hand-written from the screens' needs; the screens keep reading these shapes.
  */
 
@@ -269,6 +270,71 @@ export interface HostThread {
   booking: HostThreadBooking | null;
   /** In time order. */
   messages: readonly HostThreadMessage[];
+}
+
+/*
+ * レビュー (#108, Epic #103): only a guest who booked can write one, one per booking: 1–5 stars,
+ * their words, the good points (fixed choices), the name and country they show, and a note for
+ * the host only. NIHO checks a review before it is published and tells the host first. The host
+ * may publish one reply (and correct it later) and report a review to NIHO, but never removes or
+ * changes it. NIHO keeps the guest's words as written and its Japanese translation apart; the
+ * host writes the reply in Japanese and checks the English that is published.
+ * TODO(#87): NIHO's reviews (niho-app#19314) are not in the host contract yet.
+ */
+
+/** 公開前 (NIHO is checking it) / 公開中 (on the experience's page). */
+export type HostReviewStatus = "pending" | "published";
+
+/** What a guest wrote (the review, or the note to the host): their own words and NIHO's translation, as a guest's message has them. */
+export type HostReviewText = Pick<HostGuestMessage, "original" | "language" | "translation">;
+
+/** The host's one public reply: the Japanese they wrote and the English they checked, which is what the page shows. */
+export interface HostReviewReply {
+  /** Empty when the host wrote the English directly. */
+  japanese: string;
+  english: string;
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  publishedAt: string;
+  /** The last correction (返信を直す), YYYY-MM-DDTHH:MM in Japan; null when it was never corrected. */
+  editedAt: string | null;
+}
+
+/** Why the host reported a review to NIHO: 個人情報が書かれている / 事実と違う / 不適切な内容 / その他. */
+export type HostReviewReportReason = "personal" | "untrue" | "inappropriate" | "other";
+
+/** The host's report. NIHO decides what happens to the review; it stays as it is meanwhile. */
+export interface HostReviewReport {
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  at: string;
+  reason: HostReviewReportReason;
+}
+
+export interface HostReview {
+  id: string;
+  experienceId: string;
+  /** The booking it was written for: one review per booking, never for one the guest did not come to. */
+  bookingId: string;
+  /** The session's day (YYYY-MM-DD, JST). */
+  sessionDate: string;
+  /** What the guest shows: their first name and where they live, in Japanese ("イギリス"). */
+  reviewer: { name: string; country: string };
+  /** 1–5. */
+  rating: number;
+  /**
+   * よかった点: the identifiers of NIHO's fixed choices (REVIEW_TAGS in reviews.ts has the words the host reads).
+   * TODO(#87): NIHO の API（niho-coliving/niho-app#19314）が入ったら識別子を合わせる。
+   */
+  tags: readonly HostReviewTag[];
+  body: HostReviewText;
+  /** あなただけへのメモ: for the host only, never published; null when the guest wrote none. */
+  privateNote: HostReviewText | null;
+  /** YYYY-MM-DDTHH:MM in Japan. */
+  writtenAt: string;
+  status: HostReviewStatus;
+  /** YYYY-MM-DDTHH:MM in Japan; null while NIHO checks it. */
+  publishedAt: string | null;
+  reply: HostReviewReply | null;
+  report: HostReviewReport | null;
 }
 
 /**

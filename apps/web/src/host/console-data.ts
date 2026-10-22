@@ -7,7 +7,7 @@ import { MOCK_CONSOLE_PROVIDERS } from "./mock/provider";
 import { MOCK_SALES_PERIOD } from "./mock/sales";
 import type { SalesPeriod } from "./sales";
 import { sessionBookings } from "./session";
-import type { HostBooking, HostExperience, HostMeetingDefaults, HostPageLanguage, HostSale, HostThread } from "./types";
+import type { HostBooking, HostExperience, HostMeetingDefaults, HostPageLanguage, HostReview, HostSale, HostThread } from "./types";
 
 export type HostDataMode = "mock" | "http";
 
@@ -23,6 +23,8 @@ export interface HostConsoleSnapshot {
   bookings: readonly HostBooking[];
   /** メッセージ (#106): the guests' questions and the bookings' messages. */
   threads: readonly HostThread[];
+  /** レビュー (#108): the guests' reviews, published or still checked by NIHO. */
+  reviews: readonly HostReview[];
   sales: readonly HostSale[];
   meetingPoint: HostMeetingDefaults;
   notificationEmail: string;
@@ -38,8 +40,8 @@ const NO_MEETING_POINT: HostMeetingDefaults = { area: "", mapUrl: "", entrance: 
 export function hostConsoleSnapshot(providerId: string, mode: HostDataMode, now: number): HostConsoleSnapshot {
   const mock = mode === "mock" ? MOCK_CONSOLE_PROVIDERS.get(providerId) : undefined;
   if (mock) return { today: MOCK_TODAY, now: MOCK_NOW, salesPeriod: MOCK_SALES_PERIOD, ...mock };
-  // TODO: experiences, bookings, messages, sales and the meeting and notification defaults are
-  // not in the host contract (#87) yet. The payout account is: data.ts reads it from NIHO.
+  // TODO: experiences, bookings, messages, reviews, sales and the meeting and notification defaults
+  // are not in the host contract (#87) yet. The payout account is: data.ts reads it from NIHO.
   const today = mode === "mock" ? MOCK_TODAY : todayInJapan(now);
   return {
     today,
@@ -48,6 +50,7 @@ export function hostConsoleSnapshot(providerId: string, mode: HostDataMode, now:
     experiences: [],
     bookings: [],
     threads: [],
+    reviews: [],
     sales: [],
     meetingPoint: NO_MEETING_POINT,
     notificationEmail: "",
@@ -202,6 +205,18 @@ export function bookingThreadOf(snapshot: Pick<HostConsoleSnapshot, "threads" | 
   return booking && bookingActions(booking.status).message ? { status: "new", thread: emptyThreadFor(booking) } : { status: "missing" };
 }
 
+/** レビュー (#108): the provider's reviews, or (http mode) nothing to show until NIHO's API has them. */
+export type HostReviewList =
+  | { status: "ready"; reviews: readonly HostReview[] }
+  /** http mode: reviews cannot be read, answered or reported until NIHO's API has them (niho-app#19314). The page says 準備中. */
+  | { status: "unavailable" };
+
+/** The reviews screen's list: the synthetic one in mock mode; nothing to read yet in http mode. */
+export function reviewList(snapshot: Pick<HostConsoleSnapshot, "reviews">, mode: HostDataMode): HostReviewList {
+  // TODO(#87): read the provider's reviews from NIHO once the host contract has them.
+  return mode === "http" ? { status: "unavailable" } : { status: "ready", reviews: snapshot.reviews };
+}
+
 /** 売上 (#91): the provider's ledger and its months, or (http mode) nothing to show until the provider API has sales. */
 export type HostSalesList =
   | { status: "ready"; period: SalesPeriod; sales: readonly HostSale[] }
@@ -222,7 +237,7 @@ export interface HostHomeData {
 /** ホーム: 次にすること, today's and tomorrow's sessions, これからの開催 and the month's numbers. */
 export function hostHome(snapshot: HostConsoleSnapshot): HostHomeData {
   return {
-    todos: homeTodos(snapshot.experiences, snapshot.bookings, snapshot.threads, snapshot.today, snapshot.now),
+    todos: homeTodos(snapshot.experiences, snapshot.bookings, snapshot.threads, snapshot.today, snapshot.now, snapshot.reviews),
     sessions: homeSessions(snapshot.experiences, snapshot.bookings, snapshot.now),
     month: snapshot.salesPeriod ? homeMonth(snapshot.sales, snapshot.salesPeriod.current) : null,
   };

@@ -13,6 +13,7 @@ import {
   editorExperience,
   hostConsoleSnapshot,
   hostHome,
+  reviewList,
   salesList,
   sessionOf,
   threadList,
@@ -21,6 +22,7 @@ import {
   type HostBookingLookup,
   type HostEditorExperience,
   type HostHomeData,
+  type HostReviewList,
   type HostSalesList,
   type HostSessionLookup,
   type HostThreadList,
@@ -219,6 +221,29 @@ export async function loadHostMessages(provider: HostProvider, requested: { thre
     now: snapshot.now,
     list: threadList(snapshot, mode),
     requested: requested.thread ? threadOf(snapshot, mode, requested.thread) : requested.booking ? bookingThreadOf(snapshot, mode, requested.booking) : null,
+    experiences: snapshot.experiences.map(({ id, title }) => ({ id, title })),
+  };
+}
+
+export interface HostReviewsData {
+  /** The moment a reply or a report is dated with (the preview's fixed one in mock mode). */
+  now: string;
+  list: HostReviewList;
+  /** The provider's experiences' titles, for the select and each review's session line. */
+  experiences: { id: string; title: string }[];
+}
+
+/**
+ * レビュー (#108): the provider's reviews, published or still checked by NIHO: synthetic in mock
+ * mode, nothing yet in http mode (the page says 準備中). The client screen gets the reviews and the
+ * experiences' titles.
+ */
+export function loadHostReviews(provider: Pick<HostProvider, "id">): HostReviewsData {
+  const mode = isHostMock() ? "mock" : "http";
+  const snapshot = hostConsoleSnapshot(provider.id, mode, Date.now());
+  return {
+    now: snapshot.now,
+    list: reviewList(snapshot, mode),
     experiences: snapshot.experiences.map(({ id, title }) => ({ id, title })),
   };
 }
