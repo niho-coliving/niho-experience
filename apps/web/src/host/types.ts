@@ -6,7 +6,8 @@ import type { HostReviewTag } from "./reviews";
  * What the host console screens show (#84). The provider's own values (kind, review
  * status, payout readiness) are the host contract's types (#87). Experiences, bookings,
  * messages, reviews, sales and the meeting and notification defaults are not in the contract yet, so
- * they stay hand-written from the screens' needs; the screens keep reading these shapes.
+ * they stay hand-written from the screens' needs; the screens keep reading these shapes. The
+ * calendar and notification settings follow NIHO's own specs for them (#109).
  */
 
 /** One listing state per experience page: draft → review → live (or paused). */
@@ -399,6 +400,79 @@ export interface HostMeetingDefaults {
   entrance: string;
 }
 
+/*
+ * カレンダー (#109, Epic #103): the provider's Google Calendar and the bookings feed for other
+ * calendars. Sessions that overlap an event of the calendars chosen read as full on the
+ * experience site (guests are not told why); confirmed bookings are written to one calendar,
+ * one event per booking, and taken away when cancelled. Disconnecting leaves the bookings (and
+ * the events written) as they are.
+ * TODO(#87): NIHO's ICS feed (niho-app#19316) and Google connection (#19317) are not in the host contract yet.
+ */
+
+/** 未接続 / 接続中 / 接続が切れた (the host took NIHO's access away in Google). */
+export type HostGoogleCalendarStatus = "disconnected" | "connected" | "revoked";
+
+/** One calendar of the connected Google account. */
+export interface HostBusyCalendar {
+  id: string;
+  /** As Google names it. */
+  name: string;
+  /** Google's color for it (#rrggbb). Decorative: the name says which one it is. */
+  color: string;
+  /** Its events close the sessions they overlap. */
+  checked: boolean;
+  /** NIHO may write bookings to it (a calendar the account owns, not a subscribed one such as holidays). */
+  writable: boolean;
+}
+
+export interface HostGoogleCalendar {
+  status: HostGoogleCalendarStatus;
+  /** The Google account's email; null when none is connected. */
+  account: string | null;
+  /** The account's calendars, as Google lists them; empty while not connected. */
+  busyCalendars: readonly HostBusyCalendar[];
+  /** 予定がある時間は予約を受け付けない. */
+  blockBusy: boolean;
+  /** 確定した予約をカレンダーに書き込む. */
+  writeBookings: boolean;
+  /** The calendar bookings are written to; null until one is chosen. */
+  writeCalendarId: string | null;
+}
+
+/** What a Google sign-in brings: the account and its calendars (the preview's synthetic one in mock mode). */
+export interface HostGoogleConnection {
+  account: string;
+  calendars: readonly HostBusyCalendar[];
+}
+
+export interface HostCalendarSettings {
+  google: HostGoogleCalendar;
+  /** ほかのカレンダーで見る: the bookings as an .ics feed at an address no one can guess; null when there is none to show. */
+  icsUrl: string | null;
+}
+
+/*
+ * 通知 (#109, Epic #103): v1 sends email only, to the provider's verified addresses. The shape is
+ * NIHO's `GET/PATCH /api/experience-providers/{providerId}/notification-settings` (niho-app spec
+ * §17.4, OWNER only). Changing the addresses is outside it (#19238).
+ */
+
+/** The notifications NIHO sends a provider, in the order NIHO lists them (notifications.ts has the words). */
+export type HostNotificationKey = "NEW_BOOKING" | "APPROVAL_DEADLINE" | "CANCELLATION" | "GUEST_MESSAGE" | "DAY_BEFORE_SUMMARY" | "NEW_REVIEW" | "LISTING_REVIEW";
+
+/** One notification as NIHO answers it. `key` stays a string: a key the console does not know yet is left out. */
+export interface HostNotificationItem {
+  key: string;
+  enabled: boolean;
+  /** The host cannot turn it off. */
+  locked: boolean;
+}
+
+export interface HostNotificationSettings {
+  email: { addresses: readonly string[] };
+  items: readonly HostNotificationItem[];
+}
+
 /** The settings screen's starting values. */
 export interface HostSettings {
   displayName: string;
@@ -409,5 +483,7 @@ export interface HostSettings {
   /** The provider agreed to the version of NIHO's provider terms in force (審査を申請 needs it). */
   consentCurrent: boolean;
   meetingPoint: HostMeetingDefaults;
-  notificationEmail: string;
+  calendar: HostCalendarSettings;
+  /** Null for anyone but the OWNER: NIHO answers the notification settings to the owner only. */
+  notifications: HostNotificationSettings | null;
 }

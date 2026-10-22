@@ -172,12 +172,12 @@ test("体験: the list, one experience, and back", async ({ page }, testInfo) =>
   await expect(page.getByRole("heading", { name: "ページが見つかりません" })).toBeVisible();
 });
 
-test("設定 has five panels, and 保存 checks the fields and keeps what NIHO has no API for on screen", async ({ page }, testInfo) => {
+test("設定 has six panels, and 保存 checks the fields and keeps what NIHO has no API for on screen", async ({ page }, testInfo) => {
   await signIn(page);
   await menu(page).getByRole("link", { name: "設定" }).click();
   await page.waitForURL(/\/host\/settings$/);
   await expect(page.getByRole("heading", { level: 1, name: "設定" })).toBeVisible();
-  await expect(page.locator("main").getByRole("heading", { level: 2 })).toHaveText(["提供者情報", "売上受取口座", "既定の集合案内", "通知", "アカウント"]);
+  await expect(page.locator("main").getByRole("heading", { level: 2 })).toHaveText(["提供者情報", "売上受取口座", "カレンダー", "既定の集合案内", "通知", "アカウント"]);
 
   const provider = page.getByRole("region", { name: "提供者情報" });
   await expect(provider).toContainText("審査済み");
@@ -190,12 +190,14 @@ test("設定 has five panels, and 保存 checks the fields and keeps what NIHO h
   await expect(payout).toContainText("準備済み");
   await expect(payout).toContainText("サンプルの台所の口座");
   await expect(payout.getByRole("link", { name: /Stripe で確認/ })).toBeVisible();
+  // カレンダー and 通知 (#109): host-settings.spec.ts.
+  await expect(page.getByRole("region", { name: "カレンダー" })).toContainText("接続中");
+  await expect(page.getByRole("region", { name: "通知" })).toContainText("kitchen@example.com");
   const meeting = page.getByRole("region", { name: "既定の集合案内" });
   await expect(meeting.getByRole("textbox", { name: "公開する集合エリア" })).toHaveValue("Near Kamakura Station, 5-minute walk");
-  await expect(meeting.getByRole("textbox", { name: "地図 URL" })).toHaveValue("https://maps.example.com/sample-kitchen");
+  const mapUrl = meeting.getByRole("textbox", { name: "地図 URL" });
+  await expect(mapUrl).toHaveValue("https://maps.example.com/sample-kitchen");
   await expect(meeting.getByRole("textbox", { name: "入口の案内（予約確定後）" })).not.toHaveValue("");
-  const email = page.getByRole("region", { name: "通知" }).getByRole("textbox", { name: "予約の通知先" });
-  await expect(email).toHaveValue("kitchen@example.com");
   const account = page.getByRole("region", { name: "アカウント" });
   await expect(account).toContainText("サンプル ホスト");
   await expect(account.getByRole("link", { name: "NIHO アプリ" })).toHaveAttribute("href", "https://niho.life");
@@ -207,14 +209,15 @@ test("設定 has five panels, and 保存 checks the fields and keeps what NIHO h
   const saved = page.getByRole("status").filter({ hasText: "保存しました" });
   // The kind comes from the registration: shown, not changed here.
   await expect(provider.getByRole("radio", { name: "店舗・事業者" })).toBeDisabled();
-  await email.fill("not-an-email");
+  // The meeting fields sit outside the <form> (カレンダー's dialogs are forms of their own) and still join its checks.
+  await mapUrl.fill("not-a-url");
   await save.click();
   await expect(saved).toHaveCount(0);
-  await email.fill("kitchen-desk@example.com");
+  await mapUrl.fill("https://maps.example.com/kitchen-desk");
   await save.click();
   await expect(saved).toBeVisible();
   await expect(page).toHaveURL(/\/host\/settings$/);
-  // 通知 is not in NIHO's API yet: nothing is sent (提供者情報 is, see host-sales.spec.ts).
+  // 集合案内 is not in NIHO's API yet: nothing is sent (提供者情報 is, see host-sales.spec.ts).
   expect(sent.filter((line) => line.includes("kitchen-desk") || !line.startsWith("GET "))).toEqual([]);
 
   // PC: a leaf pill floating at the bottom right. Phones: a full-width 48px band above the tabs.

@@ -43,6 +43,9 @@ export const REVIEW_STATUS: Record<HostReviewStatus, StatusLabel> = {
 /** A published review the host has not replied to (ホーム). Replying is the host's choice: the quiet tone. */
 export const REVIEW_UNREPLIED: StatusLabel = { label: "未返信", tone: "draft" };
 
+/** A part NIHO cannot keep yet (設定's 集合案内・カレンダー・通知 in http mode): shown, but not to be filled in. */
+export const PREPARING_STATUS: StatusLabel = { label: "準備中", tone: "draft" };
+
 /** The provider's own review, shown beside 設定 › 提供者情報 (NIHO's provider screen calls SUSPENDED 確認が必要). */
 export const PROVIDER_REVIEW_STATUS: Record<HostProviderReviewStatus, StatusLabel> = {
   DRAFT: { label: "未申請", tone: "draft" },

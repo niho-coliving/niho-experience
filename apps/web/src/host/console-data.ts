@@ -1,13 +1,26 @@
+import type { HostMockScenario } from "@/lib/host/session";
 import { actionTime, bookingActions, type SessionQuery } from "./bookings";
+import { GOOGLE_NOT_CONNECTED } from "./calendar";
 import { todayInJapan } from "./format";
 import { homeMonth, homeSessions, homeTodos, type HomeMonth, type HomeSessions, type HomeTodo } from "./home";
 import { emptyThreadFor } from "./messages";
 import { MOCK_NOW, MOCK_TODAY } from "./mock/bookings";
-import { MOCK_CONSOLE_PROVIDERS } from "./mock/provider";
+import { MOCK_CONSOLE_PROVIDERS, MOCK_GOOGLE_CONNECTION } from "./mock/provider";
 import { MOCK_SALES_PERIOD } from "./mock/sales";
 import type { SalesPeriod } from "./sales";
 import { sessionBookings } from "./session";
-import type { HostBooking, HostExperience, HostMeetingDefaults, HostPageLanguage, HostReview, HostSale, HostThread } from "./types";
+import type {
+  HostBooking,
+  HostCalendarSettings,
+  HostExperience,
+  HostGoogleConnection,
+  HostMeetingDefaults,
+  HostNotificationSettings,
+  HostPageLanguage,
+  HostReview,
+  HostSale,
+  HostThread,
+} from "./types";
 
 export type HostDataMode = "mock" | "http";
 
@@ -27,21 +40,34 @@ export interface HostConsoleSnapshot {
   reviews: readonly HostReview[];
   sales: readonly HostSale[];
   meetingPoint: HostMeetingDefaults;
-  notificationEmail: string;
+  /** カレンダー (#109): the Google Calendar and the bookings feed. */
+  calendar: HostCalendarSettings;
+  /** 通知 (#109), as NIHO answers its owner. */
+  notifications: HostNotificationSettings;
 }
 
 const NO_MEETING_POINT: HostMeetingDefaults = { area: "", mapUrl: "", entrance: "" };
+const NO_CALENDAR: HostCalendarSettings = { google: GOOGLE_NOT_CONNECTED, icsUrl: null };
+/** NIHO lists every notification as it starts it (notifications.ts fills them in). */
+const NO_NOTIFICATIONS: HostNotificationSettings = { email: { addresses: [] }, items: [] };
+
+/** The preview's `?mock=calendar-revoked`: a connected Google Calendar whose access was taken away in Google. */
+function withScenario(calendar: HostCalendarSettings, scenario: HostMockScenario): HostCalendarSettings {
+  return scenario === "calendar-revoked" && calendar.google.status === "connected" ? { ...calendar, google: { ...calendar.google, status: "revoked" } } : calendar;
+}
 
 /**
  * The data behind the console pages for a provider. Mock mode (the preview) has the
  * synthetic sets in ./mock with a fixed "today" (a provider without a set has nothing in
- * the preview's sales months); http mode has nothing to show yet.
+ * the preview's sales months); http mode has nothing to show yet. `scenario` is the mock
+ * session's (`?mock=` on the mock sign-in).
  */
-export function hostConsoleSnapshot(providerId: string, mode: HostDataMode, now: number): HostConsoleSnapshot {
+export function hostConsoleSnapshot(providerId: string, mode: HostDataMode, now: number, scenario: HostMockScenario = "default"): HostConsoleSnapshot {
   const mock = mode === "mock" ? MOCK_CONSOLE_PROVIDERS.get(providerId) : undefined;
-  if (mock) return { today: MOCK_TODAY, now: MOCK_NOW, salesPeriod: MOCK_SALES_PERIOD, ...mock };
-  // TODO: experiences, bookings, messages, reviews, sales and the meeting and notification defaults
-  // are not in the host contract (#87) yet. The payout account is: data.ts reads it from NIHO.
+  if (mock) return { today: MOCK_TODAY, now: MOCK_NOW, salesPeriod: MOCK_SALES_PERIOD, ...mock, calendar: withScenario(mock.calendar, scenario) };
+  // TODO(#87): experiences, bookings, messages, reviews, sales, the meeting defaults, the calendar
+  // (niho-app#19316/#19317) and the notification settings (#19315) are not in the host contract
+  // yet. The payout account is: data.ts reads it from NIHO.
   const today = mode === "mock" ? MOCK_TODAY : todayInJapan(now);
   return {
     today,
@@ -53,8 +79,18 @@ export function hostConsoleSnapshot(providerId: string, mode: HostDataMode, now:
     reviews: [],
     sales: [],
     meetingPoint: NO_MEETING_POINT,
-    notificationEmail: "",
+    calendar: NO_CALENDAR,
+    notifications: NO_NOTIFICATIONS,
   };
+}
+
+/**
+ * The Google account the preview's つなぐ connects (synthetic); null in http mode, where connecting
+ * waits for NIHO's Google sign-in (niho-app#19317).
+ */
+export function googleConnectionPreview(mode: HostDataMode): HostGoogleConnection | null {
+  // TODO(#87): NIHO's Google connection opens Google's consent page and comes back with the calendars.
+  return mode === "mock" ? MOCK_GOOGLE_CONNECTION : null;
 }
 
 /** What the experience editor (#89) opens for an id. */
