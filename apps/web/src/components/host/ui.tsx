@@ -1,6 +1,8 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import type { StatusLabel } from "@/host/status";
 import { HOST_HEADING } from "./host-ui";
+import { HostIcon } from "./HostIcon";
 
 /*
  * Host console parts (mock v2 of the provider workspace, #84). Same tokens as the
@@ -28,12 +30,22 @@ export function PageHead({ title, children }: { title: string; children?: ReactN
   );
 }
 
-/** The small label at the top of a panel (次にすること, 提供者情報). */
-export function SectionTitle({ id, children }: { id?: string; children: ReactNode }) {
+/** The small label at the top of a panel (次にすること, 提供者情報). `focusable` lets the page move focus to it after an action. */
+export function SectionTitle({ id, focusable = false, children }: { id?: string; focusable?: boolean; children: ReactNode }) {
   return (
-    <h2 id={id} className={`${HOST_HEADING} text-[0.78125rem] leading-normal text-ink-soft`}>
+    <h2 id={id} tabIndex={focusable ? -1 : undefined} className={`${HOST_HEADING} text-[0.78125rem] leading-normal text-ink-soft ${focusable ? "focus:outline-none" : ""}`.trim()}>
       {children}
     </h2>
+  );
+}
+
+/** "予約を見る ›" on the right of a panel's title. */
+export function MoreLink({ href, children }: { href: string; children: string }) {
+  return (
+    <Link href={href} className="inline-flex min-h-6 shrink-0 items-center gap-0.5 text-[0.78125rem] font-extrabold text-ink-soft hover:text-ink">
+      {children}
+      <HostIcon name="chevronRight" className="size-3.5" />
+    </Link>
   );
 }
 

@@ -1,10 +1,12 @@
+import { actionTime, bookingActions } from "./bookings";
 import { todayInJapan } from "./format";
-import { homeMonth, homeTodos, homeUpcoming, type HomeMonth, type HomeTodo, type HomeUpcoming } from "./home";
+import { homeMonth, homeSessions, homeTodos, type HomeMonth, type HomeSessions, type HomeTodo } from "./home";
+import { emptyThreadFor } from "./messages";
 import { MOCK_NOW, MOCK_TODAY } from "./mock/bookings";
 import { MOCK_CONSOLE_PROVIDERS } from "./mock/provider";
 import { MOCK_SALES_PERIOD } from "./mock/sales";
 import type { SalesPeriod } from "./sales";
-import type { HostBooking, HostExperience, HostMeetingDefaults, HostSale } from "./types";
+import type { HostBooking, HostExperience, HostMeetingDefaults, HostSale, HostThread } from "./types";
 
 export type HostDataMode = "mock" | "http";
 
@@ -12,10 +14,14 @@ export type HostDataMode = "mock" | "http";
 export interface HostConsoleSnapshot {
   /** YYYY-MM-DD in Japan. */
   today: string;
+  /** YYYY-MM-DDTHH:MM in Japan: what ホーム's deadlines and "2 時間前" count from (the preview's fixed moment in mock mode). */
+  now: string;
   /** The months 売上 moves between (its current one is the home card's); null while sales cannot be read. */
   salesPeriod: SalesPeriod | null;
   experiences: readonly HostExperience[];
   bookings: readonly HostBooking[];
+  /** メッセージ (#106): the guests' questions and the bookings' messages. */
+  threads: readonly HostThread[];
   sales: readonly HostSale[];
   meetingPoint: HostMeetingDefaults;
   notificationEmail: string;
@@ -30,14 +36,17 @@ const NO_MEETING_POINT: HostMeetingDefaults = { area: "", mapUrl: "", entrance: 
  */
 export function hostConsoleSnapshot(providerId: string, mode: HostDataMode, now: number): HostConsoleSnapshot {
   const mock = mode === "mock" ? MOCK_CONSOLE_PROVIDERS.get(providerId) : undefined;
-  if (mock) return { today: MOCK_TODAY, salesPeriod: MOCK_SALES_PERIOD, ...mock };
-  // TODO: experiences, bookings, sales and the meeting and notification defaults are not in
-  // the host contract (#87) yet. The payout account is: data.ts reads it from NIHO.
+  if (mock) return { today: MOCK_TODAY, now: MOCK_NOW, salesPeriod: MOCK_SALES_PERIOD, ...mock };
+  // TODO: experiences, bookings, messages, sales and the meeting and notification defaults are
+  // not in the host contract (#87) yet. The payout account is: data.ts reads it from NIHO.
+  const today = mode === "mock" ? MOCK_TODAY : todayInJapan(now);
   return {
-    today: mode === "mock" ? MOCK_TODAY : todayInJapan(now),
+    today,
+    now: mode === "mock" ? MOCK_NOW : actionTime(today, now),
     salesPeriod: mode === "mock" ? MOCK_SALES_PERIOD : null,
     experiences: [],
     bookings: [],
+    threads: [],
     sales: [],
     meetingPoint: NO_MEETING_POINT,
     notificationEmail: "",
@@ -91,6 +100,48 @@ export function bookingOf(snapshot: Pick<HostConsoleSnapshot, "bookings">, mode:
   return booking ? { status: "ready", booking } : { status: "missing" };
 }
 
+/** メッセージ (#106): the provider's threads, or (http mode) nothing to show until NIHO's API has them. */
+export type HostThreadList =
+  | { status: "ready"; threads: readonly HostThread[] }
+  /** http mode: questions and booking messages cannot be read or answered until NIHO's API has them (niho-app#19319/#19238). The page says 準備中. */
+  | { status: "unavailable" };
+
+/** The messages screen's list: the synthetic one in mock mode; nothing to read yet in http mode. */
+export function threadList(snapshot: Pick<HostConsoleSnapshot, "threads">, mode: HostDataMode): HostThreadList {
+  // TODO(#87): read the provider's threads from NIHO once the host contract has them.
+  return mode === "http" ? { status: "unavailable" } : { status: "ready", threads: snapshot.threads };
+}
+
+/** What `?thread=` or `?booking=` opens on the messages screen. */
+export type HostThreadLookup =
+  /** The provider's thread. */
+  | { status: "thread"; thread: HostThread }
+  /** A booking that can be written to and has no thread yet: an empty one, which the first reply starts. */
+  | { status: "new"; thread: HostThread }
+  | { status: "missing" }
+  | { status: "unavailable" };
+
+/** The thread with this id among the provider's own; another provider's thread is missing here. */
+export function threadOf(snapshot: Pick<HostConsoleSnapshot, "threads">, mode: HostDataMode, id: string): HostThreadLookup {
+  const list = threadList(snapshot, mode);
+  if (list.status === "unavailable") return list;
+  const thread = list.threads.find((candidate) => candidate.id === id);
+  return thread ? { status: "thread", thread } : { status: "missing" };
+}
+
+/**
+ * A booking's thread (予約 › メッセージ): the one it is joined to, or an empty one when the guest
+ * can still be written to (bookingActions), else missing, like another provider's booking.
+ */
+export function bookingThreadOf(snapshot: Pick<HostConsoleSnapshot, "threads" | "bookings">, mode: HostDataMode, bookingId: string): HostThreadLookup {
+  const list = threadList(snapshot, mode);
+  if (list.status === "unavailable") return list;
+  const thread = list.threads.find((candidate) => candidate.booking?.id === bookingId);
+  if (thread) return { status: "thread", thread };
+  const booking = snapshot.bookings.find((candidate) => candidate.id === bookingId);
+  return booking && bookingActions(booking.status).message ? { status: "new", thread: emptyThreadFor(booking) } : { status: "missing" };
+}
+
 /** 売上 (#91): the provider's ledger and its months, or (http mode) nothing to show until the provider API has sales. */
 export type HostSalesList =
   | { status: "ready"; period: SalesPeriod; sales: readonly HostSale[] }
@@ -104,15 +155,15 @@ export function salesList(snapshot: Pick<HostConsoleSnapshot, "salesPeriod" | "s
 
 export interface HostHomeData {
   todos: HomeTodo[];
-  upcoming: HomeUpcoming[];
+  sessions: HomeSessions;
   month: HomeMonth | null;
 }
 
-/** ホーム: 次にすること, これからの開催 and the month's numbers. */
+/** ホーム: 次にすること, today's and tomorrow's sessions, これからの開催 and the month's numbers. */
 export function hostHome(snapshot: HostConsoleSnapshot): HostHomeData {
   return {
-    todos: homeTodos(snapshot.experiences, snapshot.bookings, snapshot.today),
-    upcoming: homeUpcoming(snapshot.experiences, snapshot.bookings, snapshot.today),
+    todos: homeTodos(snapshot.experiences, snapshot.bookings, snapshot.threads, snapshot.today, snapshot.now),
+    sessions: homeSessions(snapshot.experiences, snapshot.bookings, snapshot.now),
     month: snapshot.salesPeriod ? homeMonth(snapshot.sales, snapshot.salesPeriod.current) : null,
   };
 }

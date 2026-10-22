@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HOST_NAV, withProvider, withQuery } from "@/lib/host/routes";
-import { hostBackLink, isHostNavActive } from "./nav";
+import { hostBackLink, isHostNavActive, providerSwitchPath } from "./nav";
 
 const selected = (location: string) => HOST_NAV.filter((item) => isHostNavActive(location, item.href)).map((item) => item.label);
 
@@ -27,6 +27,10 @@ describe("host navigation", () => {
 
   it("keeps the parent selected on sub pages and never matches by bare prefix", () => {
     expect(selected("/host/experiences/community-dinner")).toEqual(["体験"]);
+    // メッセージ is a screen under ホーム (#106), not a menu item of its own.
+    expect(selected("/host/messages")).toEqual(["ホーム"]);
+    expect(selected("/host/messages/?providerId=sample-provider-kitchen&thread=th-3012")).toEqual(["ホーム"]);
+    expect(selected("/host/messages-archive")).toEqual([]);
     expect(selected("/host/experiences-archive")).toEqual([]);
     expect(selected("/host/homework")).toEqual([]);
     expect(selected("/host/register")).toEqual([]);
@@ -50,6 +54,23 @@ describe("host navigation", () => {
     for (const [path, search] of [["/host/bookings", ""], ["/host/bookings", "filter=pending"], ["/host/bookings", "booking="], ["/host/home", "booking=bk-2041"], ["/host/sales", "booking=bk-2041"]] as const) {
       expect(hostBackLink(path, search), `${path}?${search}`).toBeNull();
     }
+  });
+
+  it("leads メッセージ back to ホーム, and one thread (?thread= or a booking's ?booking=) back to メッセージ", () => {
+    const home = { href: "/host/home", label: "ホーム" };
+    const messages = { href: "/host/messages", label: "メッセージ" };
+    expect(hostBackLink("/host/messages")).toEqual(home);
+    expect(hostBackLink("/host/messages", "providerId=sample-provider-kitchen")).toEqual(home);
+    expect(hostBackLink("/host/messages?thread=th-3012")).toEqual(messages);
+    expect(hostBackLink("/host/messages", "booking=bk-2044")).toEqual(messages);
+    expect(hostBackLink("/host/messages", "thread=")).toEqual(home);
+  });
+
+  it("switches the provider on the same page, or on the section of a page under it", () => {
+    expect(providerSwitchPath("/host/messages")).toBe("/host/messages");
+    expect(providerSwitchPath("/host/bookings/")).toBe("/host/bookings");
+    expect(providerSwitchPath("/host/experiences/community-dinner")).toBe("/host/experiences");
+    expect(providerSwitchPath("/host/home")).toBe("/host/home");
   });
 
   it("adds a page's own query and the provider to a link", () => {

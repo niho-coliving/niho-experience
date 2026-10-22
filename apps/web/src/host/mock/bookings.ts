@@ -10,10 +10,11 @@ export const MOCK_TODAY = "2026-10-21";
 export const MOCK_NOW = `${MOCK_TODAY}T15:30`;
 
 /*
- * Invented guests and requests for the sample kitchen; nothing here is a real booking, and
- * the emails are example.com. The offers and prices are the Community Dinner's
- * (mock/experiences.ts): Dinner on Tuesday, Thursday and Saturday at 18:00, tea time on
- * Sunday at 13:00. Every booking waits for the host's approval before it is charged.
+ * Invented guests and requests for the sample kitchen; nothing here is a real booking, and no
+ * guest has an address here (NIHO keeps it; the host writes through the thread, mock/threads.ts).
+ * The offers and prices are the Community Dinner's (mock/experiences.ts): Dinner on Tuesday,
+ * Thursday and Saturday at 18:00, tea time on Sunday at 13:00. Every booking waits for the
+ * host's approval before it is charged.
  */
 
 const DIETARY = "Any dietary preferences we should know about?";
@@ -24,7 +25,7 @@ const DINNER: BookedOffer = { experienceId: "community-dinner", offerId: "offer-
 const TEA_TIME: BookedOffer = { experienceId: "community-dinner", offerId: "offer-tea", offer: "tea time", start: "13:00", end: "15:00", adultPriceYen: 15000, childPriceYen: null };
 
 type MockBooking = BookedOffer &
-  Pick<HostBooking, "id" | "guest" | "email" | "date" | "adults" | "status" | "channel" | "timeline"> &
+  Pick<HostBooking, "id" | "guest" | "date" | "adults" | "status" | "channel" | "timeline"> &
   Partial<Omit<HostBooking, "guests" | "amountYen">>;
 
 /** A booking with what it leaves out filled in, and its head count and total worked out from the prices. */
@@ -42,7 +43,6 @@ function booking({ adults, children = 0, ...fields }: MockBooking): HostBooking 
     cancelReason: null,
     cancelMessage: null,
     refundedYen: 0,
-    messages: [],
     ...fields,
     adults,
     children,
@@ -68,7 +68,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2041",
     guest: "Lucas & Mia Chen",
-    email: "lucas.chen@example.com",
     date: "2026-10-22",
     adults: 2,
     status: "pending",
@@ -84,7 +83,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2038",
     guest: "Emma Larsson",
-    email: "emma.larsson@example.com",
     date: "2026-10-22",
     adults: 2,
     status: "confirmed",
@@ -99,7 +97,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2035",
     guest: "Noah Williams",
-    email: "noah.w@example.com",
     date: "2026-10-24",
     adults: 1,
     status: "confirmed",
@@ -114,7 +111,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2031",
     guest: "Sofia Rossi",
-    email: "sofia.rossi@example.com",
     date: "2026-10-27",
     adults: 3,
     status: "confirmed",
@@ -125,22 +121,13 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     meetingGuide: { version: 1, sentAt: "2026-10-15T18:02" },
     authorizedAt: "2026-10-15T16:48",
     paidAt: "2026-10-15T18:02",
-    messages: [
-      {
-        id: "bk-2031-message-1",
-        at: "2026-10-16T09:20",
-        subject: "Before your dinner on 27 October",
-        body: "Thank you for booking with us! If your train is late, come straight up: we start at 18:00 and will keep your seats.",
-        status: "sent",
-      },
-    ],
-    timeline: [...requested("2026-10-15T16:48", "NIHO"), ...approved("2026-10-15T18:02"), { at: "2026-10-16T09:20", text: "メッセージ送信 · Before your dinner on 27 October" }],
+    // The host's message before the dinner and Sofia's answer are their thread (mock/threads.ts).
+    timeline: [...requested("2026-10-15T16:48", "NIHO"), ...approved("2026-10-15T18:02")],
   }),
   booking({
     ...DINNER,
     id: "bk-2020",
     guest: "Oliver Brown",
-    email: "oliver.b@example.com",
     date: "2026-10-17",
     adults: 2,
     status: "confirmed",
@@ -155,7 +142,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2012",
     guest: "Hannah Kim",
-    email: "hannah.kim@example.com",
     date: "2026-10-15",
     adults: 2,
     status: "cancelled",
@@ -181,7 +167,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...TEA_TIME,
     id: "bk-2033",
     guest: "Mateo García",
-    email: "mateo.garcia@example.com",
     date: "2026-10-25",
     adults: 2,
     status: "refund_needed",
@@ -196,7 +181,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2044",
     guest: "Ana Souza",
-    email: "ana.souza@example.com",
     date: "2026-10-29",
     adults: 2,
     children: 1,
@@ -213,7 +197,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2026",
     guest: "Chloé Dubois",
-    email: "chloe.dubois@example.com",
     date: "2026-10-17",
     adults: 4,
     status: "declined",
@@ -228,7 +211,6 @@ export const MOCK_KITCHEN_BOOKINGS: readonly HostBooking[] = [
     ...DINNER,
     id: "bk-2017",
     guest: "森 健二",
-    email: "kenji.mori@example.com",
     language: "ja",
     date: "2026-10-10",
     adults: 2,

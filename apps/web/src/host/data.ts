@@ -9,16 +9,22 @@ import {
   bookingClock,
   bookingList,
   bookingOf,
+  bookingThreadOf,
   editorExperience,
   hostConsoleSnapshot,
   hostHome,
   salesList,
+  threadList,
+  threadOf,
   type HostBookingList,
   type HostBookingLookup,
   type HostEditorExperience,
   type HostHomeData,
   type HostSalesList,
+  type HostThreadList,
+  type HostThreadLookup,
 } from "./console-data";
+import { bookingConversations, type BookingConversation } from "./messages";
 import type { HostNotice, HostPayoutLoad } from "./payout";
 import type { HostExperience, HostSettings } from "./types";
 
@@ -138,6 +144,8 @@ export interface HostBookingsData {
   requested: HostBookingLookup | null;
   /** The provider's experiences, for the list's select, its headings and its seat counts. */
   experiences: BookingExperience[];
+  /** メッセージ: the last message of each booking's thread (#106). */
+  conversations: BookingConversation[];
 }
 
 /**
@@ -148,12 +156,42 @@ export interface HostBookingsData {
 export async function loadHostBookings(provider: HostProvider, requestedId: string | null): Promise<HostBookingsData> {
   const mode = isHostMock() ? "mock" : "http";
   const snapshot = hostConsoleSnapshot(provider.id, mode, Date.now());
+  const threads = threadList(snapshot, mode);
   return {
     today: snapshot.today,
     now: bookingClock(mode),
     list: bookingList(snapshot, mode),
     requested: requestedId ? bookingOf(snapshot, mode, requestedId) : null,
     experiences: snapshot.experiences.map(({ id, title, offers }) => ({ id, title, offers: offers.map(({ id: offerId, capacity, durationMinutes }) => ({ id: offerId, capacity, durationMinutes })) })),
+    conversations: threads.status === "ready" ? bookingConversations(threads.threads) : [],
+  };
+}
+
+export interface HostMessagesData {
+  /** The day the list counts from, and the moment replies are dated with (the preview's fixed ones in mock mode). */
+  today: string;
+  now: string;
+  list: HostThreadList;
+  /** What `?thread=` (or else `?booking=`) names; null when it names none. */
+  requested: HostThreadLookup | null;
+  /** The provider's experiences' titles, for the rows and the thread's heading. */
+  experiences: { id: string; title: string }[];
+}
+
+/**
+ * メッセージ (#106): the provider's threads and the one `?thread=` or `?booking=` names (an
+ * empty one for a booking that has none yet): synthetic in mock mode, nothing yet in http mode
+ * (the page says 準備中). The client screen gets the threads and the experiences' titles.
+ */
+export async function loadHostMessages(provider: HostProvider, requested: { thread: string | null; booking: string | null }): Promise<HostMessagesData> {
+  const mode = isHostMock() ? "mock" : "http";
+  const snapshot = hostConsoleSnapshot(provider.id, mode, Date.now());
+  return {
+    today: snapshot.today,
+    now: snapshot.now,
+    list: threadList(snapshot, mode),
+    requested: requested.thread ? threadOf(snapshot, mode, requested.thread) : requested.booking ? bookingThreadOf(snapshot, mode, requested.booking) : null,
+    experiences: snapshot.experiences.map(({ id, title }) => ({ id, title })),
   };
 }
 

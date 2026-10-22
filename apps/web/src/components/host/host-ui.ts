@@ -40,5 +40,10 @@ export const HOST_HEADING = "font-sans font-bold tracking-normal";
 /** One white panel per section: 16px corners, a hairline, no shadow. */
 export const HOST_SURFACE = "rounded-2xl border border-line bg-canvas";
 
+/** A row of a panel's list (ホーム, mock v2 `.row`), its bold title and its muted second line. */
+export const LIST_ROW = "flex min-h-[52px] items-center gap-3 px-3.5 py-3 md:px-4";
+export const LIST_ROW_TITLE = "text-[0.875rem] leading-[1.4] font-extrabold [overflow-wrap:anywhere]";
+export const LIST_ROW_DETAIL = "text-[0.78125rem] leading-normal text-muted";
+
 /** The page while the browser refreshes the session (no frame around it yet). */
 export const HOST_PAGE = "mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8";

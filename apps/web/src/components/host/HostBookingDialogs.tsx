@@ -12,6 +12,7 @@ import {
   refundChoicesFor,
   refundNowYen,
   type BookingCancellation,
+  type BookingDialogSubject,
 } from "@/host/bookings";
 import { yen } from "@/host/format";
 import type { HostBooking, HostCancelReason, HostRefundChoice } from "@/host/types";
@@ -24,7 +25,8 @@ import { consoleButtonClass } from "./host-ui";
  * The booking actions' confirmations (#90): 承認, お断り and 取消（と返金）, each in a modal
  * <dialog> on the page (HostConfirmDialog). Nothing happens until its own button is pressed;
  * Esc and やめる close it and change nothing. The dialog closes first, then hands the choice
- * to the page, which applies it and moves focus to the booking's name.
+ * to the page, which applies it and moves focus to the booking's name. ホーム asks 承認 with
+ * the same dialog from a request's row.
  */
 
 /** The irreversible actions: danger text on white with the field line (mock v2 `.btn-danger`). */
@@ -34,7 +36,7 @@ export const DANGER_BUTTON =
 const GROUP_LABEL = `${FIELD_LABEL} mb-1.5 block`;
 
 /** 対象・開催回・金額: what the action is about, above its choices. */
-function BookingSummary({ booking }: { booking: HostBooking }) {
+function BookingSummary({ booking }: { booking: BookingDialogSubject }) {
   const rows = [
     ["対象", booking.guest],
     ["開催回", bookingWhen(booking)],
@@ -53,7 +55,7 @@ function BookingSummary({ booking }: { booking: HostBooking }) {
 }
 
 /** 承認 or お断り of a request. Focus starts on やめる. */
-export function BookingDecisionDialog({ kind, booking, onConfirm, onClose }: { kind: "approve" | "decline"; booking: HostBooking; onConfirm: () => void; onClose: () => void }) {
+export function BookingDecisionDialog({ kind, booking, onConfirm, onClose }: { kind: "approve" | "decline"; booking: BookingDialogSubject; onConfirm: () => void; onClose: () => void }) {
   const stay = useRef<HTMLButtonElement>(null);
   const approve = kind === "approve";
   return (

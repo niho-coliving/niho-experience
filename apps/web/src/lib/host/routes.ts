@@ -13,6 +13,8 @@ export const HOST_EXPERIENCES_PATH = "/host/experiences";
 export const HOST_BOOKINGS_PATH = "/host/bookings";
 export const HOST_SALES_PATH = "/host/sales";
 export const HOST_SETTINGS_PATH = "/host/settings";
+/** メッセージ (#106): a screen under ホーム, not in the menu. */
+export const HOST_MESSAGES_PATH = "/host/messages";
 
 export const HOST_NAV = [
   { href: HOST_HOME_PATH, label: "ホーム" },

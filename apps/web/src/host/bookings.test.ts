@@ -23,7 +23,6 @@ import {
   refundNowYen,
   refundTargetYen,
   respondByLabel,
-  sendBookingMessage,
   shortDateTime,
   type BookingFilter,
   type BookingGroup,
@@ -93,8 +92,11 @@ describe("the bookings list", () => {
     );
   });
 
-  it("has only invented guests: every address is example.com", () => {
-    for (const booking of MOCK_KITCHEN_BOOKINGS) expect(booking.email, booking.id).toMatch(/@example\.com$/);
+  it("never has the guest's address: NIHO keeps it, and the host writes through the thread", () => {
+    for (const booking of MOCK_KITCHEN_BOOKINGS) {
+      expect(Object.keys(booking).filter((key) => /mail|phone|address/i.test(key)), booking.id).toEqual([]);
+      expect(JSON.stringify(booking), booking.id).not.toMatch(/@/);
+    }
   });
 });
 
@@ -170,14 +172,6 @@ describe("the actions", () => {
     for (const id of ["bk-2041", "bk-2012", "bk-2026", "bk-2017"]) expect(cancelBooking(byId(id), { refund: "full", reason: "host", message: "x" }, AT), id).toBe(byId(id));
   });
 
-  it("メッセージ joins the history as 送信済み and the timeline; a blank one, or one to an ended request, is not sent", () => {
-    const sent = sendBookingMessage(byId("bk-2035"), { subject: " Dinner time ", body: "See you at 18:00.\n" }, AT);
-    expect(sent.messages).toEqual([{ id: "bk-2035-message-1", at: AT, subject: "Dinner time", body: "See you at 18:00.", status: "sent" }]);
-    expect(sent.timeline.at(-1)).toEqual({ at: AT, text: "メッセージ送信 · Dinner time" });
-    expect(sendBookingMessage(byId("bk-2035"), { subject: "  ", body: "x" }, AT)).toBe(byId("bk-2035"));
-    expect(sendBookingMessage(byId("bk-2026"), { subject: "x", body: "x" }, AT)).toBe(byId("bk-2026"));
-  });
-
   it("dates an action with the screen's day and the time in Japan", () => {
     expect(actionTime("2026-10-21", Date.UTC(2026, 11, 1, 6, 7))).toBe("2026-10-21T15:07");
   });
@@ -191,7 +185,6 @@ describe("the booking's rows", () => {
       { label: "人数", value: "3名（大人 2・子ども 1）" },
       { label: "金額", value: "¥72,000" },
       { label: "内訳", value: "大人 ¥30,000 × 2 ＋ 子ども ¥12,000 × 1" },
-      { label: "連絡先", value: "ana.souza@example.com" },
       { label: "言語", value: "英語" },
       { label: "申込経路", value: "体験サイト" },
       { label: "申込メモ", value: "Our daughter is 8 and loves cooking.", multiline: true },
@@ -199,7 +192,7 @@ describe("the booking's rows", () => {
       { label: "集合案内", value: "v2 · 承認後に送付" },
     ]);
     // No memo, no questions (tea time), and the guide that went out.
-    expect(bookingRequestRows(byId("bk-2033"), "").map((row) => row.label)).toEqual(["商品", "人数", "金額", "内訳", "連絡先", "言語", "申込経路", "集合案内"]);
+    expect(bookingRequestRows(byId("bk-2033"), "").map((row) => row.label)).toEqual(["商品", "人数", "金額", "内訳", "言語", "申込経路", "集合案内"]);
     expect(meetingGuideLabel({ version: 1, sentAt: "2026-10-15T18:02" })).toBe("v1 · 10月15日に送付");
   });
 

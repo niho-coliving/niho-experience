@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { dateWithWeekdayJa, durationJa, experienceMeta, todayInJapan, yen } from "./format";
-import { homeMonth, homeTodos, homeUpcoming } from "./home";
-import { MOCK_KITCHEN_BOOKINGS, MOCK_TODAY } from "./mock/bookings";
+import { addDays, agoJa, dateWithWeekdayJa, durationJa, experienceMeta, minutesBetween, remainingJa, shortDateWithWeekdayJa, todayInJapan, yen } from "./format";
+import { homeMonth, homeSessions, homeTodos } from "./home";
+import { MOCK_KITCHEN_BOOKINGS, MOCK_NOW, MOCK_TODAY } from "./mock/bookings";
 import { MOCK_KITCHEN_EXPERIENCES } from "./mock/experiences";
 import { MOCK_KITCHEN_SALES, MOCK_SALES_PERIOD } from "./mock/sales";
+import { MOCK_KITCHEN_THREADS } from "./mock/threads";
 import type { HostBooking } from "./types";
 
 describe("host formatting", () => {
@@ -28,57 +29,93 @@ describe("host formatting", () => {
 });
 
 describe("host home", () => {
-  it("puts requests to answer first, then drafts, then listings under review", () => {
-    const todos = homeTodos(MOCK_KITCHEN_EXPERIENCES, MOCK_KITCHEN_BOOKINGS, MOCK_TODAY);
-    expect(todos.map((todo) => [todo.status.label, todo.title, todo.action?.label ?? null])).toEqual([
-      ["承認待ち", "承認待ちの申込が 2 件", "確認する"],
-      ["下書き", "Roast Your Own Coffee in a Kamakura Living Room の原稿を仕上げる", "編集する"],
-      ["審査待ち", "Mend a Broken Bowl with a Kamakura Restorer", null],
+  const todos = (bookings = MOCK_KITCHEN_BOOKINGS, threads = MOCK_KITCHEN_THREADS) => homeTodos(MOCK_KITCHEN_EXPERIENCES, bookings, threads, MOCK_TODAY, MOCK_NOW);
+
+  it("puts each request first, the nearest deadline first, then the threads waiting longest, then drafts and listings under review", () => {
+    expect(todos().map((todo) => [todo.key, todo.status.label, todo.aside?.text ?? null, todo.action?.label ?? null])).toEqual([
+      ["booking-bk-2041", "承認待ち", "あと 6 時間", "詳しく見る"],
+      ["booking-bk-2044", "承認待ち", "あと 44 時間", "詳しく見る"],
+      ["thread-th-3010", "返信待ち", "予約前の質問", "返信する"],
+      ["thread-th-3004", "返信待ち", "予約者からの連絡", "返信する"],
+      ["thread-th-3012", "返信待ち", "予約前の質問", "返信する"],
+      ["draft-coffee", "下書き", null, "編集する"],
+      ["review-kintsugi", "審査待ち", null, null],
     ]);
-    // Two requests or more are one row that opens 承認待ち, with the nearest deadline.
-    expect(todos[0]!.detail).toBe("最も早い承認期限 今日 22:00");
-    expect(todos[0]!.action).toEqual({ label: "確認する", href: "/host/bookings?filter=pending", primary: true });
-    expect(todos[1]!).toMatchObject({ detail: "表紙写真と料金が未入力", action: { href: "/host/experiences/coffee", primary: false } });
-    expect(todos[2]!.detail).toBe("10月19日に申請 · NIHO が確認中");
   });
 
-  it("names a single request and opens that booking", () => {
-    const one = MOCK_KITCHEN_BOOKINGS.filter((booking) => booking.id !== "bk-2044");
-    expect(homeTodos(MOCK_KITCHEN_EXPERIENCES, one, MOCK_TODAY)[0]).toEqual({
+  it("names a request with its day, experience, guests and amount, and approves it here", () => {
+    expect(todos()[0]).toEqual({
       key: "booking-bk-2041",
       status: { label: "承認待ち", tone: "wait" },
-      title: "Lucas & Mia Chen の申込を確認する",
-      detail: "10月22日（木）18:00 · Kamakura Community Dinner with Locals · 2名 · ¥60,000 · 承認期限 今日 22:00",
-      action: { label: "確認する", href: "/host/bookings?booking=bk-2041", primary: true },
+      aside: { text: "あと 6 時間", tone: "warn" },
+      title: "Lucas & Mia Chen さん · 10/22（木）18:00 · Kamakura Community Dinner with Locals · 2名 · ¥60,000",
+      detail: "期限を過ぎると自動でお断りになります",
+      approval: { bookingId: "bk-2041", booking: { guest: "Lucas & Mia Chen", date: "2026-10-22", start: "18:00", end: "20:00", offer: "Dinner", amountYen: 60000 } },
+      action: { label: "詳しく見る", href: "/host/bookings?booking=bk-2041", primary: false },
     });
+    expect(todos()[1]!.title).toBe("Ana Souza さん · 10/29（木）18:00 · Kamakura Community Dinner with Locals · 3名 · ¥72,000");
   });
 
-  it("names the requests when none has a deadline", () => {
-    const requests = MOCK_KITCHEN_BOOKINGS.filter((booking) => booking.status === "pending").map((booking) => ({ ...booking, respondBy: null }));
-    expect(homeTodos(MOCK_KITCHEN_EXPERIENCES, requests, MOCK_TODAY)[0]).toMatchObject({ title: "承認待ちの申込が 2 件", detail: "Lucas & Mia Chen、Ana Souza" });
-  });
-
-  it("drops requests for past dates and names the deadline day when it is not today", () => {
+  it("drops requests for past dates and puts requests without a deadline after the others", () => {
     const later: HostBooking = { ...MOCK_KITCHEN_BOOKINGS[0]!, id: "later", respondBy: "2026-10-22T09:00" };
+    const open: HostBooking = { ...MOCK_KITCHEN_BOOKINGS[0]!, id: "open", respondBy: null };
     const past: HostBooking = { ...MOCK_KITCHEN_BOOKINGS[0]!, id: "past", date: "2026-10-20" };
-    const todos = homeTodos(MOCK_KITCHEN_EXPERIENCES, [later, past], MOCK_TODAY).filter((todo) => todo.key.startsWith("booking-"));
-    expect(todos.map((todo) => todo.key)).toEqual(["booking-later"]);
-    expect(todos[0]!.detail).toContain("承認期限 10月22日（木）09:00");
+    const rows = todos([open, later, past], []).filter((todo) => todo.key.startsWith("booking-"));
+    expect(rows.map((todo) => [todo.key, todo.aside?.text ?? null, todo.detail])).toEqual([
+      ["booking-later", "あと 17 時間", "期限を過ぎると自動でお断りになります"],
+      ["booking-open", null, ""],
+    ]);
   });
 
-  it("groups upcoming sessions by date and counts the guests of the requests and bookings that keep seats", () => {
-    const rows = (bookings: readonly HostBooking[], limit?: number) =>
-      homeUpcoming(MOCK_KITCHEN_EXPERIENCES, bookings, MOCK_TODAY, limit).map(({ dateLabel, weekday, day, detail, seats, bookings: count }) => [dateLabel, weekday, day, detail, seats, count]);
-    expect(rows(MOCK_KITCHEN_BOOKINGS)).toEqual([
-      ["10月22日（木）", "木", 22, "18:00 開始 · 2時間", "4 / 8名", "2件"],
-      ["10月24日（土）", "土", 24, "18:00 開始 · 2時間", "1 / 8名", "1件"],
-      ["10月27日（火）", "火", 27, "18:00 開始 · 2時間", "3 / 8名", "1件"],
-    ]);
+  it("quotes what the guest wrote in Japanese, or the original NIHO could not translate, and opens the thread", () => {
+    const threads = Object.fromEntries(todos().map((todo) => [todo.key, todo]));
+    expect(threads["thread-th-3012"]).toMatchObject({
+      title: "「こんにちは！ 9 歳の娘と一緒にディナーに参加できますか？ 料…」",
+      detail: "Emma Wilson さん · 2 時間前 · 英語から翻訳",
+      approval: null,
+      action: { label: "返信する", href: "/host/messages?thread=th-3012", primary: true },
+    });
+    expect(threads["thread-th-3004"]).toMatchObject({ detail: "Sofia Rossi さん · 4 時間前 · 英語から翻訳" });
+    expect(threads["thread-th-3010"]).toMatchObject({ title: "「안녕하세요. 휠체어로도 참가할 수 있을까요? 엘리베이터가…」", detail: "Jiwoo Han さん · 6 時間前 · 翻訳できませんでした" });
+    // The answered question waits for nobody.
+    expect(threads["thread-th-3007"]).toBeUndefined();
+  });
+
+  it("shows tomorrow's sessions, today's that have not started, and the next ones from the day after tomorrow", () => {
+    const rows = (sessions: readonly { dateLabel: string; detail: string; seats: string; bookings: string }[]) => sessions.map(({ dateLabel, detail, seats, bookings }) => [dateLabel, detail, seats, bookings]);
+    const sessions = homeSessions(MOCK_KITCHEN_EXPERIENCES, MOCK_KITCHEN_BOOKINGS, MOCK_NOW);
+    expect(rows(sessions.today)).toEqual([]);
+    expect(rows(sessions.tomorrow)).toEqual([["10月22日（木）", "18:00 開始 · 2時間", "4 / 8名", "2件"]]);
     // The tea time on the 25th only has a booking the traveler asked to cancel: no session to prepare.
-    expect(rows(MOCK_KITCHEN_BOOKINGS, 5).map((row) => row[0])).toEqual(["10月22日（木）", "10月24日（土）", "10月27日（火）", "10月29日（木）"]);
-    // Each offer is its own session, with its own time, length and capacity.
-    const tea: HostBooking = { ...MOCK_KITCHEN_BOOKINGS.find((booking) => booking.id === "bk-2033")!, id: "tea", status: "confirmed" };
-    expect(rows([tea])).toEqual([["10月25日（日）", "日", 25, "13:00 開始 · 2時間", "2 / 8名", "1件"]]);
+    expect(rows(sessions.later)).toEqual([
+      ["10月24日（土）", "18:00 開始 · 2時間", "1 / 8名", "1件"],
+      ["10月27日（火）", "18:00 開始 · 2時間", "3 / 8名", "1件"],
+      ["10月29日（木）", "18:00 開始 · 2時間", "3 / 8名", "1件"],
+    ]);
+    expect(homeSessions(MOCK_KITCHEN_EXPERIENCES, MOCK_KITCHEN_BOOKINGS, MOCK_NOW, 1).later).toHaveLength(1);
+    // Today: only what has not started yet. Each offer is its own session, with its own time, length and capacity.
+    const tea: HostBooking = { ...MOCK_KITCHEN_BOOKINGS.find((booking) => booking.id === "bk-2033")!, id: "tea", status: "confirmed", date: MOCK_TODAY };
+    const dinner: HostBooking = { ...MOCK_KITCHEN_BOOKINGS.find((booking) => booking.id === "bk-2038")!, id: "dinner", date: MOCK_TODAY };
+    const today = homeSessions(MOCK_KITCHEN_EXPERIENCES, [tea, dinner], MOCK_NOW);
+    expect(rows(today.today)).toEqual([["10月21日（水）", "18:00 開始 · 2時間", "2 / 8名", "1件"]]);
+    expect(homeSessions(MOCK_KITCHEN_EXPERIENCES, [tea, dinner], "2026-10-21T12:59").today.map((row) => row.detail)).toEqual(["13:00 開始 · 2時間", "18:00 開始 · 2時間"]);
+    expect([today.tomorrow, today.later]).toEqual([[], []]);
+  });
+
+  it("counts the time left and the time since in Japanese, rounded down", () => {
+    expect(["2026-10-21T15:31", "2026-10-21T16:10", "2026-10-21T21:59", "2026-10-23T15:29", "2026-10-23T15:30", "2026-10-24T18:00"].map((deadline) => remainingJa(deadline, MOCK_NOW))).toEqual([
+      "あと 1 分",
+      "あと 40 分",
+      "あと 6 時間",
+      "あと 47 時間",
+      "あと 2 日",
+      "あと 3 日",
+    ]);
+    expect(remainingJa(MOCK_NOW, MOCK_NOW)).toBe("期限を過ぎています");
+    expect(["2026-10-21T15:30", "2026-10-21T15:00", "2026-10-21T13:24", "2026-10-20T15:31", "2026-10-18T09:00"].map((at) => agoJa(at, MOCK_NOW))).toEqual(["たった今", "30 分前", "2 時間前", "23 時間前", "3 日前"]);
+    // Across a month and a year.
+    expect(minutesBetween("2026-12-31T23:30", "2027-01-01T00:10")).toBe(40);
+    expect([addDays("2026-10-31", 1), addDays("2026-12-31", 1), shortDateWithWeekdayJa("2026-10-22")]).toEqual(["2026-11-01", "2027-01-01", "10/22（木）"]);
   });
 
   it("sums the month as 売上 does: sales, refunds and what is still to be paid out, without counting payouts as sales", () => {

@@ -37,10 +37,10 @@ export default async function HostBookingsPage({ searchParams }: { searchParams:
   if (!provider) return <HostRegisterPrompt title="予約" />;
   // The first `?booking=`, as the screen reads it.
   const requested = [query.booking].flat()[0] || null;
-  const { list, requested: opened, experiences, today, now } = await loadHostBookings(provider, requested);
+  const { list, requested: opened, experiences, today, now, conversations } = await loadHostBookings(provider, requested);
   if (list.status === "unavailable") return <BookingsUnavailable />;
   // Another provider's booking, or none at all.
   if (opened?.status === "missing") notFound();
   // Keyed by provider: another provider's bookings start from their own list.
-  return <HostBookings key={provider.id} bookings={list.bookings} experiences={experiences} today={today} now={now} providerId={linkProviderId} />;
+  return <HostBookings key={provider.id} bookings={list.bookings} experiences={experiences} today={today} now={now} providerId={linkProviderId} conversations={conversations} />;
 }
