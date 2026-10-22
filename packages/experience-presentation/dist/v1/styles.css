@@ -548,6 +548,10 @@
     width: calc(var(--spacing) * 24);
     height: calc(var(--spacing) * 24);
   }
+  .size-\[6px\] {
+    width: 6px;
+    height: 6px;
+  }
   .size-\[7px\] {
     width: 7px;
     height: 7px;
@@ -889,6 +893,11 @@
     margin-block-start: calc(var(--spacing) * var(--tw-space-y-reverse));
     margin-block-end: calc(var(--spacing) * calc(1 - var(--tw-space-y-reverse)));
   }
+  :where(.space-y-1\.5 > :not(:last-child)) {
+    --tw-space-y-reverse: 0;
+    margin-block-start: calc(calc(var(--spacing) * 1.5) * var(--tw-space-y-reverse));
+    margin-block-end: calc(calc(var(--spacing) * 1.5) * calc(1 - var(--tw-space-y-reverse)));
+  }
   :where(.space-y-2 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
     margin-block-start: calc(calc(var(--spacing) * 2) * var(--tw-space-y-reverse));
@@ -1042,6 +1051,9 @@
   .border-dashed {
     --tw-border-style: dashed;
     border-style: dashed;
+  }
+  .border-danger {
+    border-color: var(--color-danger);
   }
   .border-danger\/25 {
     border-color: color-mix(in srgb, #a8321e 25%, transparent);
@@ -1271,6 +1283,9 @@
   .pt-7 {
     padding-top: calc(var(--spacing) * 7);
   }
+  .pt-8 {
+    padding-top: calc(var(--spacing) * 8);
+  }
   .pt-9 {
     padding-top: calc(var(--spacing) * 9);
   }
@@ -1330,6 +1345,9 @@
   }
   .pl-2 {
     padding-left: calc(var(--spacing) * 2);
+  }
+  .pl-\[34px\] {
+    padding-left: 34px;
   }
   .text-center {
     text-align: center;

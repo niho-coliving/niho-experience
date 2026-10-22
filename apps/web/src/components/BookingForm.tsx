@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
-import { computeExpectedTotalYen, createClientRequestKey, type CheckoutAnswer, type ExperienceApiClient, type ExperienceCheckoutRequest, type ExperienceOffer } from "@niho-experience/api-client";
+import { NO_JOURNEY_EXTRAS, computeExpectedTotalYen, conditionConsentTexts, createClientRequestKey, isValidGuestPhone, usableConditions, type CheckoutAnswer, type ExperienceApiClient, type ExperienceCheckoutJourneyFields, type ExperienceCheckoutRequest, type ExperienceOffer, type JourneyDetailExtras } from "@niho-experience/api-client";
+import { hostNames } from "@/lib/card-model";
+import { JOURNEY_PROBLEMS, askHostTarget, freeCancellationDeadline } from "@/lib/journey-ui";
 import { dayOption } from "@/lib/date-filter";
 import { formatDuration, formatYen } from "@/lib/format";
 import { formatClock } from "@/lib/schedule";
@@ -18,10 +20,10 @@ import { useSiteCopy, useSiteLocale } from "./SiteLocale";
 import { readAvailabilityFromApi } from "@/lib/browser-availability";
 import { checkoutProblem, fullNameValidationMessage, retryUnit } from "@/lib/booking-messages";
 
-export type BookingDraft = { guestName: string; guestEmail: string; note: string; answerSets: Record<string, Record<string, string | string[]>> };
+export type BookingDraft = { guestName: string; guestEmail: string; guestPhone?: string; note: string; answerSets: Record<string, Record<string, string | string[]>> };
 export type CheckoutAttempt = { signature: string; key: string };
 
-export function BookingForm({ api, apiUnavailable, experience, offer, selection, preview, attributionEnabled, publicApiVersion, onExperienceRefresh, draft, onDraftChange, attemptRef, onBack, titleAs = "h1" }: { api: ExperienceApiClient | null; apiUnavailable: boolean; experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; attributionEnabled: boolean; publicApiVersion: "1.0" | "1.1" | "1.2"; onExperienceRefresh: (experience: ExperienceDetailForSite) => boolean; draft: BookingDraft; onDraftChange: Dispatch<SetStateAction<BookingDraft>>; attemptRef: RefObject<CheckoutAttempt | null>; onBack: () => void; titleAs?: "h1" | "p" }) {
+export function BookingForm({ api, apiUnavailable, experience, offer, selection, preview, attributionEnabled, publicApiVersion, journey = NO_JOURNEY_EXTRAS, onExperienceRefresh, draft, onDraftChange, attemptRef, onBack, titleAs = "h1" }: { api: ExperienceApiClient | null; apiUnavailable: boolean; experience: ExperienceDetailForSite; offer: ExperienceOffer; selection: BookingSelection; preview: boolean; attributionEnabled: boolean; publicApiVersion: "1.0" | "1.1" | "1.2"; journey?: JourneyDetailExtras; onExperienceRefresh: (experience: ExperienceDetailForSite) => boolean; draft: BookingDraft; onDraftChange: Dispatch<SetStateAction<BookingDraft>>; attemptRef: RefObject<CheckoutAttempt | null>; onBack: () => void; titleAs?: "h1" | "p" }) {
   const router = useRouter();
   const copy = useSiteCopy();
   const { locale, releaseId } = useSiteLocale();
@@ -47,6 +49,14 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   const checkingAvailability = checking && !apiUnavailable;
   const sellerLegalUrl = safeHttpsUrl(experience.seller.legalNoticeUrl);
   const consentInvalid = invalidField === "consent" || invalidField === "consent.agreedVersion";
+  // Conditions with a point that needs an OK, and the optional mobile number: English mock only until NIHO's contract (src/journey.ts).
+  const conditions = locale === "en" && journey.enabled ? usableConditions(journey.conditions) : null;
+  const consentTexts = conditionConsentTexts(conditions);
+  const collectsPhone = locale === "en" && journey.enabled;
+  const guestPhone = draft.guestPhone ?? "";
+  const [conditionsAgreed, setConditionsAgreed] = useState(false);
+  const [startAt, setStartAt] = useState<string | null>(null);
+  const conditionsInvalid = invalidField === "conditions" || invalidField === "conditionsConsent" || invalidField === "conditionsConsent.version";
 
   useEffect(() => {
     if (!api) return;
@@ -55,14 +65,28 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
       if (!active) return;
       const occurrence = occurrences?.find((item) => item.offerId === offer.id && item.date === selection.date);
       setAvailabilityOk(selectionValid && !!occurrence?.bookable && occurrence.seatsLeft >= headCount);
+      setStartAt(occurrence?.startAt ?? null);
       setChecking(false);
-    }).catch(() => { if (active) { setAvailabilityOk(false); setChecking(false); } });
+    }).catch(() => { if (active) { setAvailabilityOk(false); setStartAt(null); setChecking(false); } });
     return () => { active = false; };
   }, [api, experience.slug, offer.id, selection.date, headCount, selectionValid, locale, releaseId]);
+  // The free-cancellation row follows the clock: if the deadline passes while the form is open, it turns to "Not available for this date".
+  const freeHours = offer.cancellationPolicy.freeCancellationHoursBefore;
+  useEffect(() => {
+    if (!startAt || freeHours === null) return;
+    const start = Date.parse(startAt);
+    if (!Number.isFinite(start)) return;
+    const wait = start - freeHours * 3_600_000 - Date.now();
+    if (wait <= 0) return;
+    // A timer cannot wait longer than 2^31 ms: a longer wait wakes early, updates the clock, and arms the next one here.
+    const timer = window.setTimeout(() => setClockNow(Date.now()), Math.min(wait + 500, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [startAt, freeHours, clockNow]);
   useEffect(() => {
     if (!problem) return;
     const id = invalidField === "consent" || invalidField === "consent.agreedVersion" ? "booking-consent"
-      : ["guestName", "guestEmail", "note"].includes(invalidField) ? `booking-${invalidField}`
+      : invalidField === "conditions" || invalidField === "conditionsConsent" || invalidField === "conditionsConsent.version" ? "booking-conditions"
+      : ["guestName", "guestEmail", "guestPhone", "note"].includes(invalidField) ? `booking-${invalidField}`
       : offer.bookingQuestions.some((question) => question.id === invalidField) ? `question-${invalidField}` : null;
     const control = id ? document.getElementById(id) : null;
     (control ?? alertRef.current)?.focus();
@@ -98,21 +122,24 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   async function submit() {
     if (submitting || checkingAvailability || needsFreshDetails || retrySecondsRemaining > 0 || !api || total === null || !availabilityOk) return;
     setProblem(""); setInvalidField("");
+    if (consentTexts.length && !conditionsAgreed) { setProblem(JOURNEY_PROBLEMS.conditions); setInvalidField("conditions"); return; }
     if (!guestName.trim()) { setProblem(fullNameValidationMessage(locale, copy)); setInvalidField("guestName"); return; }
+    if (collectsPhone && guestPhone.trim() && !isValidGuestPhone(guestPhone)) { setProblem(JOURNEY_PROBLEMS.phone); setInvalidField("guestPhone"); return; }
     const answered = collectAnswers();
     const missing = offer.bookingQuestions.find((question) => question.required && !answered.some((answer) => answer.questionId === question.id));
     if (missing) { setProblem(copy.text("booking.requiredQuestion")); setInvalidField(missing.id); return; }
     if (!agreed) { setProblem(copy.text("booking.requiredTerms")); setInvalidField("consent"); return; }
-    const draft: Omit<ExperienceCheckoutRequest, "clientRequestKey"> = {
+    const draft: Omit<ExperienceCheckoutRequest, "clientRequestKey"> & ExperienceCheckoutJourneyFields = {
       offerId: offer.id, occurrenceDate: selection.date, adultCount: selection.adultCount, childCount: selection.childCount,
       expectedTotalYen: total, bookingQuestionsFingerprint: offer.bookingQuestionsFingerprint,
-      guestName: guestName.trim(), guestEmail: guestEmail.trim(), ...(note.trim() ? { note: note.trim() } : {}),
+      guestName: guestName.trim(), guestEmail: guestEmail.trim(), ...(collectsPhone && guestPhone.trim() ? { guestPhone: guestPhone.trim() } : {}), ...(note.trim() ? { note: note.trim() } : {}),
       answers: answered, consent: { agreedVersion: experience.booking.consentVersion },
+      ...(conditions && consentTexts.length ? { conditionsConsent: { version: conditions.version } } : {}),
       ...(attributionEnabled ? readBookingAttribution(navigator.doNotTrack) : {}),
     };
     const signature = JSON.stringify(draft);
     if (attemptRef.current?.signature !== signature) attemptRef.current = { signature, key: createClientRequestKey() };
-    const body: ExperienceCheckoutRequest = { ...draft, clientRequestKey: attemptRef.current.key };
+    const body: ExperienceCheckoutRequest & ExperienceCheckoutJourneyFields = { ...draft, clientRequestKey: attemptRef.current.key };
     setSubmitting(true);
     if (locale === "en") track("checkout_start", { experience: experience.slug, guests: headCount, total_jpy: total });
     let result: Awaited<ReturnType<ExperienceApiClient["startJapaneseCheckout"]>>;
@@ -138,12 +165,16 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
       const now = Date.now();
       setClockNow(now);
       setRetryUntil(retryAfter ? now + retryAfter * 1000 : null);
+      const conditionsField = result.error.field?.startsWith("conditionsConsent") ?? false;
       setProblem(retryAfter
         ? copy.text("booking.rateLimitedCount", { seconds: retryAfter, noun: retryUnit(locale, retryAfter) })
+        : result.error.field === "guestPhone" ? JOURNEY_PROBLEMS.phone
+        : conditionsField ? (result.error.code === "CONSENT_OUTDATED" ? JOURNEY_PROBLEMS.conditionsChanged : JOURNEY_PROBLEMS.conditions)
         : checkoutProblem(result.error.code, locale, copy));
       setInvalidField(result.error.questionId ?? result.error.field ?? "");
       if (result.error.code === "REQUEST_MISMATCH") attemptRef.current = null;
-      if (["CONSENT_OUTDATED", "QUESTIONS_CHANGED", "PRICE_CHANGED"].includes(result.error.code)) setNeedsFreshDetails(true);
+      // A changed set of conditions comes from the detail page, not from this refresh: the message asks for a reload.
+      if (!conditionsField && ["CONSENT_OUTDATED", "QUESTIONS_CHANGED", "PRICE_CHANGED"].includes(result.error.code)) setNeedsFreshDetails(true);
       if (["OCCURRENCE_INVALID", "FULL", "UNAVAILABLE"].includes(result.error.code)) setAvailabilityOk(false);
     } else if (result.kind === "localization_outdated") {
       setNeedsFreshDetails(true);
@@ -187,6 +218,9 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
   const when = `${day.label} · ${formatClock(offer.startTime, locale)}`;
   const guests = locale === "ja" ? `大人${selection.adultCount}名${selection.childCount ? `、子ども${selection.childCount}名` : ""}` : `${selection.adultCount} adult${selection.adultCount === 1 ? "" : "s"}${selection.childCount ? `, ${selection.childCount} child${selection.childCount === 1 ? "" : "ren"}` : ""}`;
   const legalDocuments = experience.booking.legalDocuments.flatMap((doc) => { const url = safeHttpsUrl(doc.url); return url ? [{ kind: doc.kind, url }] : []; });
+  // "Free cancellation until Thu 12 Nov, 7:00 AM Japan time": the policy's hours counted back from the date's start (contract: FREE_UNTIL_24H / 48H).
+  const freeCancellation = locale === "en" ? freeCancellationDeadline(startAt ?? "", offer.cancellationPolicy.freeCancellationHoursBefore, new Date(clockNow)) : null;
+  const hostTarget = askHostTarget(hostNames(experience));
   const model: BookingCheckoutViewModelV1 = {
     summary: { title: experience.title, image: experience.cover ? { src: experience.cover.url, alt: "" } : null, summary: `${formatDuration(offer.durationMinutes, locale)} · ${formatClock(offer.startTime, locale)} JST · ${offer.name}` },
     availability: checkingAvailability ? "checking" : needsFreshDetails ? "stale" : availabilityOk ? "ready" : "unavailable",
@@ -206,6 +240,7 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
       { label: copy.text("booking.guests"), value: guests },
       { label: copy.text("booking.adults"), value: copy.text("booking.adultRow", { count: selection.adultCount, price: formatYen(offer.pricing.adultPriceYen, locale) }) },
       ...(selection.childCount && offer.pricing.child ? [{ label: copy.text("booking.children"), value: copy.text("booking.childRow", { count: selection.childCount, price: formatYen(offer.pricing.child.priceYen, locale) }) }] : []),
+      ...(freeCancellation ? [{ label: "Free cancellation", value: freeCancellation.state === "until" ? `Until ${freeCancellation.label}` : "Not available for this date" }] : []),
     ],
     total: total === null ? copy.text("booking.totalUnavailable") : formatYen(total, locale),
     policyTitle: policyTitle(offer.cancellationPolicy, locale),
@@ -220,6 +255,10 @@ export function BookingForm({ api, apiUnavailable, experience, offer, selection,
     retryWaiting: retrySecondsRemaining > 0,
     actionDisabled: submitting || checkingAvailability || !api || !availabilityOk || needsFreshDetails || retrySecondsRemaining > 0 || total === null,
     when,
+    // English-only journey additions (Epic #103). Without them the screen is the one it always was.
+    ...(conditions && consentTexts.length ? { conditions: { heading: "Before you book", agreeIntro: "Everyone in my group is OK with:", items: consentTexts, agreed: conditionsAgreed, invalid: conditionsInvalid } } : {}),
+    ...(collectsPhone ? { guestPhone: { label: "Mobile number", hint: "(optional, for the day)", value: guestPhone, invalid: invalidField === "guestPhone" } } : {}),
+    ...(locale === "en" && hostTarget !== "the host" ? { hostQuestionsHeading: `Questions from ${hostTarget}` } : {}),
   };
-  return <BookingCheckoutViewV1 model={model} titleAs={titleAs} problemRef={alertRef} primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} callbacks={{ onBack, onRefresh: refreshLatestDetails, onGuestNameChange: (value) => onDraftChange((current) => ({ ...current, guestName: value })), onGuestEmailChange: (value) => onDraftChange((current) => ({ ...current, guestEmail: value })), onNoteChange: (value) => onDraftChange((current) => ({ ...current, note: value })), onAnswerChange: updateAnswer, onAgreementChange: setAgreed, onSubmit: submit }} />;
+  return <BookingCheckoutViewV1 model={model} titleAs={titleAs} problemRef={alertRef} primitives={PRESENTATION_PRIMITIVES_V1} copy={copy} callbacks={{ onBack, onRefresh: refreshLatestDetails, onGuestNameChange: (value) => onDraftChange((current) => ({ ...current, guestName: value })), onGuestEmailChange: (value) => onDraftChange((current) => ({ ...current, guestEmail: value })), onGuestPhoneChange: (value) => onDraftChange((current) => ({ ...current, guestPhone: value })), onNoteChange: (value) => onDraftChange((current) => ({ ...current, note: value })), onAnswerChange: updateAnswer, onAgreementChange: setAgreed, onConditionsAgreementChange: setConditionsAgreed, onSubmit: submit }} />;
 }

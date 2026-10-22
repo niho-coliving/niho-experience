@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
-import { ButtonLink, Notice } from "@/components/ui";
+import { BookingReturn, readReturnType } from "@/components/BookingReturn";
+import { config } from "@/lib/config";
+import type { SearchParams } from "@/lib/filters";
 
-export const metadata: Metadata = { title: "Booking status", robots: { index: false, follow: false } };
-/** NIHO owns payment return and confirmation. This legacy URL shows no booking status. */
-export default function BookingReturnPage() {
-  return <div className="container-page max-w-2xl py-12"><h1 className="text-3xl">Check your booking with NIHO</h1><div className="mt-5"><Notice tone="info" title="Your booking status is on NIHO">Please use the confirmation link sent by NIHO. This page cannot confirm a booking or payment.</Notice></div><div className="mt-6 flex flex-wrap gap-3"><ButtonLink href="/help">Booking help</ButtonLink><ButtonLink href="/experiences" variant="secondary">Browse experiences</ButtonLink></div></div>;
+export const metadata: Metadata = { title: "Check your email", robots: { index: false, follow: false } };
+/** NIHO owns payment return and confirmation. This URL shows what happens next, never a booking status (src/components/BookingReturn.tsx). */
+export default async function BookingReturnPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const { type } = await searchParams;
+  // The review step is promised only where reviews exist (the mock, until NIHO's review API: niho-coliving/niho-app#19314).
+  return <BookingReturn type={readReturnType(type)} showReview={config.journeyApi === "mock"} />;
 }

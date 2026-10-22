@@ -6,7 +6,9 @@ import { computeExpectedTotalYen } from "../booking-rules.ts";
 import { buildMockOccurrences } from "../fixtures/availability.ts";
 import { toExperienceSummary } from "../fixtures/catalog.ts";
 import { buildFixtureExperiences, FIXTURE_CONSENT_VERSION } from "../fixtures/experiences.ts";
+import { journeyExtrasFor } from "../fixtures/journey.ts";
 import { buildPilotExperiences } from "../fixtures/pilot-experiences.ts";
+import { ASK_HOST_INPUT_LIMITS, askHostInputProblem, conditionConsentTexts, isValidGuestPhone, usableConditions, type AskHostErrorCode, type AskHostTopic } from "../journey.ts";
 import type { FetchLike } from "../client.ts";
 import type { CheckoutErrorCode, ExperienceCheckoutError, ExperienceDetail, ExperienceDetailV11, ExperienceSiteTheme, ExperienceSummaryV12, Occurrence } from "../types.ts";
 
@@ -25,6 +27,10 @@ export const MOCK_SCENARIOS = [
   "checkout-consent-outdated",
   "checkout-rate-limited",
   "checkout-unavailable",
+  // 予約前の質問（仮契約・src/journey.ts）。質問の送信だけを失敗させる。
+  "ask-rate-limited",
+  "ask-unavailable",
+  "ask-send-failed",
 ] as const;
 export type MockScenario = (typeof MOCK_SCENARIOS)[number];
 
@@ -122,6 +128,20 @@ function checkoutError(code: CheckoutErrorCode, extra: Partial<Omit<ExperienceCh
     currentTotalYen: extra.currentTotalYen ?? null,
   };
   return json(ERROR_STATUS[code], { error }, "no-store", code === "RATE_LIMITED" ? { "retry-after": "120" } : {});
+}
+
+const ASK_ERROR_STATUS: Record<AskHostErrorCode, number> = {
+  VALIDATION_ERROR: 400,
+  INPUT_INVALID: 422,
+  UNAVAILABLE: 409,
+  RATE_LIMITED: 429,
+  SEND_FAILED: 503,
+};
+
+/** 予約前の質問の失敗（仮契約）。checkout と同じく `error` の閉じた本文。 */
+function askError(code: AskHostErrorCode, field: string | null = null): Response {
+  const error = { code, message: `mock: ${code}`, retryable: code === "RATE_LIMITED" || code === "SEND_FAILED", field };
+  return json(ASK_ERROR_STATUS[code], { error }, "no-store", code === "RATE_LIMITED" ? { "retry-after": "90" } : {});
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -222,6 +242,18 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     if (!isObject(body.consent) || body.consent.agreedVersion !== FIXTURE_CONSENT_VERSION) {
       return checkoutError("CONSENT_OUTDATED", { field: "consent.agreedVersion" });
     }
+    // 仮契約（src/journey.ts）：同意の対象がある条件を持つ体験は、同意した版を確かめる。条件の無い体験は受けない。
+    const consentTexts = conditionConsentTexts(usableConditions(journeyExtrasFor(experience.slug).conditions));
+    const conditionsVersion = usableConditions(journeyExtrasFor(experience.slug).conditions)?.version;
+    if (consentTexts.length > 0) {
+      if (!isObject(body.conditionsConsent) || typeof body.conditionsConsent.version !== "string") return checkoutError("INPUT_INVALID", { field: "conditionsConsent" });
+      if (body.conditionsConsent.version !== conditionsVersion) return checkoutError("CONSENT_OUTDATED", { field: "conditionsConsent.version" });
+    } else if (body.conditionsConsent !== undefined) {
+      return checkoutError("INPUT_INVALID", { field: "conditionsConsent" });
+    }
+    if (body.guestPhone !== undefined && (typeof body.guestPhone !== "string" || !isValidGuestPhone(body.guestPhone))) {
+      return checkoutError("INPUT_INVALID", { field: "guestPhone" });
+    }
     if (typeof body.clientRequestKey !== "string" || body.clientRequestKey.length < 8 || body.clientRequestKey.length > 120) {
       return checkoutError("INPUT_INVALID", { field: "clientRequestKey" });
     }
@@ -315,7 +347,7 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
       if (question.required && !answered) return checkoutError("QUESTIONS_CHANGED", { questionId: question.id });
     }
 
-    const contentKey = JSON.stringify([body.offerId, body.occurrenceDate, body.adultCount, body.childCount, body.guestName, body.guestEmail, body.note ?? null, answers,
+    const contentKey = JSON.stringify([body.offerId, body.occurrenceDate, body.adultCount, body.childCount, body.guestName, body.guestEmail, body.note ?? null, answers, body.guestPhone ?? null,
       doNotTrack ? null : body.utmSource ?? null, doNotTrack ? null : body.utmMedium ?? null,
       doNotTrack ? null : body.utmCampaign ?? null, doNotTrack ? null : body.utmContent ?? null]);
     const existing = holds.get(body.clientRequestKey);
@@ -337,6 +369,34 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
     const url = `${MOCK_CHECKOUT_PREFIX}${checkoutCounter}${MOCK_CHECKOUT_FRAGMENT}`;
     holds.set(body.clientRequestKey, { contentKey, url, offerId: offer.id, date: occurrence.date, seats: headCount });
     return json(201, { checkoutUrl: url }, "no-store");
+  }
+
+  /** 予約前の質問（仮契約）。受け付けた内容は保持せず、送信先もない。実 API は質問をスレッドとして持ち、予約者へ受付メールを送る（#19319）。 */
+  function handleAsk(experience: ExperienceDetail, body: unknown): Response {
+    if (!isObject(body)) return askError("VALIDATION_ERROR");
+    switch (scenario) {
+      case "ask-rate-limited":
+        return askError("RATE_LIMITED");
+      case "ask-unavailable":
+        return askError("UNAVAILABLE");
+      case "ask-send-failed":
+        return askError("SEND_FAILED");
+      default:
+        break;
+    }
+    if (!journeyExtrasFor(experience.slug).questionsOpen) return askError("UNAVAILABLE");
+    const key = body.clientRequestKey;
+    if (typeof key !== "string" || key.length < ASK_HOST_INPUT_LIMITS.clientRequestKeyMinLength || key.length > ASK_HOST_INPUT_LIMITS.clientRequestKeyMaxLength) {
+      return askError("INPUT_INVALID", "clientRequestKey");
+    }
+    const { topic, message, guestName, guestEmail } = body;
+    if (typeof topic !== "string") return askError("INPUT_INVALID", "topic");
+    if (typeof message !== "string") return askError("INPUT_INVALID", "message");
+    if (typeof guestName !== "string") return askError("INPUT_INVALID", "guestName");
+    if (typeof guestEmail !== "string") return askError("INPUT_INVALID", "guestEmail");
+    const problem = askHostInputProblem({ topic: topic as AskHostTopic, message, guestName, guestEmail });
+    if (problem) return askError("INPUT_INVALID", problem);
+    return json(201, { accepted: true }, "no-store");
   }
 
   async function route(url: URL, init: RequestInit | undefined): Promise<Response> {
@@ -404,6 +464,16 @@ export function createMockExperienceFetch(options: MockExperienceFetchOptions = 
         return checkoutError("VALIDATION_ERROR");
       }
       return handleCheckout(experience, body, new Headers(init?.headers).get("dnt") === "1");
+    }
+    if (tail === "questions" && method === "POST") {
+      if (!experience) return notFound();
+      let body: unknown;
+      try {
+        body = JSON.parse(typeof init?.body === "string" ? init.body : "");
+      } catch {
+        return askError("VALIDATION_ERROR");
+      }
+      return handleAsk(experience, body);
     }
     return notFound();
   }

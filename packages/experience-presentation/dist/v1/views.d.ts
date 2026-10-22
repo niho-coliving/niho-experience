@@ -168,6 +168,12 @@ export type DetailCancellationModelV1 = Readonly<{
     sellerName: string;
     sellerLegalUrl?: string;
 }>;
+/** One structured participation condition ("Ages 10 and up" + a smaller line). The consumer supplies the display strings. */
+export type DetailConditionV1 = Readonly<{
+    icon: HandIconName;
+    headline: string;
+    detail?: string;
+}>;
 export type DetailViewModelV1 = Readonly<{
     title: string;
     backHref: string;
@@ -210,6 +216,8 @@ export type DetailViewModelV1 = Readonly<{
     cancellation: DetailCancellationModelV1;
     booking?: DetailBookingCardModelV1;
     checkoutCancelled?: ReactNode;
+    conditions?: readonly DetailConditionV1[];
+    askHost?: ReactNode;
 }>;
 export declare function DetailViewV1({ model, primitives, copy, headings }: {
     model: DetailViewModelV1;

@@ -90,6 +90,8 @@ test("required booking answer and consent are shown before checkout", async ({ p
   await page.getByRole("textbox", { name: "Full name" }).fill("Sample Guest");
   await page.getByRole("textbox", { name: "Email" }).fill("guest@example.com");
   await page.getByRole("checkbox", { name: /agree to version/ }).check();
+  // This experience also has conditions to accept (Epic #103); the point here is the unanswered question.
+  await page.getByRole("checkbox", { name: /Everyone in my group is OK with/ }).check();
   await page.getByRole("button", { name: "Request to book" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("required question");
   await expect(page.getByLabel(/Which shade would you like to dye/)).toBeFocused();

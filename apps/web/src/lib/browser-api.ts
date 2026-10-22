@@ -16,6 +16,10 @@ export async function getBrowserApi(preview: boolean, nihoWebOrigin: string) {
     "checkout-consent-outdated": "checkout-consent-outdated",
     "checkout-rate-limited": "checkout-rate-limited",
     "checkout-unavailable": "checkout-unavailable",
+    // The question to the host (provisional contract, Epic #103) fails in its own ways.
+    "ask-rate-limited": "ask-rate-limited",
+    "ask-unavailable": "ask-unavailable",
+    "ask-send-failed": "ask-send-failed",
   } as const;
   const scenario = scenarios[requested as keyof typeof scenarios] ?? "default";
   // "all": the server may render either mock catalog; slugs never overlap.

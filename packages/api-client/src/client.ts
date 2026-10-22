@@ -23,6 +23,7 @@ import type {
   SelectedExperienceAvailabilityResponse,
   LocalizedCheckoutOutdatedError,
 } from "./types.ts";
+import type { AskHostError, AskHostErrorCode, AskHostRequest, AskHostResult, ExperienceCheckoutJourneyFields } from "./journey.ts";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -136,6 +137,26 @@ function isCheckoutError(value: unknown, status: number): value is ExperienceChe
     isNullableNonNegativeInteger(value.seatsLeft) &&
     (value.occurrenceReason === null || ["NOT_SCHEDULED", "CUTOFF", "UNAVAILABLE"].includes(String(value.occurrenceReason))) &&
     isNullableNonNegativeInteger(value.currentTotalYen)
+  );
+}
+
+const ASK_HOST_ERROR_STATUS: Record<AskHostErrorCode, number> = {
+  VALIDATION_ERROR: 400,
+  INPUT_INVALID: 422,
+  UNAVAILABLE: 409,
+  RATE_LIMITED: 429,
+  SEND_FAILED: 503,
+};
+
+/** 予約前の質問（仮契約・journey.ts）の失敗。checkout と同じく閉じた形だけを受ける。 */
+function isAskHostError(value: unknown, status: number): value is AskHostError {
+  if (!isObject(value) || typeof value.code !== "string" || !Object.prototype.hasOwnProperty.call(ASK_HOST_ERROR_STATUS, value.code)) return false;
+  return (
+    ASK_HOST_ERROR_STATUS[value.code as AskHostErrorCode] === status &&
+    Object.keys(value).every((field) => ["code", "message", "retryable", "field"].includes(field)) &&
+    typeof value.message === "string" &&
+    typeof value.retryable === "boolean" &&
+    isNullableString(value.field)
   );
 }
 
@@ -326,7 +347,7 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
      * ゲスト予約の開始（ブラウザから）。成功したら `checkoutUrl` へ遷移する。
      * 通信失敗（`network_error`）は同じ body・同じ `clientRequestKey` で再送してよい。
      */
-    async startCheckout(slug: string, body: ExperienceCheckoutRequest): Promise<CheckoutResult> {
+    async startCheckout(slug: string, body: ExperienceCheckoutRequest & ExperienceCheckoutJourneyFields): Promise<CheckoutResult> {
       const response = await request(`/api/public/experiences/${encodeURIComponent(slug)}/checkout`, {
         method: "POST",
         headers: { accept: "application/json", "content-type": "application/json" },
@@ -352,6 +373,30 @@ export function createExperienceApiClient(options: ExperienceApiClientOptions) {
           error,
           retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
         };
+      }
+      return { ok: false, kind: "unexpected_response", status: response.status };
+    },
+
+    /**
+     * 予約前の質問（ブラウザから。仮契約・journey.ts）。受け付けたら返事は予約者のメールへ届く。
+     * 通信失敗（`network_error`）は同じ body・同じ `clientRequestKey` で再送してよい。
+     */
+    async askHost(slug: string, body: AskHostRequest): Promise<AskHostResult> {
+      const response = await request(`/api/public/experiences/${encodeURIComponent(slug)}/questions`, {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response) return { ok: false, kind: "network_error" };
+      if (response.status === 404) return { ok: false, kind: "not_found" };
+      const parsed: unknown = await response.json().catch(() => undefined);
+      if (response.status === 201) {
+        return isObject(parsed) && parsed.accepted === true && Object.keys(parsed).length === 1 ? { ok: true } : { ok: false, kind: "unexpected_response", status: response.status };
+      }
+      const error = isObject(parsed) ? parsed.error : undefined;
+      if (isAskHostError(error, response.status)) {
+        const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
+        return { ok: false, kind: "rejected", status: response.status, error, retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null };
       }
       return { ok: false, kind: "unexpected_response", status: response.status };
     },

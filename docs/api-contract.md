@@ -81,7 +81,7 @@
 
 1. 詳細から商品・料金・販売者・取消条件・同意文書（`booking.legalDocuments`）を読む。
 2. ブラウザで残席を読み、予約できる開催回だけを選べるようにする。
-3. 予約入力：名前・メール・（任意の）備考・申込時の質問だけ。合計・販売者・取消条件・同意文書を送信前に見せる。会員登録は求めない。
+3. 予約入力：名前・メール・（任意の）備考・申込時の質問だけ（仮契約では任意の携帯電話と参加の条件への同意も：§15）。合計・販売者・取消条件・同意文書を送信前に見せる。会員登録は求めない。
 4. `POST …/checkout`。`clientRequestKey`（試行ごとの UUID）と、画面に出した合計 `expectedTotalYen` を送る。オーナー承認（2026-10-20）により、任意の `utmSource` / `utmMedium` / `utmCampaign` / `utmContent`（小文字英数字・`_`・`-` の1〜64字）だけを送れます。値は同一タブのナビゲーション中だけメモリに保持し、cookie・端末保存・訪問者IDは使いません。Do Not Track が有効な場合は収集・送信しません。NIHOはUTMを予約行の既存保持期間・閲覧権限で扱い、確定予約の集計にだけ使います。Umamiの訪問者とは結合しません。
 5. `201` の `checkoutUrl` へ遷移する。遷移先が Stripe Checkout（`https://checkout.stripe.com`）か NIHO の予約確認ページでなければ遷移しない（`isAllowedCheckoutRedirect`）。
 6. 決済の後、Stripe は **NIHO の予約確認ページ**へ戻す。確認中・確定・要対応の表示と確認メールは NIHO が行う。決済を取りやめたときは、体験サイトの `/experiences/{experienceSlug}?checkout=cancelled` へ戻る（入力は旅行者の同じタブに残してよい）。
@@ -212,3 +212,22 @@ const client = createExperienceApiClient({
 - 画像の操作 `getPublicExperienceMedia` を足しました（§3）。応答の形は変わりません。
 - 項目の意味・必須・上限は変わりません。nullable な参照に `type: object` が付きました（意味は同じ。検証器は `allOf` つきの nullable を null も許す形に直しています）。
 - `AFTER_BOOKING` の集合場所の規則は schema の `not` から検証器の規則へ移しました（§4）。
+
+## 15. 旅行者の一周の仮契約（Epic [#103](https://github.com/niho-life/niho-experience/issues/103)・NIHO 側の契約が出るまで）
+
+§3〜§7 の契約（NIHO が書き出したもの）に無い項目・操作を、画面を先に作れるよう**型と mock だけ**で持つ（`packages/api-client/src/journey.ts`・`src/fixtures/journey.ts`）。`contract/*.json` と生成した型には含めない。`EXPERIENCE_API_MODE=http` では使わず、画面は新しい部品を出さない（実 API に無い機能を動いているように見せない）。契約が出たら生成した型の別名へ置き換え、mock の経路と fixture を消す。画面が契約の形を知るのは `apps/web/src/lib/journey.ts`（`JourneyDetailExtras` を作る 1 か所）だけにする。
+
+NIHO 側の Issue：参加の条件 niho-coliving/niho-app#19318、予約前の質問 #19319、メール未着からの復帰 #19241、当日の連絡用の電話番号 #19311・#19321、レビュー #19314。下の形は**案**で、NIHO 側と食い違ったら NIHO を正として直す。
+
+| 項目 | 形（案） | 画面での使い方 |
+| --- | --- | --- |
+| 参加の条件（詳細） | `conditions: { version, items[] } \| null`。`items[]` は `{ kind: AGE \| PHYSICAL \| HOST_LANGUAGE \| FOOD \| ACCESS \| WEATHER, headline（80 字まで）, detail（160 字まで・null 可）, consentText（120 字まで・null 可）}`。種類は 1 体験に 1 行まで。`version` は同意の記録に残す版（条件の文言が変わると変わる） | 「Good to know」の行。`consentText` がある行だけ予約入力の "Before you book" に並べて同意を取る。文は NIHO が用意した英語（翻訳は原文を保って別に持つ：#19244）で、画面は組み立てない |
+| 予約前の質問 | `POST /api/public/experiences/{experienceSlug}/questions`。要求 `{ topic: CHILDREN \| FOOD \| ACCESS \| LANGUAGE \| OTHER, message（5〜1000 字）, guestName（100 字まで）, guestEmail（254 字まで）, clientRequestKey（8〜120 字）}`。応答 `201 { accepted: true }` | 詳細の "Ask {host} a question"。checkout と同じくブラウザから NIHO へ直接送る（cookie なし・CORS は同じ許可 origin）。返事は予約者のメールへ届く。同じ key・同じ内容の再送は 1 つの質問として扱う |
+| 質問の失敗 | `{ error: { code, message, retryable, field } }`。`VALIDATION_ERROR` 400／`INPUT_INVALID` 422（`field`＝`message` \| `guestName` \| `guestEmail` \| `topic`）／`UNAVAILABLE` 409（この体験は質問を受けていない）／`RATE_LIMITED` 429（`Retry-After`）／`SEND_FAILED` 503（受け付けられなかった・再送してよい） | 入力の誤りはその欄へ、上限は待つ秒数、受付停止・失敗は理由の文で出す。コードは見せない |
+| checkout の追加項目 | `guestPhone?`（数字 7〜15 桁・24 字まで・任意）、`conditionsConsent?: { version }`。同意の対象がある条件を持つ体験は `conditionsConsent` が必須（無いと `INPUT_INVALID`・field `conditionsConsent`、版が古いと `CONSENT_OUTDATED`・field `conditionsConsent.version`）。条件の無い体験に付けると `INPUT_INVALID` | 予約入力の "Mobile number (optional, for the day)" と "Before you book"。電話番号は当日の連絡用で提供者の当日の画面だけに出す（owner 決定 2026-10-22）。応答・ログ・URL・計測・storage には複製しない |
+| 無料取消の期限 | 契約の項目ではなく計算：開催回の `startAt` − `cancellationPolicy.freeCancellationHoursBefore`（§5） | 予約入力の確認の行に "Until Thu 12 Nov, 7:00 AM Japan time"（常に日本時間）。その時間を過ぎる日は "Not available for this date"。契約に `freeCancellationDeadline` が出たらそれを使う |
+| 決済後のページ | NIHO の Stripe の戻り先が `/booking/return?type=instant` または `?type=approval`（固定の語だけ） | 見出しを分ける（`docs/design-system.md` 決済からの復帰）。今の戻り先は NIHO の状態ページで、体験サイトへは戻らない（`cancelUrl` だけ体験サイト）。変えるかは #103 で確認中 |
+
+- mock の scenario（`?mock=` で ブラウザ側に渡す）：`ask-rate-limited`・`ask-unavailable`・`ask-send-failed`。条件を持つ合成の体験は 3 つ（承認制で同意の対象あり・即時確定で返金なし・予約を受けていない）、条件の無い体験は dinner。pilot の Zen は fixture にある事実だけを条件の形に並べた（新しい事実は足さない）。
+- 個人情報：質問の本文・名前・メール・電話番号は §8 の規則のとおり（URL・storage・SSR・計測・ログ・公開 cache に入れない）。受け付けたら画面の入力を消す。
+- 表示用の文言は presentation の copy registry に足さず、画面から表示用の文字列として渡す（registry の key 集合を変えると、保存済みの日本語の訳が不完全になるため）。日本語の画面にはこの機能を出さない。

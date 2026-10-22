@@ -28,6 +28,10 @@ import { publicMetadata } from "@/lib/public-metadata";
 import { assertSameJapaneseRelease, getJapaneseCopy, getJapaneseDetail, japaneseBookingAllowed, type SiteLocale } from "@/lib/localized-content";
 import { JapaneseUnavailable } from "@/components/JapaneseUnavailable";
 import { LocalizedLink as Link } from "@/components/LocalizedLink";
+import { AskHost } from "@/components/AskHost";
+import { NO_JOURNEY_EXTRAS } from "@niho-experience/api-client";
+import { getJourneyExtras } from "@/lib/journey";
+import { askHostTarget, conditionRows } from "@/lib/journey-ui";
 
 type BlockProps = Record<string, unknown>;
 const blockText = (props: BlockProps, key: string, fallback: string) => typeof props[key] === "string" ? String(props[key]) : fallback;
@@ -113,6 +117,8 @@ export async function ExperiencePageContent({ params, searchParams, locale }: Ex
     if (locale === "ja") return <JapaneseUnavailable />;
     throw error;
   }
+  // Conditions and questions to the host have no NIHO contract yet: the mock serves them, a real API shows none (src/lib/journey.ts).
+  const journey = locale === "en" ? await getJourneyExtras(e.slug) : NO_JOURNEY_EXTRAS;
   const checkoutCancelled = query.checkout === "cancelled";
   const browseContext = readBrowseContext(query);
   const preferredOfferId = typeof query.offer === "string" && e.offers.some((offer) => offer.id === query.offer) ? query.offer : undefined;
@@ -475,6 +481,8 @@ export async function ExperiencePageContent({ params, searchParams, locale }: Ex
       emptyListLabel: copy.text("detail.noneListed"),
       meeting: meeting ? { kind: "location", overview: meetingOverview ?? undefined, name: meeting.name, address: meeting.address ?? undefined, accessNote: meeting.accessNote ?? undefined, entranceNote: meeting.entranceNote ?? undefined, mapUrl: mapUrl ?? undefined, exterior: toImage(exterior, locale === "ja" ? meeting.name : `${meeting.name} from outside`) } : { kind: "after-booking", overview: meetingOverview ?? undefined },
       know: e.knowBeforeYouGo,
+      conditions: journey.conditions ? conditionRows(journey.conditions) : undefined,
+      askHost: journey.questionsOpen ? <AskHost slug={e.slug} target={askHostTarget(hostNames(e))} face={faceOf(e)} preview={isPreview} nihoWebOrigin={config.nihoWebOrigin} /> : undefined,
       showAllKnowLabel: copy.text("detail.showAllCount", { count: e.knowBeforeYouGo.length }),
       notSuitable: e.notSuitableFor,
       cancellation: { policy: sharedPolicy && policyTitle ? { title: policyTitle, acceptanceNote } : undefined, sellerName: e.seller.displayName, sellerLegalUrl: sellerLegalUrl ?? undefined },

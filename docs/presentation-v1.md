@@ -54,6 +54,17 @@ schema 2 は home の2見出しを whole rich message として持つ。`{em}...
 - 予約の2画面の root は size container（`container-type: inline-size`）。幅が内容で決まる枠（flex の行や auto の grid の列）に直接置くと幅が 0 になるので、幅のある block の中に置く。
 - 詳細は文書の順を「パンくず・見出し → 写真 → 本文」に変え、スマホではギャラリーを `order-first` で見た目だけ先頭に出す。
 
+## 旅行者の一周の追加（2026-10-22・Epic #103）
+
+`/v1` のまま、既定では今までと同じ表示になる任意の項目だけを足した（redesign ではないので `/v2` は足さない）。**copy registry の key 集合は変えない**（key を足すと、NIHO が持つ保存済みの日本語の訳が不完全になり、日本語の画面が出せなくなるため）。足した表示の文言は、consumer が表示用の文字列として model で渡す。
+
+- `DetailViewModelV1.conditions`（`DetailConditionV1[]`：アイコン・要点・補足）：「Good to know」の先頭に行として並べる。提供者の一覧（`know`）はその下に残る。
+- `DetailViewModelV1.askHost`（ReactNode）：「Good to know」の下に置く差し込み口。Good to know が空の体験では取消の前に単独で置く。質問の部品そのもの（状態・通信）は consumer が持つ。
+- `BookingCheckoutViewModelV1.conditions`：同意の対象の条件を並べる枠と同意の欄（"Before you book"）。あると step が 1 つ増え、`details` は 4、確認は 5 になる。
+- `BookingCheckoutViewModelV1.guestPhone`：任意の携帯電話の欄（`type="tel"`・24 字まで）。
+- `BookingCheckoutViewModelV1.hostQuestionsHeading`：質問の見出しの置き換え。
+- callbacks：`onGuestPhoneChange`・`onConditionsAgreementChange`。
+
 ## 依存配布の分離
 
 workspaceとbuild scriptを持つサイトrepository自体をGit依存にすると、npmの準備処理がサイト全体の依存導入を起動する（[npm公式仕様](https://docs.npmjs.com/cli/v10/configuring-npm/package-json/#git-urls-as-dependencies)）。サイトの通常workflowを維持し、固定SHAで参照する生成済みtgzを配布する。中身は版固定distとREADMEと最小manifestのみで、scripts・workspaces・devDependenciesを含めない。生成器は全ファイルとtgzを決定的に比較し、通常のReact18 consumer installで不要runtimeが入らないことを確認する。

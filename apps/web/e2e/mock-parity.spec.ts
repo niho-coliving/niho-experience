@@ -78,7 +78,8 @@ test("approval-based experiences ask the guest to check and send", async ({ page
   await page.goto("/experiences/indigo-dyeing-with-an-artisan/book");
   await page.locator('input[name="occurrence"]:not([disabled])').first().check();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("heading", { name: /step 4\s*Check and send/ })).toBeVisible();
+  // "Before you book" (conditions to accept, Epic #103) is step 3, so the check is step 5.
+  await expect(page.getByRole("heading", { name: /step 5\s*Check and send/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Request to book" })).toBeVisible();
 });
 
