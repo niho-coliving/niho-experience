@@ -144,7 +144,7 @@
 
 - 決済後の確認画面と予約の状態は NIHO が所有する。サイトの `/booking/return` は、予約成立・決済済みを**断定しない**（戻り URL は何も証明しない）。「次に何が起きるか」だけを出す。
 - 構成：手書きのひとこと（"almost there" / "thank you"）、h1、1〜2 文、"What happens next"（NIHO のメール → 前日の案内 → 当日 → レビューの依頼。手描きのアイコンを点線でつなぐ。状態の ✓ は付けない）、「この画面は予約の状態を見せない。NIHO のメールのリンクで見られる」の注記、"Didn't get the email?"（`/help`。メールの再案内の契約 niho-coliving/niho-app#19241 の後に接続）と "Browse experiences"。レビューの段は、レビューがある配備（今は mock）だけ。
-- 見出しは戻り URL の `?type=instant|approval`（NIHO が足す固定の語。自由文は受けない）で分ける：instant＝"Check your email for your booking"、approval＝"The host will review your request"（"You are charged only if they accept"）、それ以外・無し＝"Check your email"。storage には何も残さない。NIHO の Stripe の戻り先は今は NIHO の状態ページで、この URL へは戻らない（`cancelUrl` だけ体験サイト）。戻り先をこの URL にするかは #103 で確認中。
+- 見出しは戻り URL の `?type=instant|approval`（NIHO が足す固定の語。自由文は受けない）で分ける：instant＝"Check your email for your booking"、approval＝"The host will review your request"（"You are charged only if they accept"）、それ以外・無し＝"Check your email"。storage には何も残さない。NIHO の Stripe の戻り先は今は NIHO の状態ページで、この URL へは戻らない（`cancelUrl` だけ体験サイト）。戻り先はこの URL にする（owner 決定 2026-10-22。NIHO 側の実装は niho-coliving/niho-app#19331）。NIHO 側の変更が配備されるまでは、現在の状態ページへの復帰を維持する。
 
 ### 提供者入口（`/host`）
 
