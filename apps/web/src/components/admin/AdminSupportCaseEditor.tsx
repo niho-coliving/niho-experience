@@ -16,6 +16,7 @@ import {
 } from "@niho-experience/api-client/admin-support-case-schema";
 import {
   buildSupportCasePatch,
+  draftAfterConflictChoice,
   draftAfterConfirmedPatch,
   normalizeSupportCaseMemo,
   reconcileLatestSupportCase,
@@ -120,7 +121,10 @@ function AssignmentSelect({ draft, baseline, roster, onChange, requiredChange }:
   const options = roster.kind === "ready" ? roster.data.admins : [];
   const draftIndex = draft.kind === "active" ? options.findIndex((admin) => admin.id === draft.id) : -1;
   const isOutside = draft.kind === "active" && draftIndex < 0;
-  const value = draft.kind === "unassigned" ? "unassigned" : draft.kind === "unavailable" ? "unavailable" : draftIndex >= 0 ? `roster:${draftIndex}` : "current";
+  const outsideOptions: { value: string; id: string; label: string }[] = [];
+  if (currentActive && !options.some((admin) => admin.id === currentActive.id)) outsideOptions.push({ value: "current", id: currentActive.id, label: `${currentActive.displayName?.trim() || `管理者 ${currentActive.id}`}（候補外・維持）` });
+  if (draft.kind === "active" && isOutside && draft.id !== currentActive?.id) outsideOptions.push({ value: "retained", id: draft.id, label: `入力中の担当（ID: ${draft.id}・候補外）` });
+  const value = draft.kind === "unassigned" ? "unassigned" : draft.kind === "unavailable" ? "unavailable" : draftIndex >= 0 ? `roster:${draftIndex}` : outsideOptions.find((option) => option.id === draft.id)?.value ?? "unassigned";
   const mustChange = requiredChange !== null && sameDraftAssignment(requiredChange, draft);
   if (roster.kind !== "ready") return <div><p className="rounded-xl bg-sand/55 px-3 py-2">{draftAssignmentText(draft, roster)}</p><p className="mt-1 text-xs text-muted">{roster.kind === "loading" ? "担当候補を読み込んでいます。" : "担当候補を確認できないため、担当は変更できません。メモは保存できます。"}</p></div>;
   return <div>
@@ -130,11 +134,14 @@ function AssignmentSelect({ draft, baseline, roster, onChange, requiredChange }:
       else if (selected.startsWith("roster:")) {
         const admin = options[Number(selected.slice(7))];
         if (admin) onChange({ kind: "active", id: admin.id });
-      } else if (selected === "current" && currentActive) onChange({ kind: "active", id: currentActive.id });
+      } else {
+        const outside = outsideOptions.find((option) => option.value === selected);
+        if (outside) onChange({ kind: "active", id: outside.id });
+      }
     }} className="block min-h-11 w-full rounded-[10px] border border-line-strong bg-canvas px-3 text-base md:text-sm">
       {draft.kind === "unavailable" ? <option value="unavailable" disabled>以前の担当は失効しています</option> : null}
       <option value="unassigned">担当を解除する（未担当）</option>
-      {isOutside ? <option value="current">{currentActive?.displayName?.trim() || "現在の担当"}（候補外・維持）</option> : null}
+      {outsideOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       {options.map((admin, index) => <option key={admin.id} value={`roster:${index}`}>{admin.displayName?.trim() || `管理者 ${admin.id}`}</option>)}
     </select>
     {mustChange ? <p role="alert" className="mt-1 text-xs font-extrabold text-danger">この担当は現在選べません。新しい担当を選ぶか、明示的に解除してください。</p> : null}
@@ -370,14 +377,18 @@ export function AdminSupportCaseEditor({ bookingId, enabled, onSessionExpired }:
     if (!conflict?.latest) return;
     const latest = conflict.latest;
     const currentDraft = draftRef.current;
+    const previous = baselineRef.current;
+    const nextDraft = keepDraft && currentDraft && previous
+      ? draftAfterConflictChoice(previous.supportCase, currentDraft, latest.supportCase)
+      : supportCaseDraft(latest.supportCase);
     replaceBaseline(latest);
+    replaceDraft(nextDraft);
     if (keepDraft) {
       if (currentDraft && !latest.writeCapability.writable) {
         setWriteBlockedReason(latest.writeCapability.reason);
-        setHeldDraft(currentDraft);
+        setHeldDraft(nextDraft);
       }
     } else {
-      replaceDraft(supportCaseDraft(latest.supportCase));
       setRequiredAssignmentChange(null);
     }
     setConflict(null);

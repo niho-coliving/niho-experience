@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSupportCasePatch, draftAfterConfirmedPatch, normalizeSupportCaseMemo, reconcileLatestSupportCase, supportCaseDraft } from "./support-case";
+import { buildSupportCasePatch, draftAfterConfirmedPatch, draftAfterConflictChoice, normalizeSupportCaseMemo, reconcileLatestSupportCase, supportCaseDraft } from "./support-case";
 
 const baseline = {
   bookingRequestId: "booking-1",
@@ -28,6 +28,25 @@ describe("Admin support case draft helpers", () => {
     const draft = supportCaseDraft(unavailable);
     expect(buildSupportCasePatch(unavailable, { ...draft, memo: "changed" })).toEqual({ expectedRevision: 4, internalMemo: "changed" });
     expect(buildSupportCasePatch(unavailable, draft)).toBeNull();
+  });
+
+  it("does not trim untouched legacy memo content or include it in assignment-only saves", () => {
+    const legacy = { ...baseline, internalMemo: "  保存済み\r\nメモ  " };
+    const draft = supportCaseDraft(legacy);
+    expect(buildSupportCasePatch(legacy, draft)).toBeNull();
+    expect(buildSupportCasePatch(legacy, { ...draft, assignment: { kind: "unassigned" } })).toEqual({ expectedRevision: 4, assignedAdminUserId: null });
+    expect(buildSupportCasePatch(legacy, { ...draft, memo: "" })).toEqual({ expectedRevision: 4, internalMemo: null });
+  });
+
+  it("keeps only edited fields after explicit conflict inheritance", () => {
+    const current = { ...baseline, assignedAdmin: { status: "ACTIVE" as const, id: "outside-old", displayName: "以前の担当" } };
+    const latest = { ...baseline, assignedAdmin: { status: "ACTIVE" as const, id: "outside-new", displayName: "現在の担当" }, revision: 5, internalMemo: "別の入力" };
+    const draft = { ...supportCaseDraft(current), memo: "自分の変更" };
+    const rebased = draftAfterConflictChoice(current, draft, latest);
+    expect(rebased.assignment).toEqual({ kind: "active", id: "outside-new" });
+    expect(buildSupportCasePatch(latest, rebased)).toEqual({ expectedRevision: 5, internalMemo: "自分の変更" });
+    const changedAssignment = { ...draft, assignment: { kind: "active" as const, id: "my-choice" } };
+    expect(draftAfterConflictChoice(current, changedAssignment, latest).assignment).toEqual(changedAssignment.assignment);
   });
 
   it("applies a confirmed PATCH without erasing fields changed while it was in flight", () => {

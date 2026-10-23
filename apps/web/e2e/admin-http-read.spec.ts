@@ -158,8 +158,9 @@ test("a 401 clears already displayed booking data before rechecking the admin se
   await expect(list).toContainText("Provider Guest");
   await page.getByRole("searchbox", { name: "予約ID・予約者を検索" }).fill("expire-session");
   await expect(page.getByRole("alert").filter({ hasText: "もう一度サインイン" })).toBeVisible();
-  await expect(list).not.toContainText("Provider Guest");
-  await expect(list).not.toContainText("Spot Guest");
+  await expect(list).toHaveCount(0);
+  await expect(page.getByText("Provider Guest", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Spot Guest", { exact: true })).toHaveCount(0);
 });
 
 test("an initial query failure can retry the unchanged body while keeping prior data", async ({ page }) => {

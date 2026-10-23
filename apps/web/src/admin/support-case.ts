@@ -40,9 +40,20 @@ export function buildSupportCasePatch(baseline: ExperienceAdminSupportCase, draf
     if (draft.assignment.kind === "unavailable") return null;
     patch.assignedAdminUserId = draft.assignment.kind === "active" ? draft.assignment.id : null;
   }
-  const memo = normalizeSupportCaseMemo(draft.memo);
-  if (memo !== baseline.internalMemo) patch.internalMemo = memo;
+  if (draft.memo !== (baseline.internalMemo ?? "")) {
+    const memo = normalizeSupportCaseMemo(draft.memo);
+    if (memo !== baseline.internalMemo) patch.internalMemo = memo;
+  }
   return Object.keys(patch).length > 1 ? patch : null;
+}
+
+/** An explicit conflict choice carries local edits; untouched fields follow the latest save. */
+export function draftAfterConflictChoice(baseline: ExperienceAdminSupportCase, draft: AdminSupportCaseDraft, latest: ExperienceAdminSupportCase): AdminSupportCaseDraft {
+  const changed = buildSupportCasePatch(baseline, draft);
+  return {
+    assignment: changed && Object.hasOwn(changed, "assignedAdminUserId") ? draft.assignment : supportCaseDraftAssignment(latest.assignedAdmin),
+    memo: changed && Object.hasOwn(changed, "internalMemo") ? draft.memo : latest.internalMemo ?? "",
+  };
 }
 
 /** Apply a confirmed PATCH DTO without overwriting fields edited after that PATCH started. */

@@ -120,6 +120,18 @@ async function openBooking(page: Page, name = "Synthetic Guest A") {
   await expect(page.getByRole("region", { name: "NIHO事務局の内部メモ" })).toBeVisible();
 }
 
+async function cancelReloadWithDraft(page: Page) {
+  const prompt = page.waitForEvent("dialog");
+  // Dismissing beforeunload cancels the navigation. Bound that cancelled request
+  // separately so it cannot consume the whole test's timeout before asserting the draft.
+  const reload = page.reload({ timeout: 1_500, waitUntil: "commit" }).catch(() => undefined);
+  const dialog = await prompt;
+  expect(dialog.type()).toBe("beforeunload");
+  await dialog.dismiss();
+  await reload;
+  expect(page.isClosed()).toBe(false);
+}
+
 test("saves only changed fields, normalizes the memo and reloads the saved DTO", async ({ page }) => {
   const backend = await installStubs(page);
   await signIn(page);
@@ -135,6 +147,21 @@ test("saves only changed fields, normalizes the memo and reloads the saved DTO",
   await page.reload();
   await expect(page.getByRole("textbox", { name: "内部メモ" })).toHaveValue("one\ntwo");
   await expect(page.getByRole("combobox", { name: "NIHO事務局の担当" })).toHaveValue("roster:1");
+});
+
+test("leaves an untouched legacy memo clean and saves assignment changes alone", async ({ page }) => {
+  const backend = await installStubs(page);
+  backend.cases.set("booking-a", { ...backend.cases.get("booking-a")!, internalMemo: "  保存済みメモ  " });
+  await signIn(page);
+  await openBooking(page);
+  const save = page.getByRole("button", { name: "担当・内部メモを保存" });
+  await expect(page.getByRole("textbox", { name: "内部メモ" })).toHaveValue("  保存済みメモ  ");
+  await expect(save).toBeDisabled();
+  await page.getByRole("combobox", { name: "NIHO事務局の担当" }).selectOption("roster:1");
+  await save.click();
+  await expect(page.getByRole("status")).toContainText("保存しました");
+  expect(backend.patches).toEqual([{ expectedRevision: 1, assignedAdminUserId: "admin-2" }]);
+  await expect(page.getByRole("textbox", { name: "内部メモ" })).toHaveValue("  保存済みメモ  ");
 });
 
 for (const reason of ["WRITES_DISABLED", "SUPPORT_OFF", "SUPPORT_LEGACY", "SUPPORT_INVALID", "PII_RETENTION_EXPIRED"] as const) {
@@ -173,7 +200,7 @@ test("shows an uncreated revision-zero case without inventing dates or an assign
   await expect(region.getByRole("textbox", { name: "内部メモ" })).toHaveValue("");
 });
 
-test("keeps unavailable and candidate-outside assignments, and honors roster truncation", async ({ page }) => {
+test("keeps unavailable and candidate-outside assignments, and honors roster truncation", async ({ page }, testInfo) => {
   const backend = await installStubs(page);
   backend.cases.set("booking-a", { ...backend.cases.get("booking-a")!, assignedAdmin: { status: "UNAVAILABLE" } });
   backend.roster.truncated = true;
@@ -184,7 +211,9 @@ test("keeps unavailable and candidate-outside assignments, and honors roster tru
   await expect(detail).toContainText("候補は先頭100件まで");
   await detail.getByRole("combobox", { name: "NIHO事務局の担当" }).selectOption("unassigned");
   await detail.getByRole("button", { name: "担当・内部メモを保存" }).click();
+  await expect(detail.getByRole("status")).toContainText("保存しました");
   expect(backend.patches.at(-1)).toMatchObject({ assignedAdminUserId: null });
+  if (testInfo.project.name === "admin-case-mobile-360") await page.getByRole("button", { name: /予約支援へ戻る/ }).click();
   await page.getByRole("button", { name: /Synthetic Guest B/ }).click();
   await expect(page.getByRole("article")).toContainText("候補外・維持");
 });
@@ -203,8 +232,10 @@ test("a roster failure closes assignment selection but still permits a memo-only
 
 test("503 keeps the draft, while a revision conflict requires explicit comparison and inheritance", async ({ page }) => {
   const backend = await installStubs(page);
+  backend.cases.set("booking-a", { ...backend.cases.get("booking-a")!, assignedAdmin: { status: "ACTIVE", id: "outside-old", displayName: "以前の候補外担当" } });
   await signIn(page);
   await openBooking(page);
+  await expect(page.getByRole("combobox", { name: "NIHO事務局の担当" })).toHaveValue("current");
   const memo = page.getByRole("textbox", { name: "内部メモ" });
   await memo.fill("my retained draft");
   backend.nextPatch = "unavailable";
@@ -220,12 +251,14 @@ test("503 keeps the draft, while a revision conflict requires explicit compariso
   const beforeCompare = backend.patches.length;
   await page.getByRole("button", { name: "最新を確認" }).click();
   await expect(page.getByText("別の管理者が保存したメモ")).toBeVisible();
-  await expect(page.getByText("my retained draft")).toBeVisible();
+  await expect(page.getByText("メモ: my retained draft", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "最新を基に入力を引き継ぐ" }).click();
   expect(backend.patches).toHaveLength(beforeCompare);
   await expect(memo).toHaveValue("my retained draft");
+  await expect(page.getByRole("combobox", { name: "NIHO事務局の担当" })).toHaveValue("roster:1");
   await page.getByRole("button", { name: "担当・内部メモを保存" }).click();
-  expect(backend.patches.at(-1)).toMatchObject({ expectedRevision: 2, internalMemo: "my retained draft" });
+  await expect(page.getByRole("status")).toContainText("保存しました");
+  expect(backend.patches.at(-1)).toEqual({ expectedRevision: 2, internalMemo: "my retained draft" });
 });
 
 test("keeps a confirmed save when the capability re-read fails and preserves newer typing", async ({ page }) => {
@@ -265,7 +298,7 @@ test("a newer server revision after save requires explicit comparison without re
   backend.cases.set("booking-a", { ...saved, internalMemo: "other admin draft", revision: saved.revision + 1, updatedAt: "2026-10-23T04:00:00.000Z" });
   await expect(page.getByText("最新の内容との照合が必要です")).toBeVisible();
   await expect(page.getByText("other admin draft")).toBeVisible();
-  await expect(page.getByText("newer local draft")).toBeVisible();
+  await expect(page.getByText("メモ: newer local draft", { exact: true })).toBeVisible();
   await expect(memo).toHaveValue("newer local draft");
   await expect(page.getByRole("button", { name: "担当・内部メモを保存" })).toBeDisabled();
 });
@@ -349,10 +382,7 @@ test("unsaved row, nav, logout, history and reload navigation require an explici
   await dialog.getByRole("button", { name: "編集を続ける" }).click();
   await expect(page).toHaveURL(/booking=booking-a/);
 
-  const unloads: string[] = [];
-  page.once("dialog", async (browserDialog) => { unloads.push(browserDialog.type()); await browserDialog.dismiss(); });
-  await page.reload().catch(() => undefined);
-  expect(unloads).toEqual(["beforeunload"]);
+  await cancelReloadWithDraft(page);
   await expect(memo).toHaveValue("protected draft");
 
   await page.getByRole("button", { name: /Synthetic Guest B/ }).click();
@@ -373,10 +403,7 @@ test("unsaved row, nav, logout, history and reload navigation require an explici
   await dialog.getByRole("button", { name: "編集を続ける" }).click();
   await expect(page).toHaveURL(/booking=booking-b/);
 
-  const secondUnloads: string[] = [];
-  page.once("dialog", async (browserDialog) => { secondUnloads.push(browserDialog.type()); await browserDialog.dismiss(); });
-  await page.reload().catch(() => undefined);
-  expect(secondUnloads).toEqual(["beforeunload"]);
+  await cancelReloadWithDraft(page);
   await expect(memoB).toHaveValue("B must be protected again");
 });
 
