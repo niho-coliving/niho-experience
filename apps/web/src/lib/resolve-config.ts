@@ -36,6 +36,12 @@ export function resolveConfig(env: Env) {
   // Synthetic UI-only preview. Its BFF remains closed in mock mode; Playwright stubs
   // the browser requests with contract-shaped fixtures. Never accepted in HTTP mode.
   const adminSupportReadPreviewEnabled = apiMode === "mock" && env.ADMIN_SUPPORT_READ_PREVIEW_ENABLED === "true";
+  // The assignee/internal-memo API is a separate agreed-not-deployed contract. A real
+  // connection requires the read transport as well as this narrower write-capable gate.
+  const adminSupportCaseApiEnabled = apiMode === "http" && env.ADMIN_SUPPORT_CASE_API_ENABLED === "true";
+  // Synthetic case UI acceptance stays on its own fourth Playwright server. It never
+  // opens a mock BFF and is ignored by HTTP deployments.
+  const adminSupportCasePreviewEnabled = apiMode === "mock" && env.ADMIN_SUPPORT_CASE_PREVIEW_ENABLED === "true";
   const hostSessionSecret = env.HOST_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
   const nihoFirebaseWebApiKey = env.NIHO_FIREBASE_WEB_API_KEY?.trim() ?? "";
   const adminSessionSecret = env.ADMIN_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
@@ -81,6 +87,8 @@ export function resolveConfig(env: Env) {
     adminSupportConsoleEnabled,
     adminSupportReadApiEnabled,
     adminSupportReadPreviewEnabled,
+    adminSupportCaseApiEnabled,
+    adminSupportCasePreviewEnabled,
     // Comma-separated keys: the first seals new cookies, the rest still open old ones while keys rotate.
     hostSessionSecret,
     adminSessionSecret,

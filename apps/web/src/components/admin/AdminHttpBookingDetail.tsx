@@ -4,6 +4,7 @@ import { shortDateTime } from "@/host/bookings";
 import { yen } from "@/host/format";
 import { HOST_SURFACE } from "@/components/host/host-ui";
 import { StatusPill } from "@/components/host/ui";
+import { AdminSupportCaseEditor } from "./AdminSupportCaseEditor";
 
 function Heading({ children }: { children: string }) {
   return <h3 className="mb-2 font-sans text-xs font-extrabold tracking-[0.04em] text-ink-soft">{children}</h3>;
@@ -13,7 +14,7 @@ function Value({ children }: { children: React.ReactNode }) {
   return <dd className="min-w-0 [overflow-wrap:anywhere]">{children}</dd>;
 }
 
-export function AdminHttpBookingDetail({ response }: { response: ExperienceAdminBookingDetailResponse }) {
+export function AdminHttpBookingDetail({ response, supportCaseEnabled, onSessionExpired }: { response: ExperienceAdminBookingDetailResponse; supportCaseEnabled: boolean; onSessionExpired: () => void }) {
   const { booking, supportAgreement } = response;
   const support = adminHttpSupportLabel(booking.support);
   const hostKind = booking.host.kind === "SPOT" ? "通常拠点" : "外部提供者";
@@ -27,7 +28,8 @@ export function AdminHttpBookingDetail({ response }: { response: ExperienceAdmin
       <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-extrabold ${support.className}`}>{support.label}</span>{booking.support.kind === "valid" ? <span className="text-[0.8125rem]">手数料 {booking.support.snapshot.totalRateBps / 100}%</span> : null}</div>
       {booking.support.kind === "valid" ? <p className="mt-2 text-[0.8125rem] text-ink-soft">受付時の同意内容: 版 {booking.support.snapshot.consentVersion} · 改訂 {booking.support.snapshot.agreementRevision} · {booking.support.normalOperationsAllowed ? "支援操作の対象" : "支援操作の対象外"}</p> : <p className="mt-2 text-[0.8125rem] font-bold text-warn">受付時の支援条件を確認できません。料金率やON/OFFは補完せず、個別に確認してください。</p>}
       <p className="mt-2 text-[0.8125rem] text-muted">通訳やお手伝いの人件費は別途、ホストから担当者へ直接支払います。</p>
-      <p className="mt-2 text-[0.8125rem]">現在の共有相談: {supportAgreement.sharedConsultationMemo || "未記入"}</p>
+      <p className="mt-2 text-[0.8125rem]"><strong>ホスト共有の相談メモ:</strong> {supportAgreement.sharedConsultationMemo || "未記入"}</p>
+      <p className="mt-1 text-xs text-muted">この相談メモはホストと共有する内容です。下の事務局内部メモとは別です。</p>
       {booking.support.kind === "valid" ? <p className={`mt-1 text-xs ${supportAgreement.matchesBookingSnapshot ? "text-muted" : "font-extrabold text-warn"}`}>{supportAgreement.matchesBookingSnapshot ? "現在の支援設定と受付時の同意内容は一致しています。" : "現在の支援設定と受付時の同意内容が異なります。受付時の内容を基準に確認してください。"}</p> : <p className="mt-1 text-xs font-extrabold text-warn">現在の支援設定との一致は確認できません。</p>}
     </section>
 
@@ -58,6 +60,8 @@ export function AdminHttpBookingDetail({ response }: { response: ExperienceAdmin
 
     <section className="mt-4 border-t border-line pt-4"><Heading>メッセージ配信状態</Heading>{booking.hostMessages.length ? <ul className="grid gap-2">{booking.hostMessages.map((message) => <li key={message.id} className="rounded-xl bg-sand/55 p-3 text-[0.8125rem]"><strong>{message.subject || "件名なし"}</strong><span className="mt-1 block text-muted">{message.deliveryStatus} · 作成 {shortDateTime(message.createdAt)}{message.sentAt ? ` · 送信 ${shortDateTime(message.sentAt)}` : ""}</span></li>)}</ul> : <p className="text-[0.8125rem] text-muted">この予約には配信記録がありません。</p>}</section>
 
-    <section className="mt-4 border-t border-line pt-4"><Heading>操作</Heading><p className="rounded-xl bg-sand px-3 py-2 text-[0.8125rem] text-ink-soft">現在、この画面では予約内容の確認だけができます。承認・辞退・取消／返金・送信・担当・内部メモの操作は準備中です。</p></section>
+    <AdminSupportCaseEditor key={booking.id} bookingId={booking.id} enabled={supportCaseEnabled} onSessionExpired={onSessionExpired} />
+
+    <section className="mt-4 border-t border-line pt-4"><Heading>予約・金融操作</Heading><p className="rounded-xl bg-sand px-3 py-2 text-[0.8125rem] text-ink-soft">{supportCaseEnabled ? "承認・辞退・取消／返金・メッセージ送信は引き続き準備中です。担当・内部メモの保存は予約状態や料金、権限を変更しません。" : "現在、この画面では予約内容の確認だけができます。承認・辞退・取消／返金・メッセージ送信・担当・内部メモの操作は準備中です。"}</p></section>
   </article>;
 }
