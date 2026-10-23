@@ -53,9 +53,10 @@ export function HostConfirmDialog({ title, description, focusRef, stayRef, confi
         onSubmit={(event) => {
           event.preventDefault();
           if (!event.currentTarget.reportValidity()) return;
-          // The parent unmounts the dialog synchronously with the accepted command.
-          // Avoid a queued native close event clearing a newly opened confirmation.
+          // Close parent state synchronously for every caller. A queued native close
+          // event could clear a newly opened confirmation or its immutable command.
           onConfirm();
+          onClose();
         }}
       >
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 md:px-5 md:pt-5">
