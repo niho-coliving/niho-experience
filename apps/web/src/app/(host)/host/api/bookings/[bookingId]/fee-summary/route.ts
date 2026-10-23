@@ -10,6 +10,12 @@ export async function GET(request: Request, { params }: Context) {
   if (!loaded.ok) return loaded.response;
   const { bookingId } = await params;
   const result = await loaded.client.read(bookingId);
-  return result.ok ? noStoreJson(result.data) : hostFeeSummaryFailureJson(result);
+  if (!result.ok) return hostFeeSummaryFailureJson(result);
+  const summary = result.data.feeSummary;
+  return noStoreJson({ feeSummary: {
+    ...summary,
+    reason: null,
+    accounting: summary.accounting ? { ...summary.accounting, netNihoCashYen: null } : null,
+  } });
 }
 

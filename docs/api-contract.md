@@ -177,7 +177,7 @@
 
 ### 9.3 予約別の実料金・精算（#134）
 
-- 独立契約：`experience-fee-summary-api.openapi.json` v1.0.0。sourceCommit `4787c3b34b2c30d51a9f0f523c34f865c20e4230`、SHA256 `c7b39ac5ae5331268915f4b9b2ded477a09f35eb333a291a9826e6b8f3a9d95e`、状態 `agreed-not-deployed`。
+- 独立契約：`experience-fee-summary-api.openapi.json` v1.0.0。sourceCommit `291bc1fca9a9e21ebaeae4a9637379afc472aa61`、SHA256 `c7b39ac5ae5331268915f4b9b2ded477a09f35eb333a291a9826e6b8f3a9d95e`、状態 `agreed-not-deployed`。
 - SDK：browser-safeな`@niho-experience/api-client/fee-summary`は型とstrict decoderだけを公開する。Bearerを扱う`fee-summary-server`とはexportを分離する。
 - パス：Adminは`GET /api/admin/experience-bookings/{requestId}/fee-summary`、Host本人は`GET /api/experience-providers/management/bookings/{requestId}/fee-summary`だけ。query、別method、対象ID不一致、余分なDTO項目を受けない。
 - 表示：APIの金額だけを整形する。nullは未確認、0は¥0として区別し、負数が許されるホスト残額とNIHO入出金差額も符号を保つ。NIHO入出金差額はAdminだけに示し、利益とは呼ばない。
