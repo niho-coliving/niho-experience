@@ -1,6 +1,6 @@
 import type { ExperienceAdminBookingDetailResponse } from "@niho-experience/api-client/admin-read";
 import { adminHttpBookingStatus, adminHttpSupportLabel } from "@/admin/http-view";
-import { shortDateTime } from "@/host/bookings";
+import { adminDateTime } from "@/admin/date-time";
 import { yen } from "@/host/format";
 import { HOST_SURFACE } from "@/components/host/host-ui";
 import { StatusPill } from "@/components/host/ui";
@@ -20,7 +20,7 @@ export function AdminHttpBookingDetail({ response, supportCaseEnabled, onSession
   const hostKind = booking.host.kind === "SPOT" ? "通常拠点" : "外部提供者";
   return <article aria-labelledby="admin-http-booking-detail-title" className={`${HOST_SURFACE} min-w-0 p-4 md:px-5 md:py-[18px]`}>
     <div className="flex flex-wrap items-start justify-between gap-2.5">
-      <div className="min-w-0"><p className="text-xs font-extrabold text-muted">予約ID {booking.id}</p><h2 id="admin-http-booking-detail-title" tabIndex={-1} className="font-sans text-[1.125rem] font-extrabold tracking-normal focus:outline-none">{booking.guestName || "予約者名は保持されていません"}</h2><p className="mt-0.5 text-[0.78125rem] text-muted">{shortDateTime(booking.startAt)}〜{shortDateTime(booking.endAt)}</p></div>
+      <div className="min-w-0"><p className="text-xs font-extrabold text-muted">予約ID {booking.id}</p><h2 id="admin-http-booking-detail-title" tabIndex={-1} className="font-sans text-[1.125rem] font-extrabold tracking-normal focus:outline-none">{booking.guestName || "予約者名は保持されていません"}</h2><p className="mt-0.5 text-[0.78125rem] text-muted">{adminDateTime(booking.startAt)}〜{adminDateTime(booking.endAt)}</p></div>
       <StatusPill status={adminHttpBookingStatus(booking.status)} />
     </div>
 
@@ -49,16 +49,16 @@ export function AdminHttpBookingDetail({ response, supportCaseEnabled, onSession
     <section className="mt-4 border-t border-line pt-4"><Heading>金額・決済状態</Heading><dl className="grid grid-cols-[88px_minmax(0,1fr)] gap-x-2 gap-y-2 text-[0.8125rem]">
       <dt className="font-bold text-muted">合計</dt><Value>{yen(booking.totalYen)}</Value>
       <dt className="font-bold text-muted">返金済み</dt><Value>{yen(booking.refundedYen)}</Value>
-      <dt className="font-bold text-muted">支払時刻</dt><Value>{booking.paidAt ? shortDateTime(booking.paidAt) : "未記録"}</Value>
-      <dt className="font-bold text-muted">与信時刻</dt><Value>{booking.authorizedAt ? shortDateTime(booking.authorizedAt) : "未記録"}</Value>
-      <dt className="font-bold text-muted">承認期限</dt><Value>{booking.approvalDeadlineAt ? shortDateTime(booking.approvalDeadlineAt) : "未設定"}</Value>
-      <dt className="font-bold text-muted">取消申出</dt><Value>{booking.travelerCancelRequestedAt ? shortDateTime(booking.travelerCancelRequestedAt) : "未記録"}</Value>
-      <dt className="font-bold text-muted">取消時刻</dt><Value>{booking.cancelledAt ? shortDateTime(booking.cancelledAt) : "未記録"}</Value>
+      <dt className="font-bold text-muted">支払時刻</dt><Value>{booking.paidAt ? adminDateTime(booking.paidAt) : "未記録"}</Value>
+      <dt className="font-bold text-muted">与信時刻</dt><Value>{booking.authorizedAt ? adminDateTime(booking.authorizedAt) : "未記録"}</Value>
+      <dt className="font-bold text-muted">承認期限</dt><Value>{booking.approvalDeadlineAt ? adminDateTime(booking.approvalDeadlineAt) : "未設定"}</Value>
+      <dt className="font-bold text-muted">取消申出</dt><Value>{booking.travelerCancelRequestedAt ? adminDateTime(booking.travelerCancelRequestedAt) : "未記録"}</Value>
+      <dt className="font-bold text-muted">取消時刻</dt><Value>{booking.cancelledAt ? adminDateTime(booking.cancelledAt) : "未記録"}</Value>
       <dt className="font-bold text-muted">取消理由</dt><Value>{booking.cancelReason || "未記録"}</Value>
       <dt className="font-bold text-muted">取消の連絡</dt><Value><span className="whitespace-pre-wrap">{booking.cancelMessage || "未記録"}</span></Value>
     </dl></section>
 
-    <section className="mt-4 border-t border-line pt-4"><Heading>メッセージ配信状態</Heading>{booking.hostMessages.length ? <ul className="grid gap-2">{booking.hostMessages.map((message) => <li key={message.id} className="rounded-xl bg-sand/55 p-3 text-[0.8125rem]"><strong>{message.subject || "件名なし"}</strong><span className="mt-1 block text-muted">{message.deliveryStatus} · 作成 {shortDateTime(message.createdAt)}{message.sentAt ? ` · 送信 ${shortDateTime(message.sentAt)}` : ""}</span></li>)}</ul> : <p className="text-[0.8125rem] text-muted">この予約には配信記録がありません。</p>}</section>
+    <section className="mt-4 border-t border-line pt-4"><Heading>メッセージ配信状態</Heading>{booking.hostMessages.length ? <ul className="grid gap-2">{booking.hostMessages.map((message) => <li key={message.id} className="rounded-xl bg-sand/55 p-3 text-[0.8125rem]"><strong>{message.subject || "件名なし"}</strong><span className="mt-1 block text-muted">{message.deliveryStatus} · 作成 {adminDateTime(message.createdAt)}{message.sentAt ? ` · 送信 ${adminDateTime(message.sentAt)}` : ""}</span></li>)}</ul> : <p className="text-[0.8125rem] text-muted">この予約には配信記録がありません。</p>}</section>
 
     <AdminSupportCaseEditor key={booking.id} bookingId={booking.id} enabled={supportCaseEnabled} onSessionExpired={onSessionExpired} />
 

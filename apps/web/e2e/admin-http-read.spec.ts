@@ -101,6 +101,18 @@ const overflowX = (page: Page) => page.evaluate(() => document.documentElement.s
 
 test.beforeEach(async ({ page }) => { await installContractStubs(page); });
 
+test("shows API booking, deadline and notification instants in Japan time", async ({ page }) => {
+  await signIn(page);
+  await expect(page.getByRole("region", { name: "予約一覧" })).toContainText("2026/11/3 10:00 JST");
+  await page.getByRole("button", { name: /Provider Guest/ }).click();
+  const detail = page.getByRole("article");
+  await expect(detail).toContainText("2026/11/3 10:00 JST〜2026/11/3 12:00 JST");
+  await expect(detail).toContainText("2026/10/23 10:01 JST");
+  await expect(detail).toContainText("2026/10/24 10:00 JST");
+  await page.getByRole("link", { name: /^通知/ }).click();
+  await expect(page.getByRole("article").filter({ hasText: "新規申込" })).toContainText("2026/10/23 13:00 JST");
+});
+
 test("typed read UI uses API pagination, both host kinds, legacy/invalid and deep links", async ({ page }) => {
   await signIn(page);
   await expect(page.getByRole("region", { name: "予約一覧" })).toContainText("Provider Guest");
