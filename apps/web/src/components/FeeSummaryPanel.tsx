@@ -18,7 +18,7 @@ import {
 type FeeSummaryPanelProps = { audience: FeeSummaryAudience; bookingId: string; actorKey: string; enabled: boolean; onSessionExpired?: () => void };
 
 const STATUS: Record<ExperienceFeeSummaryStatus, { label: string; detail: string; tone: string }> = {
-  LEGACY_NOT_RECORDED: { label: "旧予約・記録なし", detail: "料金の記録がなく、受付条件や精算額を画面から確定できません。", tone: "bg-sand text-ink-soft" },
+  LEGACY_NOT_RECORDED: { label: "料金記録なし", detail: "料金の記録がなく、受付条件や精算額を画面から確定できません。", tone: "bg-sand text-ink-soft" },
   PREPARING: { label: "精算準備中", detail: "受付時の料金と返金記録を確認しています。", tone: "bg-sand text-ink-soft" },
   PROCESSING_COST_PENDING: { label: "決済費用を確認中", detail: "決済費用の確定を待っています。顧客への返金状態とは別の確認です。", tone: "bg-warn-pale text-warn" },
   PROCESSING: { label: "返金・精算処理中", detail: "顧客への返金とホスト側の費用精算を別々に確認しています。", tone: "bg-warn-pale text-warn" },
@@ -94,6 +94,7 @@ function FeeSummaryPanelView({ audience, bookingId, actorKey, enabled, onSession
   }, [currentTarget, enabled, load, refresh]);
 
   const retry = () => {
+    if (state === "loading") return;
     ++generation.current;
     controller.current?.abort();
     setView(initialFeeSummaryView(currentTarget, true));
@@ -104,8 +105,8 @@ function FeeSummaryPanelView({ audience, bookingId, actorKey, enabled, onSession
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 id={headingId} className="font-sans text-xs font-extrabold tracking-[0.04em] text-ink-soft">料金・精算状況</h3>{current ? <span className={`rounded-full px-2.5 py-1 text-xs font-extrabold ${status?.tone}`}>{status?.label}</span> : null}</div>
     {state === "disabled" ? <p className="mt-2 text-[0.8125rem] text-ink-soft">料金・精算状況は現在確認できません。</p> : null}
     {state === "loading" ? <p role="status" className="mt-2 text-[0.8125rem] text-muted">料金・精算状況を確認しています…</p> : null}
-    {state === "not-found" ? <div className="mt-2 text-[0.8125rem]"><p>この予約の料金記録は見つかりませんでした。</p><button type="button" onClick={retry} className="mt-2 min-h-9 rounded-full border border-line-strong px-3 font-extrabold">もう一度確認</button></div> : null}
-    {state === "network-error" || state === "error" ? <div role="alert" className="mt-2 text-[0.8125rem] font-bold text-danger"><p>{state === "network-error" ? "通信できず、料金・精算状況を確認できませんでした。" : "料金・精算状況の応答を確認できませんでした。"}</p><button type="button" onClick={retry} className="mt-2 min-h-9 rounded-full border border-danger/40 px-3">もう一度試す</button></div> : null}
+    {state === "not-found" ? <div className="mt-2 text-[0.8125rem]"><p>この予約の料金記録は見つかりませんでした。</p></div> : null}
+    {state === "network-error" || state === "error" ? <div role="alert" className="mt-2 text-[0.8125rem] font-bold text-danger"><p>{state === "network-error" ? "通信できず、料金・精算状況を確認できませんでした。" : "料金・精算状況の応答を確認できませんでした。"}</p></div> : null}
     {state === "expired" ? <p role="alert" className="mt-2 text-[0.8125rem] font-bold text-danger">接続または参照権限を確認できません。表示していた金額を消去しました。もう一度サインインしてください。</p> : null}
     {current && status ? <>
       <p className="mt-2 text-[0.8125rem] text-ink-soft">{status.detail}</p>
@@ -113,7 +114,7 @@ function FeeSummaryPanelView({ audience, bookingId, actorKey, enabled, onSession
       {current.feePolicy ? <div className="mt-3 rounded-xl bg-sand/55 p-3 text-[0.8125rem]"><div className="flex flex-wrap items-center gap-2"><strong>受付時 サポート{current.feePolicy.supportEnabled ? "ON" : "OFF"}</strong><span>{current.feePolicy.totalRateBps / 100}%（決済費用込み）</span></div><dl className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5"><dt className="text-ink-soft">受付時の合計</dt><dd className="font-extrabold tabular-nums">{yen(current.feePolicy.originalGrossYen)}</dd><dt className="text-ink-soft">受付時のNIHO利用料</dt><dd className="font-extrabold tabular-nums">{yen(current.feePolicy.originalApplicationFeeYen)}</dd></dl><p className="mt-2 text-xs text-muted">通訳・お手伝いの人件費は含みません。必要な場合はホストから担当者へ直接支払います。</p></div> : <p className="mt-3 text-[0.8125rem] text-muted">受付時の料金条件は未確認です。</p>}
       {current.accounting ? <AmountRows accounting={current.accounting} audience={audience} /> : <p className="mt-3 text-[0.8125rem] text-muted">返金・精算の金額は未確認です。</p>}
       <p className="mt-3 text-xs text-muted">{current.evidenceCheckedAt ? `記録確認 ${adminDateTime(current.evidenceCheckedAt)}` : "記録確認時刻 未確認"}{current.settledAt ? ` · 精算確認 ${adminDateTime(current.settledAt)}` : ""}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-2"><button type="button" onClick={retry} className="min-h-9 rounded-full border border-line-strong px-3 text-[0.8125rem] font-extrabold">最新の記録を再取得</button><span className="text-xs text-muted">自動更新はしません。</span></div>
     </> : null}
+    {enabled && state !== "expired" ? <div className="mt-2"><button type="button" onClick={retry} aria-disabled={state === "loading"} className="min-h-9 rounded-full border border-line-strong px-3 text-[0.8125rem] font-extrabold aria-disabled:opacity-50">{state === "loading" ? "確認中…" : state === "ready" ? "最新の記録を再取得" : state === "not-found" ? "もう一度確認" : "もう一度試す"}</button></div> : null}
   </section>;
 }
