@@ -49,7 +49,7 @@ function LeaveDialog({ saving, onStay, onLeave }: { saving: boolean; onStay: () 
     ref={dialog}
     aria-labelledby={`${id}-title`}
     aria-describedby={`${id}-body`}
-    onCancel={(event) => { event.preventDefault(); if (!saving) dialog.current?.close(); }}
+    onCancel={(event) => { event.preventDefault(); if (!saving) { dialog.current?.close(); onStay(); } }}
     onClose={onStay}
     className="m-auto w-[calc(100%-2rem)] max-w-[420px] rounded-2xl border-0 bg-canvas p-0 text-[0.875rem] leading-[1.6] text-ink shadow-[0_20px_60px_rgb(0_0_0/0.2)] backdrop:bg-ink/40"
   >
@@ -59,7 +59,7 @@ function LeaveDialog({ saving, onStay, onLeave }: { saving: boolean; onStay: () 
     </div>
     <div className="flex flex-wrap justify-end gap-2 border-t border-line px-4 py-3 md:px-5">
       <button type="button" onClick={() => { dialog.current?.close(); onLeave(); }} disabled={saving} className="inline-flex min-h-10 items-center rounded-full border border-line-strong px-4 font-extrabold text-danger hover:bg-danger-pale disabled:cursor-not-allowed disabled:opacity-45">破棄して移動</button>
-      <button ref={stay} type="button" onClick={() => dialog.current?.close()} className="inline-flex min-h-10 items-center rounded-full bg-leaf px-4 font-extrabold hover:bg-leaf-hover">編集を続ける</button>
+      <button ref={stay} type="button" onClick={() => { dialog.current?.close(); onStay(); }} className="inline-flex min-h-10 items-center rounded-full bg-leaf px-4 font-extrabold hover:bg-leaf-hover">編集を続ける</button>
     </div>
   </dialog>;
 }
