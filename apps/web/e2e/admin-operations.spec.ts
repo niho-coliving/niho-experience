@@ -63,7 +63,31 @@ test("confirmation is a modal, Escape restores focus, and normalized send conten
 
 test("double click creates one immutable UUID and actions-only fresh change posts nothing", async ({ page }) => {
   const backend = await install(page); await signIn(page); await open(page); await page.getByRole("button", { name: /最新の予約情報を確認して承認へ/ }).click(); await page.getByRole("dialog").getByRole("button", { name: /この内容で承認/ }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); }); await expect(page.getByText(/完了/).last()).toBeVisible(); expect(backend.posts).toHaveLength(1); expect(backend.posts[0]!.command.operationId).toMatch(/^[0-9a-f-]{36}$/);
-  await page.goto("/admin/bookings?booking=provider-booking"); backend.confirmationChange = "actions"; backend.snapshotReads = 0; await expect(page.getByRole("article")).toBeVisible(); await page.getByRole("button", { name: /最新の予約情報を確認して承認へ/ }).click(); await page.getByRole("dialog").getByRole("button", { name: /この内容で承認/ }).click(); await expect(page.getByRole("status")).toContainText("利用できる対応が変わりました"); expect(backend.posts).toHaveLength(1);
+  await page.goto("/admin/bookings?booking=provider-booking"); backend.confirmationChange = "actions"; backend.snapshotReads = 0; await expect(page.getByRole("article")).toBeVisible(); await page.getByRole("button", { name: /最新の予約情報を確認して承認へ/ }).click(); await page.getByRole("dialog").getByRole("button", { name: /この内容で承認/ }).click(); await expect(page.getByRole("article").getByRole("status")).toContainText("利用できる対応が変わりました"); expect(backend.posts).toHaveLength(1);
+});
+
+test("an explicitly reused UUID never completes or clears the current message from an unrelated terminal operation", async ({ page }) => {
+  const backend = await install(page);
+  let posts = 0;
+  await page.route("**/admin/api/bookings/provider-booking/operations", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    posts += 1;
+    return json(route, 409, { error: "operation_id_reused" });
+  });
+  await signIn(page); await open(page);
+  await page.getByRole("combobox", { name: "予約対応", exact: true }).selectOption("MESSAGE");
+  await page.getByRole("combobox", { name: "定型理由" }).selectOption("BOOKING_DETAILS");
+  await page.getByRole("textbox", { name: "件名" }).fill("今回の確認");
+  await page.getByRole("textbox", { name: "旅行者に届く本文" }).fill("未送信の本文を保持する");
+  await page.getByRole("button", { name: /最新の予約情報を確認して予約者への連絡へ/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "この内容で予約者への連絡" }).click();
+  await expect(page.getByRole("article")).toContainText("今回の依頼の完了とは扱いません");
+  await page.getByRole("button", { name: "同じ受付番号を再確認" }).click();
+  await expect(page.getByRole("article")).toContainText("既存の対応は今回の依頼の結果ではありません");
+  await expect(page.getByRole("textbox", { name: "件名" })).toHaveValue("今回の確認");
+  await expect(page.getByRole("textbox", { name: "旅行者に届く本文" })).toHaveValue("未送信の本文を保持する");
+  await expect(page.getByRole("button", { name: /最新の予約情報を確認して予約者への連絡へ/ })).toBeDisabled();
+  expect(posts).toBe(1); expect(backend.operationGets).toHaveLength(1);
 });
 
 test("POST 409 keeps input and requires an explicit fresh confirmation before a new ID", async ({ page }) => {

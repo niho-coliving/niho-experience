@@ -46,6 +46,7 @@ export function HostSupportHistoryPanel({ bookingId, enabled }: { bookingId: str
 
   const open = async (item: ExperienceHostSupportHistoryItem) => {
     const currentGeneration = generation.current; const expectedBooking = bookingId; const current = ++detailSequence.current;
+    setDetail(null); setState("ready");
     detailController.current?.abort(); const controller = new AbortController(); detailController.current = controller;
     try {
       const response = await hostFetch(`bookings/${encodeURIComponent(expectedBooking)}/support-history/${item.operationId}`, { signal: controller.signal });

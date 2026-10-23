@@ -123,7 +123,7 @@ test("typed read UI uses API pagination, both host kinds, legacy/invalid and dee
   await page.goto("/admin/bookings?booking=deep-spot");
   await expect(page.getByRole("article")).toContainText("Deep Link Guest");
   await expect(page.getByRole("article")).toContainText("通常拠点");
-  await expect(page.getByRole("article")).toContainText("確認だけができます");
+  await expect(page.getByRole("article")).toContainText("予約対応は準備中です。承認・辞退・取消／返金・連絡の送信は行いません。");
   await expect(page.getByRole("article").getByRole("button")).toHaveCount(0);
   await page.goBack();
   await expect(page).toHaveURL(/\/admin\/bookings$/);

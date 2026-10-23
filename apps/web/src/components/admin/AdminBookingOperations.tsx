@@ -78,6 +78,7 @@ export function AdminBookingOperations({ bookingId, enabled, recoveredOperationI
   const [prepared, setPrepared] = useState<PreparedConfirmation | null>(null);
   const [command, setCommand] = useState<ImmutableCommand | null>(null);
   const commandRef = useRef<ImmutableCommand | null>(null);
+  const reusedOperationId = useRef<string | null>(null);
   const [operation, setOperation] = useState<ExperienceAdminSupportOperation | null>(null);
   const [trackedOperationId, setTrackedOperationId] = useState<string | null>(null);
   const [lookupMissing, setLookupMissing] = useState(false);
@@ -116,6 +117,7 @@ export function AdminBookingOperations({ bookingId, enabled, recoveredOperationI
   const expire = useCallback(() => {
     expired.current = true; invalidateRequests();
     networkRequests.current.clear(); setNetworkCount(0); sendLock.current = false; confirmLock.current = false; commandRef.current = null;
+    reusedOperationId.current = null;
     setCommand(null); setOperation(null); setTrackedOperationId(null); setLookupMissing(false); setDetail(null); setSnapshot(null); setDraft(EMPTY); setNotice(""); setPrepared(null); onSessionExpired();
   }, [invalidateRequests, onSessionExpired]);
 
@@ -167,6 +169,11 @@ export function AdminBookingOperations({ bookingId, enabled, recoveredOperationI
   }, [active, beginNetwork, bookingId, endNetwork, expire]);
 
   const applyOperation = useCallback(async (found: ExperienceAdminSupportOperation, fixed?: ImmutableCommand) => {
+    if (reusedOperationId.current === found.operationId.toLowerCase()) {
+      setDetail(found); setLoadState("idle");
+      setNotice("この受付番号は別の内容で使用済みです。表示する既存の対応は今回の依頼の結果ではありません。入力は保持しています。新しい番号での再送は行いません。");
+      return;
+    }
     setOperation(found); setDetail(found); setTrackedOperationId(found.operationId); setLookupMissing(false); setOperationQuery(found.operationId); setLoadState("idle"); setNotice(STATE_LABEL[found.state]);
     if (!TERMINAL.has(found.state)) return;
     if (commandRef.current?.body.operationId.toLowerCase() === found.operationId.toLowerCase()) { commandRef.current = null; setCommand(null); }
@@ -201,7 +208,7 @@ export function AdminBookingOperations({ bookingId, enabled, recoveredOperationI
     const current = generation.current;
     void Promise.resolve().then(async () => {
       if (current !== generation.current || expired.current) return;
-      commandRef.current = null; setCommand(null); setSnapshot(null); setOperation(null); setTrackedOperationId(null); setLookupMissing(false); setDetail(null); setDraft(EMPTY); setPrepared(null); setNotice("");
+      commandRef.current = null; reusedOperationId.current = null; setCommand(null); setSnapshot(null); setOperation(null); setTrackedOperationId(null); setLookupMissing(false); setDetail(null); setDraft(EMPTY); setPrepared(null); setNotice("");
       if (!enabled) { setLoadState("idle"); return; }
       if (recoveredOperationId !== null) {
         if (!isExperienceAdminOperationId(recoveredOperationId)) { setLoadState("invalid"); return; }
@@ -237,7 +244,7 @@ export function AdminBookingOperations({ bookingId, enabled, recoveredOperationI
   }
 
   const send = useCallback(async (fixed: ImmutableCommand) => {
-    if (sendLock.current) return; sendLock.current = true;
+    if (sendLock.current || reusedOperationId.current === fixed.body.operationId.toLowerCase()) return; sendLock.current = true;
     const atGeneration = generation.current; const expectedBooking = bookingId; const sequence = ++operationSequence.current;
     operationController.current?.abort(); const controller = new AbortController(); operationController.current = controller; const networkId = beginNetwork();
     setNotice("同じ受付番号で結果を確認しています…");
@@ -255,7 +262,8 @@ export function AdminBookingOperations({ bookingId, enabled, recoveredOperationI
         await loadSnapshot(false); return;
       }
       if (response.status === 409 && value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && (value as { error?: unknown }).error === "operation_id_reused") {
-        setTrackedOperationId(fixed.body.operationId); setLookupMissing(true); setNotice("この受付番号は別の内容ですでに使われています。新しい番号では再送せず、同じ番号を確認してください。"); return;
+        reusedOperationId.current = fixed.body.operationId.toLowerCase();
+        setOperation(null); setDetail(null); setTrackedOperationId(fixed.body.operationId); setLookupMissing(true); setNotice("この受付番号は別の内容ですでに使われています。今回の依頼の完了とは扱いません。入力は保持しています。同じ番号の既存の対応を確認できます。"); return;
       }
       const decoded = decodeExperienceAdminSupportOperationDetailResponse(value);
       if (!response.ok || !decoded || decoded.operation.bookingRequestId !== expectedBooking || decoded.operation.operationId.toLowerCase() !== fixed.body.operationId.toLowerCase() || decoded.operation.action !== fixed.action) { await recheck(fixed.body.operationId, fixed); return; }
@@ -278,7 +286,7 @@ export function AdminBookingOperations({ bookingId, enabled, recoveredOperationI
     if (!snapshot || !ready) return;
     setPrepared(Object.freeze({ action: draft.action, reasonCode: draft.reasonCode, refund: draft.refund, subject: normalizeAdminOperationSubject(draft.subject), body: normalizeAdminOperationBody(draft.body), booking: snapshot.booking }));
   };
-  const retry = () => { const fixed = commandRef.current; if (fixed && operation?.operationId === fixed.body.operationId && operation.retryAllowed) void send(fixed); };
+  const retry = () => { const fixed = commandRef.current; if (!reusedOperationId.current && fixed && operation?.operationId === fixed.body.operationId && operation.retryAllowed) void send(fixed); };
   const openDetail = async (item: ExperienceAdminSupportOperation) => {
     setDetail(item); if (!item.message && item.action !== "MESSAGE" && item.action !== "CANCEL") return;
     const loaded = await readOperation(item.operationId, "detail"); if (typeof loaded === "object") setDetail(loaded);
