@@ -52,6 +52,10 @@ export function resolveConfig(env: Env) {
   const hostSupportSettingsApiEnabled = apiMode === "http" && env.HOST_SUPPORT_SETTINGS_API_ENABLED === "true";
   // UI検証専用。mockのBFFや保存は開かず、Playwrightがcontract-shaped responseをstubする。
   const hostSupportSettingsPreviewEnabled = apiMode === "mock" && env.HOST_SUPPORT_SETTINGS_PREVIEW_ENABLED === "true";
+  // Booking fee/accounting reads share one rollout gate for Admin and Host. Each BFF
+  // still requires its own console and server-side session; preview only opens browser UI.
+  const experienceFeeSummaryApiEnabled = apiMode === "http" && env.EXPERIENCE_FEE_SUMMARY_API_ENABLED === "true";
+  const experienceFeeSummaryPreviewEnabled = apiMode === "mock" && env.EXPERIENCE_FEE_SUMMARY_PREVIEW_ENABLED === "true";
   const hostSessionSecret = env.HOST_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
   const nihoFirebaseWebApiKey = env.NIHO_FIREBASE_WEB_API_KEY?.trim() ?? "";
   const adminSessionSecret = env.ADMIN_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
@@ -104,6 +108,8 @@ export function resolveConfig(env: Env) {
     hostSupportHistoryApiEnabled,
     hostSupportSettingsApiEnabled,
     hostSupportSettingsPreviewEnabled,
+    experienceFeeSummaryApiEnabled,
+    experienceFeeSummaryPreviewEnabled,
     // Comma-separated keys: the first seals new cookies, the rest still open old ones while keys rotate.
     hostSessionSecret,
     adminSessionSecret,

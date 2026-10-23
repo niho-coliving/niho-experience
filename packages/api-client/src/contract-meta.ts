@@ -69,6 +69,15 @@ export const EXPERIENCE_HOST_SUPPORT_SETTINGS_API_CONTRACT = {
   deploymentStatus: "not-deployed",
 } as const;
 
+/** Adminとホスト本人が予約別の実料金・精算状況を読む契約。API先行配備と受入までは既定OFFで接続しない。 */
+export const EXPERIENCE_FEE_SUMMARY_API_CONTRACT = {
+  version: "1.0.0",
+  sourceCommit: "4787c3b34b2c30d51a9f0f523c34f865c20e4230",
+  sha256: "c7b39ac5ae5331268915f4b9b2ded477a09f35eb333a291a9826e6b8f3a9d95e",
+  status: "agreed-not-deployed",
+  deploymentStatus: "not-deployed",
+} as const;
+
 /** 予約に関わる時刻の基準。表示も日本時間（Asia/Tokyo）で行う。 */
 export const EXPERIENCE_TIME_ZONE = "Asia/Tokyo";
 
