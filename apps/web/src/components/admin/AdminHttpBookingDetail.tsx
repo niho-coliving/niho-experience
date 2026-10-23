@@ -6,6 +6,7 @@ import { HOST_SURFACE } from "@/components/host/host-ui";
 import { StatusPill } from "@/components/host/ui";
 import { AdminSupportCaseEditor } from "./AdminSupportCaseEditor";
 import { AdminBookingOperations } from "./AdminBookingOperations";
+import { FeeSummaryPanel } from "@/components/FeeSummaryPanel";
 
 function Heading({ children }: { children: string }) {
   return <h3 className="mb-2 font-sans text-xs font-extrabold tracking-[0.04em] text-ink-soft">{children}</h3>;
@@ -15,7 +16,7 @@ function Value({ children }: { children: React.ReactNode }) {
   return <dd className="min-w-0 [overflow-wrap:anywhere]">{children}</dd>;
 }
 
-export function AdminHttpBookingDetail({ response, supportCaseEnabled, operationsEnabled, operationId, onSessionExpired }: { response: ExperienceAdminBookingDetailResponse; supportCaseEnabled: boolean; operationsEnabled: boolean; operationId: string | null; onSessionExpired: () => void }) {
+export function AdminHttpBookingDetail({ response, supportCaseEnabled, operationsEnabled, feeSummaryEnabled, operationId, onSessionExpired }: { response: ExperienceAdminBookingDetailResponse; supportCaseEnabled: boolean; operationsEnabled: boolean; feeSummaryEnabled: boolean; operationId: string | null; onSessionExpired: () => void }) {
   const { booking, supportAgreement } = response;
   const support = adminHttpSupportLabel(booking.support);
   const hostKind = booking.host.kind === "SPOT" ? "通常拠点" : "外部提供者";
@@ -58,6 +59,8 @@ export function AdminHttpBookingDetail({ response, supportCaseEnabled, operation
       <dt className="font-bold text-muted">取消理由</dt><Value>{booking.cancelReason || "未記録"}</Value>
       <dt className="font-bold text-muted">取消の連絡</dt><Value><span className="whitespace-pre-wrap">{booking.cancelMessage || "未記録"}</span></Value>
     </dl></section>
+
+    <FeeSummaryPanel key={`admin-fee-${booking.id}`} audience="admin" bookingId={booking.id} actorKey="current-admin" enabled={feeSummaryEnabled} onSessionExpired={onSessionExpired} />
 
     <section className="mt-4 border-t border-line pt-4"><Heading>メッセージ配信状態</Heading>{booking.hostMessages.length ? <ul className="grid gap-2">{booking.hostMessages.map((message) => <li key={message.id} className="rounded-xl bg-sand/55 p-3 text-[0.8125rem]"><strong>{message.subject || "件名なし"}</strong><span className="mt-1 block text-muted">{message.deliveryStatus} · 作成 {adminDateTime(message.createdAt)}{message.sentAt ? ` · 送信 ${adminDateTime(message.sentAt)}` : ""}</span></li>)}</ul> : <p className="text-[0.8125rem] text-muted">この予約には配信記録がありません。</p>}</section>
 

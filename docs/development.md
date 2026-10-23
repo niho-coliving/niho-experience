@@ -74,6 +74,8 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 | `NIHO_FIREBASE_WEB_API_KEY` | なし | NIHO の custom token を ID token に替えるための公開 Web API key。http mode で `HOST_CONSOLE_ENABLED=true` なら必須 |
 | `HOST_SUPPORT_SETTINGS_API_ENABLED` | `false` | NIHO側の本人OWNER支援設定 v1.0.1 を配備・受入後にだけ開くHTTP BFF。mockではtrueにしても開かない |
 | `HOST_SUPPORT_SETTINGS_PREVIEW_ENABLED` | `false` | mock専用のUI検証入口。Playwrightが選別契約形のbrowser responseをstubし、BFF・実保存は開かない |
+| `EXPERIENCE_FEE_SUMMARY_API_ENABLED` | `false` | Admin/Host共通の予約別実料金・精算GET。HTTP modeかつ各console/sessionが有効で、NIHO側API配備・受入後だけ開く |
+| `EXPERIENCE_FEE_SUMMARY_PREVIEW_ENABLED` | `false` | mock専用のUI検証入口。Playwrightのbrowser stubだけを使い、実BFFや合成成功fallbackは開かない |
 
 ## プレビューで状態を確認する
 
@@ -87,6 +89,7 @@ packages/api-client/      NIHO選別公開APIのOpenAPI・型・クライアン�
 - 決済は `/preview/checkout` の模擬ページへ進む。カード情報は扱わない。
 - ホストの画面：`HOST_CONSOLE_ENABLED=true` で `/host` の「NIHO でログイン」から合成のアカウントで入る（mock 時は NIHO へ行かない）。提供者の一覧と詳細はホスト契約の mock（`@niho-experience/api-client/host/mock`）で、指定なしは「サンプルの台所」と「サンプル工房」。`/host?mock=empty`（提供者 0 件。登録の流れを試せる）・`?mock=payments-pending`（口座未接続の提供者 1 件）から入ると、その scenario の合成セッションになる。体験・予約・売上・メッセージのスレッドの表示は架空（`apps/web/src/host/mock/`。今は 2026-10-21 15:30 に固定）で、体験の編集・予約の操作・ホームからの承認・スレッドへの返信・出欠・この回の中止は画面内の状態だけ（保存しても次の要求には残らない）。返信の「英語にする」は server action で、mock は合成の英語（例の返信以外は「[Preview] …」の 1 文）を返す。提供者情報の保存・審査の申請・受取口座（共有・接続・再確認）・登録はホスト契約の mock を server action から呼ぶ。契約 mock は要求ごとに作り直されるので、書き込みの結果はその応答にだけ残り、mock の登録は `?mock=payments-pending` のログインに置き換わる。
 - 本人のNIHOサポート設定：`/host/support`。通常Spotと外部Providerは独立したkind/idで扱い、Providerが0件でもPCフッター・携帯アカウントメニュー・登録案内から到達できる。HTTPは`HOST_SUPPORT_SETTINGS_API_ENABLED=true`かつ配備受入後だけ。mockの`HOST_SUPPORT_SETTINGS_PREVIEW_ENABLED=true`はbrowser stubを使うE2E専用で、合成保存へfallbackしない。詳細は[Host本人のNIHOサポート設定](host-support-settings.md)。
+- 予約別の実料金・精算：Admin/Hostの予約詳細に独立して表示する。HTTPは`EXPERIENCE_FEE_SUMMARY_API_ENABLED=true`かつ各console/sessionの成立後だけ、mockのpreview flagはbrowser stub E2Eだけに使う。詳細は[予約別の実料金・精算](fee-summary.md)。ホストの実予約HTTP導線は未接続なので、現時点では三者実受入完了ではない。
 
 ## データの扱い
 

@@ -175,6 +175,15 @@
 - 保存：確認直前にGETし、host・policy・setting revision/state・write capabilityが変われば古いcommandを捨てて再確認する。同意済みの`enabled`・`consentVersion`・`expectedRevision`はimmutable payloadとし、結果不明時だけ同payloadを再送する。409は入力を保持する。GETで同値を見ても今回の保存成功とは断言しない。
 - 表示：OFF合計10%／ON合計15%はいずれも決済手数料込み。人件費はホストから担当者へ直接払い。全額キャンセル・返金で戻らないStripe決済費用はNIHO負担。ただし、このAPIは設定保存だけで、料金producer・予約snapshot・精算への接続済みを示さない。変更後の新規予約だけへ適用し、過去予約は変更しない。
 
+### 9.3 予約別の実料金・精算（#134）
+
+- 独立契約：`experience-fee-summary-api.openapi.json` v1.0.0。sourceCommit `291bc1fca9a9e21ebaeae4a9637379afc472aa61`、SHA256 `c7b39ac5ae5331268915f4b9b2ded477a09f35eb333a291a9826e6b8f3a9d95e`、状態 `agreed-not-deployed`。
+- SDK：browser-safeな`@niho-experience/api-client/fee-summary`は型とstrict decoderだけを公開する。Bearerを扱う`fee-summary-server`とはexportを分離する。
+- パス：Adminは`GET /api/admin/experience-bookings/{requestId}/fee-summary`、Host本人は`GET /api/experience-providers/management/bookings/{requestId}/fee-summary`だけ。query、別method、対象ID不一致、余分なDTO項目を受けない。
+- 表示：APIの金額だけを整形する。nullは未確認、0は¥0として区別し、負数が許されるホスト残額とNIHO入出金差額も符号を保つ。NIHO入出金差額はAdminだけに示し、利益とは呼ばない。
+- 配備境界：`EXPERIENCE_FEE_SUMMARY_API_ENABLED`は既定OFFかつHTTP専用で、Admin/Host双方のconsole/sessionを別々に再検証する。preview flagはmock専用browser stubで、実BFFを開かない。HTTP失敗を合成成功へfallbackしない。
+- 現在地：SDK、固定BFF、Admin/Host読取パネル、合成E2Eまで。ホストの実予約HTTP導線が未接続なので、Admin・Host・NIHO APIの三者実受入完了とは扱わない。
+
 ## 10. mock
 
 ```ts
