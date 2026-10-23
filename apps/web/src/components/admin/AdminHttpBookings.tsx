@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { ExperienceAdminBookingDetailResponse, ExperienceAdminBookingListItem, ExperienceAdminBookingListResponse } from "@niho-experience/api-client/admin-read";
 import { decodeExperienceAdminBookingDetailResponse, decodeExperienceAdminBookingListResponse } from "@niho-experience/api-client/admin-read-schema";
 import { adminBookingQuery, adminHttpBookingStatus, adminHttpSupportLabel, EMPTY_ADMIN_HTTP_BOOKING_FILTERS, mergeUniqueBookings, type AdminHttpBookingFilters } from "@/admin/http-view";
-import { shortDateTime } from "@/host/bookings";
+import { adminDateTime } from "@/admin/date-time";
 import { yen } from "@/host/format";
 import { SELECT } from "@/components/host/fields";
 import { HOST_SURFACE } from "@/components/host/host-ui";
@@ -40,7 +40,7 @@ async function requestBookingDetail(id: string, signal: AbortSignal): Promise<Ex
 function BookingRow({ booking, selected, onOpen }: { booking: ExperienceAdminBookingListItem; selected: boolean; onOpen: () => void }) {
   const support = adminHttpSupportLabel(booking.support);
   return <button type="button" onClick={onOpen} className={`grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 px-4 py-3 text-left hover:bg-sand/70 focus-visible:outline-offset-[-3px] ${selected ? "lg:bg-sand" : ""}`}>
-    <span className="min-w-0"><span className="flex flex-wrap items-center gap-x-2"><strong className="[overflow-wrap:anywhere]">{booking.guestName || "予約者名は保持されていません"}</strong><span className="text-xs text-muted">{booking.id}</span></span><span className="block truncate text-[0.78125rem] text-muted">{booking.host.displayName} · {shortDateTime(booking.startAt)} · {yen(booking.totalYen)}</span><span className="mt-1 flex flex-wrap gap-1.5"><span className={`rounded-full px-2 py-0.5 text-[0.6875rem] font-extrabold ${support.className}`}>{support.label}</span><span className="rounded-full bg-sand px-2 py-0.5 text-[0.6875rem] font-extrabold text-ink-soft">{booking.host.kind === "SPOT" ? "拠点" : "外部提供者"}</span>{booking.needsAttention ? <span className="rounded-full bg-warn-pale px-2 py-0.5 text-[0.6875rem] font-extrabold text-warn">要対応</span> : null}</span></span>
+    <span className="min-w-0"><span className="flex flex-wrap items-center gap-x-2"><strong className="[overflow-wrap:anywhere]">{booking.guestName || "予約者名は保持されていません"}</strong><span className="text-xs text-muted">{booking.id}</span></span><span className="block truncate text-[0.78125rem] text-muted">{booking.host.displayName} · {adminDateTime(booking.startAt)} · {yen(booking.totalYen)}</span><span className="mt-1 flex flex-wrap gap-1.5"><span className={`rounded-full px-2 py-0.5 text-[0.6875rem] font-extrabold ${support.className}`}>{support.label}</span><span className="rounded-full bg-sand px-2 py-0.5 text-[0.6875rem] font-extrabold text-ink-soft">{booking.host.kind === "SPOT" ? "拠点" : "外部提供者"}</span>{booking.needsAttention ? <span className="rounded-full bg-warn-pale px-2 py-0.5 text-[0.6875rem] font-extrabold text-warn">要対応</span> : null}</span></span>
     <StatusPill status={adminHttpBookingStatus(booking.status)} />
   </button>;
 }
