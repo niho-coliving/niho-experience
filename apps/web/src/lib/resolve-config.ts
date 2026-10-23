@@ -42,6 +42,12 @@ export function resolveConfig(env: Env) {
   // Synthetic case UI acceptance stays on its own fourth Playwright server. It never
   // opens a mock BFF and is ignored by HTTP deployments.
   const adminSupportCasePreviewEnabled = apiMode === "mock" && env.ADMIN_SUPPORT_CASE_PREVIEW_ENABLED === "true";
+  // Immutable Admin commands are independent from case writes and stay closed until the
+  // selected operations API is deployed and accepted.
+  const adminOperationsApiEnabled = apiMode === "http" && env.ADMIN_OPERATIONS_API_ENABLED === "true";
+  const adminOperationsPreviewEnabled = apiMode === "mock" && env.ADMIN_OPERATIONS_PREVIEW_ENABLED === "true";
+  // Host history is read-only, but its selected endpoint is also agreed-not-deployed.
+  const hostSupportHistoryApiEnabled = apiMode === "http" && env.HOST_SUPPORT_HISTORY_API_ENABLED === "true";
   const hostSessionSecret = env.HOST_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
   const nihoFirebaseWebApiKey = env.NIHO_FIREBASE_WEB_API_KEY?.trim() ?? "";
   const adminSessionSecret = env.ADMIN_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
@@ -89,6 +95,9 @@ export function resolveConfig(env: Env) {
     adminSupportReadPreviewEnabled,
     adminSupportCaseApiEnabled,
     adminSupportCasePreviewEnabled,
+    adminOperationsApiEnabled,
+    adminOperationsPreviewEnabled,
+    hostSupportHistoryApiEnabled,
     // Comma-separated keys: the first seals new cookies, the rest still open old ones while keys rotate.
     hostSessionSecret,
     adminSessionSecret,

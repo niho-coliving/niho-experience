@@ -81,6 +81,16 @@ describe("admin support console settings", () => {
     expect(resolveConfig({ EXPERIENCE_API_MODE: "http", ADMIN_SUPPORT_CASE_PREVIEW_ENABLED: "true" }).adminSupportCasePreviewEnabled).toBe(false);
   });
 
+  it("keeps operations and host history independently OFF and HTTP-only", () => {
+    expect(resolveConfig({}).adminOperationsApiEnabled).toBe(false);
+    expect(resolveConfig({ ADMIN_OPERATIONS_API_ENABLED: "true" }).adminOperationsApiEnabled).toBe(false);
+    expect(resolveConfig({ EXPERIENCE_API_MODE: "http", ADMIN_OPERATIONS_API_ENABLED: "true" }).adminOperationsApiEnabled).toBe(true);
+    expect(resolveConfig({ ADMIN_OPERATIONS_PREVIEW_ENABLED: "true" }).adminOperationsPreviewEnabled).toBe(true);
+    expect(resolveConfig({ EXPERIENCE_API_MODE: "http", ADMIN_OPERATIONS_PREVIEW_ENABLED: "true" }).adminOperationsPreviewEnabled).toBe(false);
+    expect(resolveConfig({ HOST_SUPPORT_HISTORY_API_ENABLED: "true" }).hostSupportHistoryApiEnabled).toBe(false);
+    expect(resolveConfig({ EXPERIENCE_API_MODE: "http", HOST_SUPPORT_HISTORY_API_ENABLED: "true" }).hostSupportHistoryApiEnabled).toBe(true);
+  });
+
   it("closes real Admin auth unless its dedicated secret, Firebase key and exact origin are explicit", () => {
     const http = { EXPERIENCE_API_MODE: "http", ADMIN_SUPPORT_CONSOLE_ENABLED: "true", SITE_URL: "https://experience.example" };
     const configured = {

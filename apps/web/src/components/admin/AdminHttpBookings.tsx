@@ -45,7 +45,7 @@ function BookingRow({ booking, selected, onOpen }: { booking: ExperienceAdminBoo
   </button>;
 }
 
-export function AdminHttpBookings({ supportCaseEnabled = false }: { supportCaseEnabled?: boolean }) {
+export function AdminHttpBookings({ supportCaseEnabled = false, operationsEnabled = false }: { supportCaseEnabled?: boolean; operationsEnabled?: boolean }) {
   const router = useRouter();
   const guardedNavigate = useAdminGuardedNavigation();
   const resetLeaveGuard = useAdminLeaveGuardReset();
@@ -231,7 +231,7 @@ export function AdminHttpBookings({ supportCaseEnabled = false }: { supportCaseE
         {detailState === "loading" && detail?.booking.id !== selectedId ? <section className={`${HOST_SURFACE} p-5`} role="status">予約詳細を読み込んでいます…</section> : null}
         {detailState === "error" ? <section className={`${HOST_SURFACE} p-5`} role="alert"><h2 className="font-sans font-extrabold tracking-normal">予約詳細を読み込めませんでした</h2><button type="button" onClick={() => setDetailRetry((value) => value + 1)} className="mt-3 min-h-10 rounded-full border border-line-strong px-4 font-extrabold hover:bg-sand">もう一度試す</button></section> : null}
         {detailState === "not-found" ? <section className={`${HOST_SURFACE} p-5`}><h2 className="font-sans font-extrabold tracking-normal">予約が見つかりません</h2><p className="mt-2 text-sm text-muted">予約IDと現在の参照権限を確認してください。</p><button type="button" onClick={close} className="mt-3 font-extrabold underline">一覧へ戻る</button></section> : null}
-        {detail?.booking.id === selectedId ? <AdminHttpBookingDetail response={detail} supportCaseEnabled={supportCaseEnabled} onSessionExpired={expireSession} /> : null}
+        {detail?.booking.id === selectedId ? <AdminHttpBookingDetail response={detail} supportCaseEnabled={supportCaseEnabled} operationsEnabled={operationsEnabled} operationId={params.get("operation")} onSessionExpired={expireSession} /> : null}
       </div>
     </div>
   </div>;

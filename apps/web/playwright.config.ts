@@ -8,7 +8,7 @@ const ADMIN_CASE_PORT = Number(process.env.E2E_ADMIN_CASE_PORT ?? 3103);
 // The console's sign-in and frame (#86) and its screens (#84/#88/#89/#90/#91/#106/#107) run against the second server.
 const HOST_CONSOLE_SPEC = /(host-(console|screens|editor|bookings|sales|messages|session)|admin-support)\.spec\.ts/;
 const ADMIN_READ_SPEC = /admin-http-read\.spec\.ts/;
-const ADMIN_CASE_SPEC = /admin-support-case\.spec\.ts/;
+const ADMIN_CASE_SPEC = /admin-(support-case|operations)\.spec\.ts/;
 // Cloud sandboxes ship a pre-installed Chromium; CI installs the matching one.
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
 const serverEnv = { HOSTNAME: "127.0.0.1", EXPERIENCE_API_MODE: "mock", EXPERIENCE_PUBLIC_API_VERSION: "1.2", SITE_INDEXING: "block", NEXT_TELEMETRY_DISABLED: "1", HOST_SIGNUP_MODE: "pilot", NIHO_HOST_START_URL: "https://niho.life/experiences/provider" };
@@ -69,7 +69,7 @@ export default defineConfig({
       url: `${adminCaseBaseURL}/admin`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-      env: { ...serverEnv, PORT: String(ADMIN_CASE_PORT), ADMIN_SUPPORT_CONSOLE_ENABLED: "true", ADMIN_SUPPORT_READ_PREVIEW_ENABLED: "true", ADMIN_SUPPORT_CASE_PREVIEW_ENABLED: "true", SITE_URL: adminCaseBaseURL },
+      env: { ...serverEnv, PORT: String(ADMIN_CASE_PORT), ADMIN_SUPPORT_CONSOLE_ENABLED: "true", ADMIN_SUPPORT_READ_PREVIEW_ENABLED: "true", ADMIN_SUPPORT_CASE_PREVIEW_ENABLED: "true", ADMIN_OPERATIONS_PREVIEW_ENABLED: "true", SITE_URL: adminCaseBaseURL },
     },
   ],
 });

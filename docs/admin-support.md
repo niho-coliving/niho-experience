@@ -12,13 +12,19 @@ HTTPモードは、選別済み v1.0.0 契約によるAdmin専用app-connect認�
 
 予約別のNIHO事務局担当・内部メモは、さらに独立した `experience-admin-support-case-api.openapi.json` v1.0.0（source `9ddb79c3a62bafca6896a06fa2f364f1fb089ff3`、SHA `08d4a294aa33ad4ef6110f2bc58e6765a37f3410642d7b42ac5ee653b67e509c`、`agreed-not-deployed`）に固定する。`ADMIN_SUPPORT_CASE_API_ENABLED` は既定OFFで、HTTP readとこのflagの両方が有効な場合だけ、予約別caseのGET/PATCHと担当候補GETへ接続する。担当は支援の引継ぎ先であり、権限付与ではない。内部メモはAdminだけが読み、ホスト共有の相談メモと混ぜない。
 
+承認・辞退・取消／返金・予約者への連絡と保存済み操作履歴は、独立した `experience-admin-operations-api.openapi.json` v1.0.0（source `d3e403a140ce39a890f22976c81b5b00ffbea8e2`、SHA `fa79313ecee3ad9d1243d8d4eda6c35ec5c62c323c3cc67894ac14a448b6db30`、`agreed-not-deployed`）に固定する。`ADMIN_OPERATIONS_API_ENABLED` は既定OFFで、HTTP readとこのflagが有効な場合だけ固定BFFへ接続する。各BFFはAdmin専用session、現在のADMIN role、絶対期限を再検証する。POST前に最新snapshotを読み、確認したホスト・日時・期限・許可・返金選択肢を含む表示対象が不変な場合だけ、UUID v4とsnapshot・正規化済みpayloadを一つのimmutable commandとして固定する。明示的な未受理競合だけは入力を保持して最新状態の再確認へ戻し、ID再利用・不正応答・通信結果不明は新IDへ置き換えない。不明時は同じIDをGETで照合し、同じpayloadがメモリにありAPIの`retryAllowed`がtrueの場合だけ同じIDで再送する。GET 404は未実行の証明にせず、`retryAllowed=false`でも同じIDのGET照合は続けられる。queryへ残せるのはUUIDだけで、再読込後はGET照合だけを行う。
+
+ホスト本人へ見せる最小の支援履歴は `experience-host-support-history-api.openapi.json` v1.0.0（同source、SHA `baa204de75b43b213521af2b50fd8bde4714cfdfe3f1410f4552efbafb9ea5df`、`agreed-not-deployed`）に固定する。`HOST_SUPPORT_HISTORY_API_ENABLED` は既定OFFで、既存host tokenの固定GETだけを使い、本人の管理範囲はNIHOが両host kindについて再検証する。内部caseメモ、Admin連絡先、payload hash、Stripe IDは返さない。実予約画面のHTTP接続自体が準備中の間も、SDK・固定BFF・独立表示領域だけを用意し、合成履歴を実績へfallbackしない。
+
 read flagをONにしたHTTP画面は、予約一覧・deep link詳細・通知一覧・本人の既読だけをNIHOへ接続する。予約検索はBFFから `POST /api/admin/experience-bookings/query` へJSON本文で送り、検索語をブラウザURLやNIHOへのrequest URLへ載せない。cursorはAPI側の継続位置として扱い、表示件数は「読み込み済み」と明示する。通知は全対象の `unreadCount` とpage cursorを使い、既読操作は対象pageを明示し、成功応答後だけ反映する。リアルタイム配信とは表示しない。
 
 `ADMIN_SUPPORT_READ_PREVIEW_ENABLED=true` はmockモード専用のUI確認flagである。既存の合成Admin session上でread-only UIだけを描画し、BFFはmockデータへfallbackせず404のままにする。Playwrightがブラウザ要求へ契約形の合成stubを返し、HTTP session・SDK・BFF境界はunitで別に検証する。HTTPモードではこのflagを無視する。
 
 `ADMIN_SUPPORT_CASE_PREVIEW_ENABLED=true` もmock専用で、read previewと併用した専用Playwright serverだけがcase editorを描画する。HTTPでは無視し、mock BFFやサーバー保存へfallbackしない。保存、競合、失効、担当候補不調はブラウザへ入れた合成stubで確認する。
 
-予約の承認・辞退・取消／返金、連絡送信はcase flagをONにしても表示しない。旧予約や不正な支援snapshotをOFF・10%へ補完せず、case読取に失敗したときも未担当・空メモを作らない。担当・内部メモはcase APIの `writeCapability` とCAS revisionだけに従う。
+`ADMIN_OPERATIONS_PREVIEW_ENABLED=true` もmock専用の合成UI受入flagである。ブラウザ要求を契約形fixtureでstubし、二重送信、snapshot競合、POST時409、許可だけの変更、結果不明・404からの同ID照合、再送不可時のGET回復、401全消去と遅延応答破棄、caseとoperationsの離脱guard合成、UUID queryからGETだけの復帰を検証する。mock BFF、実決済、実返金、実メールへ接続しない。
+
+予約の承認・辞退・取消／返金、連絡送信はcase flagだけをONにしても表示しない。operationsの専用flagとAPI snapshotが許可した操作だけを表示する。旧予約や不正な支援snapshotをOFF・10%へ補完せず、case読取に失敗したときも未担当・空メモを作らない。担当・内部メモはcase APIの `writeCapability` とCAS revisionだけに従う。返金の増分・返金後累計はoperations GETの`refundOptions`をそのまま使い、画面で率や金額を再計算しない。
 
 ## 支援条件
 
@@ -29,9 +35,9 @@ read flagをONにしたHTTP画面は、予約一覧・deep link詳細・通知�
 - サポート設定は変更後に受け付ける予約へ適用する。予約には受付時のON/OFF、手数料率、操作許可をsnapshotとして残し、後の設定変更を遡及しない。
 - 「サポートON」と「要対応」は別の軸である。ONでも対応不要、OFFでも運営上の確認が必要な予約がある。
 
-## プレビュー操作と保存範囲
+## 旧合成プレビュー操作と保存範囲
 
-合成Adminは、サポートONの予約に限り、予約状態に応じた承認、辞退、連絡記録、取消／返金を試せる。確認画面には相手、予約番号、金額、理由を示す。予約状態と返金額の計算にはホスト画面と同じドメイン関数を使う。各操作にはAdmin actorを記録し、同じidempotency keyの再送は同じ結果を返す。取消済み予約への新しい取消は拒否する。
+従来の`AdminActionDialog`を使う合成Admin画面は、サポートONの予約に限り、予約状態に応じた承認、辞退、連絡記録、取消／返金の見た目を試せる。このcontactは合成履歴を足すだけで、operations APIの実メール送信UIへ流用しない。確認画面には相手、予約番号、金額、理由を示す。取消済み予約への新しい取消は拒否する。
 
 プレビューの変更はAdminセッションごとのサーバープロセスのメモリにだけ保持され、同じセッションの再読込では予約操作と通知の既読状態を引き継ぐ。通知を既読にしても予約状態や要対応は変えない。外部への連絡、通知配信、決済、返金、台帳更新、永続保存は行わず、サーバー再起動、セッション失効、または新しい合成Adminセッションで初期状態へ戻る。失効したセッションには通知データを返さず、状態は操作時に掃除する。セッション数、操作履歴数、セッションごとの既読数には上限を設ける。ホスト設定の変更はその画面上だけで、再読込後は合成fixtureへ戻る。
 
@@ -45,11 +51,13 @@ read flagをONにしたHTTP画面は、予約一覧・deep link詳細・通知�
 - Admin接続はNIHOの期限とサイト側の8時間上限の早い方で終了し、refreshで延長しない。401/403、role喪失、接続不一致ではactorを表示せず入口へ戻す。
 - caseの各BFFも専用client・現在のADMIN・8時間期限を再検証する。401/403はcookieを消して401へ統一し、画面は予約一覧・詳細・検索語・case draft・担当候補を消去して再認証だけを案内する。
 - case PATCHはsame-origin、厳密なJSONとDTO、単一の予約ID segmentに限定する。検索語・内部メモ・担当表示をURL、storage、ログ、計測へ保存せず、上流エラー本文はブラウザへ渡さない。
-- 未保存または保存中はAdmin内リンク、予約行、戻る、logout、browser back/forward、reload/tab closeから保護する。保存中は結果が確定するまで破棄移動できず、409・503ではdraftを保持する。
+- operations POSTもsame-origin・厳密JSON・固定pathに限定する。本文、件名、宛先、返金payload、tokenをURL・storage・ログ・計測へ保存しない。通信失敗・503・invalid応答・abortは確実な失敗とみなさず、同じ予約ID・操作IDのGETで照合する。
+- 401は一覧、詳細、検索、離脱待ち、case、担当候補、operations、入力本文をすべて消し、再認証だけを案内する。遅い別予約応答はrequest sequenceとAbortControllerで捨てる。
+- 未保存または通信中はAdmin内リンク、予約行、戻る、logout、browser back/forward、reload/tab closeから保護する。破棄移動できないのは実通信中だけとし、結果不明のcommand・本文は未保存変更として明示離脱を求める。離脱しても受付済み処理は取り消されず、同じUUIDまたは履歴から後で追跡できる。明示的な未受理409と結果不明ではdraftを保持する。
 - logoutは自分のNIHO接続の失効を試み、通信結果にかかわらずlocal cookieを消す。2xxまたは既に接続がない404だけを解除確認済みとし、401・その他の失敗・通信失敗では、端末からのlogout完了、NIHO側の解除未確認、接続が発行から最長8時間で失効することを表示する。
 - `/admin` 全体を `private, no-store`、`noindex, nofollow` とし、旅行者向けの分析・計測を読み込まない。公開cacheやイベント計測へ予約者・ホスト情報を送らない。
 
-HTTPでAdmin認証を有効にするには `ADMIN_SUPPORT_CONSOLE_ENABLED=true`、専用の `ADMIN_SESSION_SECRET`、Firebase Web API key、`SITE_URL` と完全一致する `NIHO_EXPERIENCE_ADMIN_ORIGIN` が必要である。予約・通知の読取には、これらに加えて配備・受入後に `ADMIN_SUPPORT_READ_API_ENABLED=true` を設定する。担当・内部メモにはさらに `ADMIN_SUPPORT_CASE_API_ENABLED=true` が必要である。originは本番HTTPS、ローカルはloopback HTTPだけを許し、NIHO側の `APP_CONNECT_EXPERIENCE_ADMIN_ORIGIN` と同じ値を明示する。公開ドメインはコードへ固定しない。
+HTTPでAdmin認証を有効にするには `ADMIN_SUPPORT_CONSOLE_ENABLED=true`、専用の `ADMIN_SESSION_SECRET`、Firebase Web API key、`SITE_URL` と完全一致する `NIHO_EXPERIENCE_ADMIN_ORIGIN` が必要である。予約・通知の読取には、これらに加えて配備・受入後に `ADMIN_SUPPORT_READ_API_ENABLED=true` を設定する。担当・内部メモにはさらに `ADMIN_SUPPORT_CASE_API_ENABLED=true`、予約操作には独立して`ADMIN_OPERATIONS_API_ENABLED=true`が必要である。ホスト履歴はhost consoleと`HOST_SUPPORT_HISTORY_API_ENABLED=true`が必要である。すべてAPI先行配備・三者受入まではOFFにする。originは本番HTTPS、ローカルはloopback HTTPだけを許し、NIHO側の `APP_CONNECT_EXPERIENCE_ADMIN_ORIGIN` と同じ値を明示する。公開ドメインはコードへ固定しない。
 
 ## NIHO側に必要な契約
 
@@ -59,7 +67,8 @@ HTTPでAdmin認証を有効にするには `ADMIN_SUPPORT_CONSOLE_ENABLED=true`�
 2. 横断予約参照: ホスト、期間、状態、サポート、要対応、予約番号／予約者による検索。レスポンスは画面に必要なDTOだけとし、内部ユーザー・決済・DBスキーマを輸出しない。
 3. 予約詳細: 受付時の支援snapshot、ホスト共有の相談、予約条件、金額、返金済額、配信状態。PIIは権限・目的・保持期間に応じて最小化する。
 4. 予約別case: v1.0.0で固定済み。担当、Admin内部メモ、CAS revision、書込可否と担当候補を選別して返し、APIが現在のADMIN・支援条件・PII期限を再検証する。未配備である。
-5. 操作: 承認、辞退、連絡、取消／返金。予約versionまたはETag、idempotency key、理由、期待する金額を受け取り、NIHOが権限・状態・料率・返金可能額を再検証する。成功後は予約と監査履歴を読み直す。
-6. ホスト設定: OWNERだけがON/OFFを変更できる。変更時刻とactorを監査し、予約受付時に支援条件をsnapshot化する。EDITORは参照のみ。
+5. 操作: v1.0.0で固定済み。承認、辞退、連絡、取消／返金をimmutable UUID、CAS revision、期待状態・金額とともに受け、NIHOが権限・状態・返金可能額を再検証する。operation状態、retryAllowed、最大50件の履歴と保持終了typed nullを返す。未配備である。
+6. ホスト支援履歴: v1.0.0で固定済み。ホスト本人の管理範囲だけに、最小の操作metadataと保持中の連絡詳細を返す。未配備である。
+7. ホスト設定: OWNERだけがON/OFFを変更できる。変更時刻とactorを監査し、予約受付時に支援条件をsnapshot化する。EDITORは参照のみ。今回の実装範囲外である。
 
 experience側はこの境界が配備されるまでHTTPで合成データや操作成功を返さない。実API接続時にはmockと同じ画面DTOへ変換するアダプターを置き、NIHOの認証・権限・価格・決済・返金・台帳を重複実装しない。

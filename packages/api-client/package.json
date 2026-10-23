@@ -50,11 +50,29 @@
       "types": "./src/admin-support-case/schema.ts",
       "default": "./src/admin-support-case/schema.ts"
     },
+    "./admin-operations": {
+      "types": "./src/admin-operations/index.ts",
+      "default": "./src/admin-operations/index.ts"
+    },
+    "./admin-operations-schema": {
+      "types": "./src/admin-operations/schema.ts",
+      "default": "./src/admin-operations/schema.ts"
+    },
+    "./host-support-history": {
+      "types": "./src/host-support-history/index.ts",
+      "default": "./src/host-support-history/index.ts"
+    },
+    "./host-support-history-schema": {
+      "types": "./src/host-support-history/schema.ts",
+      "default": "./src/host-support-history/schema.ts"
+    },
     "./contract/experience-public-api.openapi.json": "./contract/experience-public-api.openapi.json",
     "./contract/experience-host-api.openapi.json": "./contract/experience-host-api.openapi.json",
     "./contract/experience-admin-auth-api.openapi.json": "./contract/experience-admin-auth-api.openapi.json",
     "./contract/experience-admin-read-api.openapi.json": "./contract/experience-admin-read-api.openapi.json",
-    "./contract/experience-admin-support-case-api.openapi.json": "./contract/experience-admin-support-case-api.openapi.json"
+    "./contract/experience-admin-support-case-api.openapi.json": "./contract/experience-admin-support-case-api.openapi.json",
+    "./contract/experience-admin-operations-api.openapi.json": "./contract/experience-admin-operations-api.openapi.json",
+    "./contract/experience-host-support-history-api.openapi.json": "./contract/experience-host-support-history-api.openapi.json"
   },
   "scripts": {
     "gen:types": "node ./scripts/gen-types.ts",
