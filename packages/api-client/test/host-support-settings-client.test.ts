@@ -65,7 +65,8 @@ describe("Host support settings strict SDK", () => {
   });
 
   it("accepts a maximum Unicode host page and rejects a body beyond the bounded cap", async () => {
-    const maximum = { hosts: Array.from({ length: 100 }, (_, index) => ({ kind: "SPOT" as const, id: `${"😀".repeat(199)}${String.fromCodePoint(0x10000 + index)}`, displayName: `拠点${index}` })), limit: 100 as const, truncated: true };
+    const maximum = { hosts: Array.from({ length: 100 }, (_, index) => ({ kind: "SPOT" as const, id: `${"😀".repeat(199)}${String.fromCodePoint(0x10000 + index)}`, displayName: "😀".repeat(200) })), limit: 100 as const, truncated: true };
+    expect(decodeExperienceHostSupportSettingsHostListResponse({ ...list, hosts: [{ ...spot, displayName: "😀".repeat(201) }] })).toBeNull();
     const accepted = createExperienceHostSupportSettingsApiClient({ nihoWebOrigin: "https://niho.example", idToken: "host-token", fetch: vi.fn(async () => json(maximum)) });
     const result = await accepted.list();
     expect(result.ok && result.data.hosts).toHaveLength(100);

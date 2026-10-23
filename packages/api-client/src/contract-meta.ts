@@ -62,9 +62,9 @@ export const EXPERIENCE_HOST_SUPPORT_HISTORY_API_CONTRACT = {
 
 /** Host本人のNIHOサポート設定契約。API先行配備と受入が終わるまでは既定OFFで接続しない。 */
 export const EXPERIENCE_HOST_SUPPORT_SETTINGS_API_CONTRACT = {
-  version: "1.0.0",
-  sourceCommit: "243ff383fdd182f4d053fce9995e4f1616206720",
-  sha256: "6ae96e7b0ad92b5effc145310ff45c005913913a4f903bdceef250c3c257362f",
+  version: "1.0.1",
+  sourceCommit: "4787c3b34b2c30d51a9f0f523c34f865c20e4230",
+  sha256: "9cff926462fe388b8ff5a8c82a582eb26d6aafc8eba49f5468ea064021c07a75",
   status: "agreed-not-deployed",
   deploymentStatus: "not-deployed",
 } as const;

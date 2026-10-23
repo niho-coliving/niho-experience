@@ -168,7 +168,7 @@
 
 ### 9.2 Host本人のNIHOサポート設定（#130）
 
-- 独立契約：`experience-host-support-settings-api.openapi.json` v1.0.0。sourceCommit `243ff383fdd182f4d053fce9995e4f1616206720`、SHA256 `6ae96e7b0ad92b5effc145310ff45c005913913a4f903bdceef250c3c257362f`、状態 `agreed-not-deployed`。既存Admin auth/read/case/operations/history契約には混ぜない。
+- 独立契約：`experience-host-support-settings-api.openapi.json` v1.0.1。sourceCommit `4787c3b34b2c30d51a9f0f523c34f865c20e4230`、SHA256 `9cff926462fe388b8ff5a8c82a582eb26d6aafc8eba49f5468ea064021c07a75`、状態 `agreed-not-deployed`。既存Admin auth/read/case/operations/history契約には混ぜない。
 - SDK：server-onlyの`@niho-experience/api-client/host-support-settings`。ブラウザはtokenを持たず、strict decoderだけを`host-support-settings-schema`から使う。固定の対象一覧GETとkind/id別GET/PUT以外へ中継しない。
 - 認可：NIHO APIが現在の本人OWNERを毎回正本として判定する。EDITOR、Admin、platform roleをOWNERへ読み替えない。通常Spotと外部Providerをkindで区別する。
 - 配備境界：`HOST_SUPPORT_SETTINGS_API_ENABLED`は既定OFFで、HTTP modeだけ有効。API配備・受入前はBFFを404に保ち、失敗や未設定をmock成功/OFFへfallbackしない。preview flagはmock専用browser stubで、BFFを開かない。

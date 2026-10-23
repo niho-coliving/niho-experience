@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "NIHO Experience Host Support Settings API",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "ホスト本人がNIHOサポート同意設定の対象列挙・参照・保存を行う選別契約。固定APIは親Auth Draftの/api/experience-providers subtreeに含まれる。",
     "x-niho-contract-status": "agreed-not-deployed",
     "x-niho-contract-source": "niho-app contracts/openapi.yaml",
@@ -482,7 +482,8 @@
           },
           "displayName": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 200
           }
         }
       },

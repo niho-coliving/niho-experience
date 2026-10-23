@@ -5,18 +5,18 @@ import { EXPERIENCE_HOST_SUPPORT_SETTINGS_API_CONTRACT } from "../src/contract-m
 import { generateContractTypes } from "../scripts/gen-types.ts";
 
 const NAME = "experience-host-support-settings-api";
-const SHA = "6ae96e7b0ad92b5effc145310ff45c005913913a4f903bdceef250c3c257362f";
+const SHA = "9cff926462fe388b8ff5a8c82a582eb26d6aafc8eba49f5468ea064021c07a75";
 
 describe("selected Host support settings contract", () => {
-  it("pins the independent v1.0.0 agreed-not-deployed export and source commit", async () => {
+  it("pins the independent v1.0.1 agreed-not-deployed export and source commit", async () => {
     const body = await readFile(new URL(`../contract/${NAME}.openapi.json`, import.meta.url));
     const document = JSON.parse(body.toString("utf8"));
     const recorded = await readFile(new URL(`../contract/${NAME}.openapi.json.sha256`, import.meta.url), "utf8");
     const manifest = JSON.parse(await readFile(new URL(`../contract/${NAME}.manifest.json`, import.meta.url), "utf8"));
     expect(createHash("sha256").update(body).digest("hex")).toBe(SHA);
     expect(recorded.trim()).toBe(`${SHA}  ${NAME}.openapi.json`);
-    expect(document.info).toMatchObject({ version: "1.0.0", "x-niho-contract-status": "agreed-not-deployed" });
-    expect(manifest).toMatchObject({ version: "1.0.0", sourceCommit: EXPERIENCE_HOST_SUPPORT_SETTINGS_API_CONTRACT.sourceCommit, jsonSha256: SHA, deploymentStatus: "not-deployed" });
+    expect(document.info).toMatchObject({ version: "1.0.1", "x-niho-contract-status": "agreed-not-deployed" });
+    expect(manifest).toMatchObject({ version: "1.0.1", sourceCommit: EXPERIENCE_HOST_SUPPORT_SETTINGS_API_CONTRACT.sourceCommit, jsonSha256: SHA, deploymentStatus: "not-deployed" });
   });
 
   it("contains only the fixed OWNER target list and per-target GET/PUT paths", async () => {

@@ -45,7 +45,7 @@ export function isExperienceHostSupportSettingsPathId(value: unknown): value is 
 export const isExperienceHostSupportSettingsHostKind = (value: unknown): value is ExperienceHostSupportSettingsHostKind => oneOf(HOST_KINDS, value);
 
 function host(value: unknown): ExperienceHostSupportSettingsHost | null {
-  if (!isObject(value) || !exact(value, ["kind", "id", "displayName"]) || !isExperienceHostSupportSettingsHostKind(value.kind) || !isExperienceHostSupportSettingsPathId(value.id) || !text(value.displayName)) return null;
+  if (!isObject(value) || !exact(value, ["kind", "id", "displayName"]) || !isExperienceHostSupportSettingsHostKind(value.kind) || !isExperienceHostSupportSettingsPathId(value.id) || !text(value.displayName) || Array.from(value.displayName).length > 200) return null;
   return value as ExperienceHostSupportSettingsHost;
 }
 

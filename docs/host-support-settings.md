@@ -4,7 +4,7 @@
 
 ## 正本と配備境界
 
-- 正本はNIHO側の選別済み`experience-host-support-settings-api.openapi.json` v1.0.0。sourceCommit `243ff383fdd182f4d053fce9995e4f1616206720`、JSON SHA256 `6ae96e7b0ad92b5effc145310ff45c005913913a4f903bdceef250c3c257362f`、状態は`agreed-not-deployed`。
+- 正本はNIHO側の選別済み`experience-host-support-settings-api.openapi.json` v1.0.1。sourceCommit `4787c3b34b2c30d51a9f0f523c34f865c20e4230`、JSON SHA256 `9cff926462fe388b8ff5a8c82a582eb26d6aafc8eba49f5468ea064021c07a75`、状態は`agreed-not-deployed`。
 - 公開リポへ置くprivate配布物は上のJSONと`.sha256`だけ。内部OpenAPI、schema、DB実装は複製しない。既存Admin auth/read/case/operations/history契約は変更しない。
 - `HOST_SUPPORT_SETTINGS_API_ENABLED`は既定OFFかつHTTP専用。NIHO側API配備と受入が終わるまで固定BFFは404のままにする。HTTP失敗を合成保存・OFF・未設定へ置き換えない。
 - `HOST_SUPPORT_SETTINGS_PREVIEW_ENABLED`はmock専用のUI検証入口。Playwrightがブラウザ要求を契約形fixtureでstubし、mock BFF、実DB、Stripe、メール、料金producer、精算へ接続しない。
