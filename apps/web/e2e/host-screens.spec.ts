@@ -233,10 +233,10 @@ test("設定 includes support, and 保存 checks the fields and keeps what NIHO 
 test("an account without a provider is led to registration, and registering opens the console", async ({ page }) => {
   await signIn(page, "?mock=empty");
   await expect(page.getByRole("heading", { level: 1, name: "ホーム" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "まず提供者として登録しましょう" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "体験を掲載する場合は提供者登録へ" })).toBeVisible();
   await expect(menu(page)).toHaveCount(0);
   await page.goto("/host/settings");
-  await expect(page.getByRole("heading", { name: "まず提供者として登録しましょう" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "体験を掲載する場合は提供者登録へ" })).toBeVisible();
 
   await page.getByRole("link", { name: "提供者として登録" }).click();
   await page.waitForURL(/\/host\/register$/);

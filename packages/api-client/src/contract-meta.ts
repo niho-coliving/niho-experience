@@ -60,6 +60,15 @@ export const EXPERIENCE_HOST_SUPPORT_HISTORY_API_CONTRACT = {
   deploymentStatus: "not-deployed",
 } as const;
 
+/** Host本人のNIHOサポート設定契約。API先行配備と受入が終わるまでは既定OFFで接続しない。 */
+export const EXPERIENCE_HOST_SUPPORT_SETTINGS_API_CONTRACT = {
+  version: "1.0.1",
+  sourceCommit: "4787c3b34b2c30d51a9f0f523c34f865c20e4230",
+  sha256: "9cff926462fe388b8ff5a8c82a582eb26d6aafc8eba49f5468ea064021c07a75",
+  status: "agreed-not-deployed",
+  deploymentStatus: "not-deployed",
+} as const;
+
 /** 予約に関わる時刻の基準。表示も日本時間（Asia/Tokyo）で行う。 */
 export const EXPERIENCE_TIME_ZONE = "Asia/Tokyo";
 

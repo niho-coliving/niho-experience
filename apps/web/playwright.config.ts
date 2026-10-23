@@ -6,13 +6,14 @@ const HOST_PORT = Number(process.env.E2E_HOST_PORT ?? 3101);
 const ADMIN_READ_PORT = Number(process.env.E2E_ADMIN_READ_PORT ?? 3102);
 const ADMIN_CASE_PORT = Number(process.env.E2E_ADMIN_CASE_PORT ?? 3103);
 // The console's sign-in and frame (#86) and its screens (#84/#88/#89/#90/#91/#106/#107) run against the second server.
-const HOST_CONSOLE_SPEC = /(host-(console|screens|editor|bookings|sales|messages|session)|admin-support)\.spec\.ts/;
+const HOST_CONSOLE_SPEC = /(host-(console|screens|editor|bookings|sales|messages|session|support)|admin-support)\.spec\.ts/;
 const ADMIN_READ_SPEC = /admin-http-read\.spec\.ts/;
 const ADMIN_CASE_SPEC = /admin-(support-case|operations)\.spec\.ts/;
 // Cloud sandboxes ship a pre-installed Chromium; CI installs the matching one.
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
 const serverEnv = { HOSTNAME: "127.0.0.1", EXPERIENCE_API_MODE: "mock", EXPERIENCE_PUBLIC_API_VERSION: "1.2", SITE_INDEXING: "block", NEXT_TELEMETRY_DISABLED: "1", HOST_SIGNUP_MODE: "pilot", NIHO_HOST_START_URL: "https://niho.life/experiences/provider" };
 const mobile = { ...devices["Pixel 5"], viewport: { width: 360, height: 780 }, launchOptions: { executablePath } };
+const mobile320 = { ...devices["Pixel 5"], viewport: { width: 320, height: 720 }, launchOptions: { executablePath } };
 const desktop = { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 }, launchOptions: { executablePath } };
 const hostBaseURL = `http://127.0.0.1:${HOST_PORT}`;
 const adminReadBaseURL = `http://127.0.0.1:${ADMIN_READ_PORT}`;
@@ -33,6 +34,7 @@ export default defineConfig({
     { name: "mobile-360", testIgnore: [HOST_CONSOLE_SPEC, ADMIN_READ_SPEC, ADMIN_CASE_SPEC], use: mobile },
     { name: "desktop", testIgnore: [HOST_CONSOLE_SPEC, ADMIN_READ_SPEC, ADMIN_CASE_SPEC], use: desktop },
     { name: "host-mobile-360", testMatch: HOST_CONSOLE_SPEC, testIgnore: ADMIN_CASE_SPEC, use: { ...mobile, baseURL: hostBaseURL } },
+    { name: "host-support-mobile-320", testMatch: /host-support\.spec\.ts/, use: { ...mobile320, baseURL: hostBaseURL } },
     { name: "host-desktop", testMatch: HOST_CONSOLE_SPEC, testIgnore: ADMIN_CASE_SPEC, use: { ...desktop, baseURL: hostBaseURL } },
     { name: "admin-read-mobile-360", testMatch: ADMIN_READ_SPEC, testIgnore: ADMIN_CASE_SPEC, use: { ...mobile, baseURL: adminReadBaseURL } },
     { name: "admin-read-desktop", testMatch: ADMIN_READ_SPEC, testIgnore: ADMIN_CASE_SPEC, use: { ...desktop, baseURL: adminReadBaseURL } },
@@ -55,7 +57,7 @@ export default defineConfig({
       // SITE_URL is this server's origin: the console's same-origin check compares against it.
       // MOCK_CATALOG=pilot, as in the mock preview deployment: the console's experiences are the
       // pilot listings, so their public pages (the editor's プレビュー) open here too.
-      env: { ...serverEnv, PORT: String(HOST_PORT), HOST_CONSOLE_ENABLED: "true", ADMIN_SUPPORT_CONSOLE_ENABLED: "true", SITE_URL: hostBaseURL, MOCK_CATALOG: "pilot" },
+      env: { ...serverEnv, PORT: String(HOST_PORT), HOST_CONSOLE_ENABLED: "true", HOST_SUPPORT_SETTINGS_PREVIEW_ENABLED: "true", ADMIN_SUPPORT_CONSOLE_ENABLED: "true", SITE_URL: hostBaseURL, MOCK_CATALOG: "pilot" },
     },
     {
       command: "sh scripts/start-standalone.sh",

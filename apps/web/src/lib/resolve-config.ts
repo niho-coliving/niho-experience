@@ -48,6 +48,10 @@ export function resolveConfig(env: Env) {
   const adminOperationsPreviewEnabled = apiMode === "mock" && env.ADMIN_OPERATIONS_PREVIEW_ENABLED === "true";
   // Host history is read-only, but its selected endpoint is also agreed-not-deployed.
   const hostSupportHistoryApiEnabled = apiMode === "http" && env.HOST_SUPPORT_HISTORY_API_ENABLED === "true";
+  // Host本人の支援設定は独立契約。配備・受入まではHTTP BFFを閉じる。
+  const hostSupportSettingsApiEnabled = apiMode === "http" && env.HOST_SUPPORT_SETTINGS_API_ENABLED === "true";
+  // UI検証専用。mockのBFFや保存は開かず、Playwrightがcontract-shaped responseをstubする。
+  const hostSupportSettingsPreviewEnabled = apiMode === "mock" && env.HOST_SUPPORT_SETTINGS_PREVIEW_ENABLED === "true";
   const hostSessionSecret = env.HOST_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
   const nihoFirebaseWebApiKey = env.NIHO_FIREBASE_WEB_API_KEY?.trim() ?? "";
   const adminSessionSecret = env.ADMIN_SESSION_SECRET?.trim() || (apiMode === "mock" ? DEV_ONLY_HOST_SESSION_SECRET : "");
@@ -98,6 +102,8 @@ export function resolveConfig(env: Env) {
     adminOperationsApiEnabled,
     adminOperationsPreviewEnabled,
     hostSupportHistoryApiEnabled,
+    hostSupportSettingsApiEnabled,
+    hostSupportSettingsPreviewEnabled,
     // Comma-separated keys: the first seals new cookies, the rest still open old ones while keys rotate.
     hostSessionSecret,
     adminSessionSecret,
