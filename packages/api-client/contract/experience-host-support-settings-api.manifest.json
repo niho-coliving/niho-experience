@@ -1,0 +1,21 @@
+{
+  "name": "experience-host-support-settings-api",
+  "version": "1.0.0",
+  "sourceRepository": "niho-app",
+  "sourceCommit": "243ff383fdd182f4d053fce9995e4f1616206720",
+  "jsonSha256": "6ae96e7b0ad92b5effc145310ff45c005913913a4f903bdceef250c3c257362f",
+  "deploymentStatus": "not-deployed",
+  "deploymentNote": "NIHO側で合意済み。料金producer・予約snapshot・精算APIへの接続とAPI配備・受入は未完了。",
+  "openapiFile": "experience-host-support-settings-api.openapi.json",
+  "sha256File": "experience-host-support-settings-api.openapi.json.sha256",
+  "scope": [
+    "current OWNER support-setting target list",
+    "current OWNER support-setting read and idempotent PUT"
+  ],
+  "excludedScope": [
+    "Admin authorization or bypass",
+    "internal schema, database, or memo",
+    "booking fee production or settlement",
+    "translation-specific staffing"
+  ]
+}

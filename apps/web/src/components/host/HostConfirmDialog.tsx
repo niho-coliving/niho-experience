@@ -5,8 +5,8 @@ import { consoleButtonClass } from "./host-ui";
 
 /*
  * A confirmation in a modal <dialog> on the page (the offer dialog's make), never the browser's
- * confirm(). Nothing happens until its own button is pressed; Esc and やめる close it and change
- * nothing. The dialog closes first, then hands over to the page.
+ * confirm(). Nothing happens until its own button is pressed; Esc and やめる hand cancellation
+ * to the parent synchronously. The parent unmounts it without a stale native close callback.
  */
 
 export const HOST_DIALOG =
@@ -32,20 +32,29 @@ export function HostConfirmDialog({ title, description, focusRef, stayRef, confi
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const element = dialog.current;
-    // Opened once: removing the element when the dialog is done closes it without a "close" event.
-    if (element && !element.open) element.showModal();
-    focusRef.current?.focus();
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    let cancelled = false;
+    // A queued open avoids the StrictMode mount/unmount pass racing showModal/close.
+    queueMicrotask(() => {
+      if (!cancelled && element?.isConnected && !element.open) {
+        element.showModal();
+        focusRef.current?.focus();
+      }
+    });
+    return () => {
+      cancelled = true;
+      if (previousFocus?.isConnected && (document.activeElement === document.body || element?.contains(document.activeElement))) previousFocus.focus();
+    };
   }, [focusRef]);
-  const close = () => dialog.current?.close();
   return (
-    <dialog ref={dialog} aria-labelledby={`${baseId}-title`} aria-describedby={`${baseId}-body`} onClose={onClose} className={HOST_DIALOG}>
+    <dialog ref={dialog} aria-labelledby={`${baseId}-title`} aria-describedby={`${baseId}-body`} onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={onClose} className={HOST_DIALOG}>
       <form
         className="flex max-h-[calc(100dvh-2rem)] flex-col"
         onSubmit={(event) => {
           event.preventDefault();
           if (!event.currentTarget.reportValidity()) return;
-          // Closed first: the page under a modal dialog cannot take focus.
-          close();
+          // The parent unmounts the dialog synchronously with the accepted command.
+          // Avoid a queued native close event clearing a newly opened confirmation.
           onConfirm();
         }}
       >
@@ -60,7 +69,7 @@ export function HostConfirmDialog({ title, description, focusRef, stayRef, confi
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-4 py-3 md:px-5">
           {hint}
-          <button ref={stayRef} type="button" onClick={close} className={consoleButtonClass("secondary")}>
+          <button ref={stayRef} type="button" onClick={onClose} className={consoleButtonClass("secondary")}>
             やめる
           </button>
           {confirm}

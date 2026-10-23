@@ -40,6 +40,7 @@ flowchart LR
 - 旅行者向けの公開APIは認証を使わない。ホストの画面のAPIは、サーバーからBearer（ホストの接続のIDトークン）で呼ぶ。二つは契約・型・監査を分ける（[#87](https://github.com/niho-life/niho-experience/issues/87)）。
 - Admin予約支援APIはホストAPIとも分け、NIHOが検証したAdmin tokenをexperienceのサーバーだけが持つ。通常のホストcookie・役割・クエリでAdminへ昇格させない。HTTPモードの選別済みAdmin認証、予約・通知read、予約別担当・内部メモcaseは別契約・別flagで受け入れ、いずれも配備・受入までは準備中として閉じる。caseを有効にしても承認・辞退・取消／返金・送信・権限付与へ広げない。
 - Admin操作とホスト本人の支援履歴も独立した選別契約・既定OFF flag・固定BFFに分ける。操作は最新snapshotとUUID v4のimmutable command、同ID照合、APIのretryAllowedに従い、画面で料金や返金を再計算しない。ホスト履歴は本人scope内の最小metadataだけとし、内部メモ・Admin連絡先・hash・Stripe IDを渡さない。どちらもAPI先行配備・受入までは`agreed-not-deployed`として閉じ、HTTP失敗をmockへ差し替えない。
+- Host本人のNIHOサポート設定もAdminや予約履歴から分離した選別契約・固定BFFとする。通常Spotと外部Providerをkind/idで区別し、NIHO APIが毎回の現在OWNERを判定する。画面は設定・同意だけを保存し、料金producer・予約snapshot・精算への接続済みとは扱わない（[Host本人のNIHOサポート設定](host-support-settings.md)）。
 - NIHO側の契約から、このサイトに必要なDTO・操作・参照型だけを選別して配布する。公開対象の検証と合成例を伴わせ、全内部スキーマを輸出しない。
 - 初期の画面開発では仮契約と合成fixtureを用いる。連携担当が契約を確定して版を固定する。APIとmockは同じ契約検証を通す。
 - カタログ取得、開催枠・料金、ゲストCheckout、エラー・期限切れ、予約確認への遷移を定義する。仮契約は [公開API契約](api-contract.md)。

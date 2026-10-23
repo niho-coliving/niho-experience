@@ -166,6 +166,15 @@
   - 書き込みは同じ fetch の中だけで変わり、Web は要求ごとに作り直すので次の要求には残らない。
   - 写真の URL は `https://uploads.niho-mock.test/...`（`isMockPhotoUrl`）。option `uploadsDisabled` で上げ口の 503 を再現できる。
 
+### 9.2 Host本人のNIHOサポート設定（#130）
+
+- 独立契約：`experience-host-support-settings-api.openapi.json` v1.0.0。sourceCommit `243ff383fdd182f4d053fce9995e4f1616206720`、SHA256 `6ae96e7b0ad92b5effc145310ff45c005913913a4f903bdceef250c3c257362f`、状態 `agreed-not-deployed`。既存Admin auth/read/case/operations/history契約には混ぜない。
+- SDK：server-onlyの`@niho-experience/api-client/host-support-settings`。ブラウザはtokenを持たず、strict decoderだけを`host-support-settings-schema`から使う。固定の対象一覧GETとkind/id別GET/PUT以外へ中継しない。
+- 認可：NIHO APIが現在の本人OWNERを毎回正本として判定する。EDITOR、Admin、platform roleをOWNERへ読み替えない。通常Spotと外部Providerをkindで区別する。
+- 配備境界：`HOST_SUPPORT_SETTINGS_API_ENABLED`は既定OFFで、HTTP modeだけ有効。API配備・受入前はBFFを404に保ち、失敗や未設定をmock成功/OFFへfallbackしない。preview flagはmock専用browser stubで、BFFを開かない。
+- 保存：確認直前にGETし、host・policy・setting revision/state・write capabilityが変われば古いcommandを捨てて再確認する。同意済みの`enabled`・`consentVersion`・`expectedRevision`はimmutable payloadとし、結果不明時だけ同payloadを再送する。409は入力を保持する。GETで同値を見ても今回の保存成功とは断言しない。
+- 表示：OFF合計10%／ON合計15%はいずれも決済手数料込み。人件費はホストから担当者へ直接払い。全額キャンセル・返金で戻らないStripe決済費用はNIHO負担。ただし、このAPIは設定保存だけで、料金producer・予約snapshot・精算への接続済みを示さない。変更後の新規予約だけへ適用し、過去予約は変更しない。
+
 ## 10. mock
 
 ```ts

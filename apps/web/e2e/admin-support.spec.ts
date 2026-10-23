@@ -222,19 +222,12 @@ test("an idempotency key converges only for the same booking and payload", async
   expect(statuses).toEqual([200, 200, 409]);
 });
 
-test("host settings explain 10/15 percent and no retroactive change", async ({ page }) => {
+test("host settings link to the independent support page and booking history stays non-retroactive", async ({ page }) => {
   await hostSignIn(page);
   await page.goto("/host/settings");
   const support = page.getByRole("region", { name: "NIHOサポート" });
-  await expect(support).toContainText("サポートOFFは手数料10%、ONは合計15%");
-  await expect(support).toContainText("ホストから担当者へ別途直接支払います");
-  await support.getByRole("radio", { name: /サポートOFF/ }).check();
-  await support.getByRole("button", { name: "サポート設定を保存" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toContainText("既存予約の手数料と支援条件は変わりません");
-  await dialog.getByRole("checkbox").check();
-  await dialog.getByRole("button", { name: "変更を保存" }).click();
-  await expect(support.getByRole("status")).toContainText("既存予約の条件は変わりません");
+  await expect(support).toContainText("体験の設定とは分けて確認・変更します");
+  await expect(support.getByRole("link", { name: "NIHOサポート設定を開く" })).toHaveAttribute("href", /\/host\/support\?hostKind=EXPERIENCE_PROVIDER&hostId=/);
   await page.goto("/host/bookings?booking=bk-2041");
   await expect(page.getByRole("region", { name: "NIHOサポート" })).toContainText("手数料 15%（受付時）");
   await expect(page.getByRole("region", { name: "NIHOサポート" })).toContainText("NIHO サポート 佐藤");
@@ -278,4 +271,3 @@ test.describe("admin accessibility and responsive layout", () => {
     expect(await overflowX(page)).toBeLessThanOrEqual(0);
   });
 });
-
