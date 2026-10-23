@@ -25,12 +25,28 @@ declare global {
 }
 
 interface GuardContextValue {
-  setProtection: (dirty: boolean, saving: boolean) => void;
+  setProtection: (key: string, dirty: boolean, saving: boolean) => void;
+  removeProtection: (key: string) => void;
   navigate: (run: () => void) => void;
   reset: () => void;
 }
 
 const GuardContext = createContext<GuardContextValue | null>(null);
+
+export interface AdminLeaveProtectionState { dirty: boolean; saving: boolean }
+
+/** Keyed so case editing and an immutable operation can protect the same page independently. */
+export class AdminLeaveProtectionRegistry {
+  readonly #entries = new Map<string, AdminLeaveProtectionState>();
+  set(key: string, value: AdminLeaveProtectionState) { this.#entries.set(key, value); return this.current(); }
+  delete(key: string) { this.#entries.delete(key); return this.current(); }
+  reset() { this.#entries.clear(); return this.current(); }
+  current(): AdminLeaveProtectionState {
+    let dirty = false; let saving = false;
+    for (const value of this.#entries.values()) { dirty ||= value.dirty; saving ||= value.saving; }
+    return { dirty, saving };
+  }
+}
 
 function currentNavigationIndex(): number | null {
   const index = window.navigation?.currentEntry?.index;
@@ -55,7 +71,7 @@ function LeaveDialog({ saving, onStay, onLeave }: { saving: boolean; onStay: () 
   >
     <div className="px-4 pt-4 pb-3 md:px-5 md:pt-5">
       <h2 id={`${id}-title`} className="font-sans text-[0.9375rem] font-extrabold">{saving ? "保存結果を確認しています" : "保存していない変更があります"}</h2>
-      <p id={`${id}-body`} className="mt-1 text-ink-soft">{saving ? "結果が確定するまで、この予約から移動できません。" : "保存せずに移動すると、事務局内の担当・メモの変更は失われます。"}</p>
+      <p id={`${id}-body`} className="mt-1 text-ink-soft">{saving ? "通信が終わるまで、この予約から移動できません。" : "移動すると、担当・内部メモまたは入力中の予約対応・連絡内容がこの画面から失われます。受付済みの処理は取り消されず、同じ受付番号や履歴から後で確認できます。"}</p>
     </div>
     <div className="flex flex-wrap justify-end gap-2 border-t border-line px-4 py-3 md:px-5">
       <button type="button" onClick={() => { dialog.current?.close(); onLeave(); }} disabled={saving} className="inline-flex min-h-10 items-center rounded-full border border-line-strong px-4 font-extrabold text-danger hover:bg-danger-pale disabled:cursor-not-allowed disabled:opacity-45">破棄して移動</button>
@@ -69,6 +85,7 @@ export function AdminLeaveGuardProvider({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const routeIdentity = `${pathname}?${searchParams.toString()}`;
   const [protection, setProtectionState] = useState({ dirty: false, saving: false });
+  const protections = useRef(new AdminLeaveProtectionRegistry());
   const [destination, setDestination] = useState<Destination | null>(null);
   const protectionRef = useRef(protection);
   const leaving = useRef(false);
@@ -91,8 +108,13 @@ export function AdminLeaveGuardProvider({ children }: { children: ReactNode }) {
     if (bypassTimer.current !== null) window.clearTimeout(bypassTimer.current);
   }, []);
 
-  const setProtection = useCallback((dirty: boolean, saving: boolean) => {
-    const next = { dirty, saving };
+  const setProtection = useCallback((key: string, dirty: boolean, saving: boolean) => {
+    const next = protections.current.set(key, { dirty, saving });
+    protectionRef.current = next;
+    setProtectionState(next);
+  }, []);
+  const removeProtection = useCallback((key: string) => {
+    const next = protections.current.delete(key);
     protectionRef.current = next;
     setProtectionState(next);
   }, []);
@@ -181,11 +203,12 @@ export function AdminLeaveGuardProvider({ children }: { children: ReactNode }) {
     leaving.current = false;
     if (bypassTimer.current !== null) window.clearTimeout(bypassTimer.current);
     bypassTimer.current = null;
-    protectionRef.current = { dirty: false, saving: false };
-    setProtectionState({ dirty: false, saving: false });
+    const next = protections.current.reset();
+    protectionRef.current = next;
+    setProtectionState(next);
     setDestination(null);
   }, []);
-  const context = useMemo<GuardContextValue>(() => ({ setProtection, navigate: (run) => ask({ kind: "callback", run }), reset }), [ask, reset, setProtection]);
+  const context = useMemo<GuardContextValue>(() => ({ setProtection, removeProtection, navigate: (run) => ask({ kind: "callback", run }), reset }), [ask, removeProtection, reset, setProtection]);
 
   return <GuardContext.Provider value={context}>
     {children}
@@ -195,10 +218,11 @@ export function AdminLeaveGuardProvider({ children }: { children: ReactNode }) {
 
 export function useAdminLeaveProtection(dirty: boolean, saving: boolean) {
   const guard = useContext(GuardContext);
+  const key = useId();
   useLayoutEffect(() => {
-    guard?.setProtection(dirty, saving);
-    return () => guard?.setProtection(false, false);
-  }, [dirty, guard, saving]);
+    guard?.setProtection(key, dirty, saving);
+    return () => guard?.removeProtection(key);
+  }, [dirty, guard, key, saving]);
 }
 
 export function useAdminGuardedNavigation() {

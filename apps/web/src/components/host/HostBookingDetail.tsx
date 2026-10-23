@@ -105,6 +105,7 @@ export interface HostBookingDetailProps {
   conversation: BookingConversationLink | null;
   providerId: string;
   supportPreview: boolean;
+  supportHistoryEnabled: boolean;
   onApprove: () => void;
   onDecline: () => void;
   onCancel: (cancellation: BookingCancellation) => void;
@@ -115,7 +116,7 @@ export interface HostBookingDetailProps {
  * host can do now, メッセージ (the way into its thread) and 時系列. 承認・お断り・取消 are
  * asked in a dialog first.
  */
-export function HostBookingDetail({ booking, experienceTitle, today, headingId, notice, conversation, providerId, supportPreview, onApprove, onDecline, onCancel }: HostBookingDetailProps) {
+export function HostBookingDetail({ booking, experienceTitle, today, headingId, notice, conversation, providerId, supportPreview, supportHistoryEnabled, onApprove, onDecline, onCancel }: HostBookingDetailProps) {
   const [asking, setAsking] = useState<"approve" | "decline" | "cancel" | null>(null);
   const actions = bookingActions(booking.status);
 
@@ -177,7 +178,7 @@ export function HostBookingDetail({ booking, experienceTitle, today, headingId, 
       <DetailSection title="状態">
         <Rows rows={bookingStateRows(booking)} />
       </DetailSection>
-      <HostBookingSupportPanel providerId={providerId} bookingId={booking.id} preview={supportPreview} />
+      <HostBookingSupportPanel providerId={providerId} bookingId={booking.id} preview={supportPreview} historyEnabled={supportHistoryEnabled} />
       {next ? <div className="mt-3.5 border-t border-line pt-3.5">{next}</div> : null}
       {conversation ? <ConversationSection conversation={conversation} /> : null}
       <DetailSection title="時系列">

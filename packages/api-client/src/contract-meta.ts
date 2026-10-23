@@ -44,6 +44,22 @@ export const EXPERIENCE_ADMIN_SUPPORT_CASE_API_CONTRACT = {
   deploymentStatus: "not-deployed",
 } as const;
 
+/** Selected immutable Admin booking operations contract. Agreed, but not deployed by NIHO yet. */
+export const EXPERIENCE_ADMIN_OPERATIONS_API_CONTRACT = {
+  version: "1.0.0",
+  sourceCommit: "d3e403a140ce39a890f22976c81b5b00ffbea8e2",
+  status: "agreed-not-deployed",
+  deploymentStatus: "not-deployed",
+} as const;
+
+/** Selected host-owned support history contract. Agreed, but not deployed by NIHO yet. */
+export const EXPERIENCE_HOST_SUPPORT_HISTORY_API_CONTRACT = {
+  version: "1.0.0",
+  sourceCommit: "d3e403a140ce39a890f22976c81b5b00ffbea8e2",
+  status: "agreed-not-deployed",
+  deploymentStatus: "not-deployed",
+} as const;
+
 /** 予約に関わる時刻の基準。表示も日本時間（Asia/Tokyo）で行う。 */
 export const EXPERIENCE_TIME_ZONE = "Asia/Tokyo";
 

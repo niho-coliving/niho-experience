@@ -5,6 +5,7 @@ import { yen } from "@/host/format";
 import { HOST_SURFACE } from "@/components/host/host-ui";
 import { StatusPill } from "@/components/host/ui";
 import { AdminSupportCaseEditor } from "./AdminSupportCaseEditor";
+import { AdminBookingOperations } from "./AdminBookingOperations";
 
 function Heading({ children }: { children: string }) {
   return <h3 className="mb-2 font-sans text-xs font-extrabold tracking-[0.04em] text-ink-soft">{children}</h3>;
@@ -14,7 +15,7 @@ function Value({ children }: { children: React.ReactNode }) {
   return <dd className="min-w-0 [overflow-wrap:anywhere]">{children}</dd>;
 }
 
-export function AdminHttpBookingDetail({ response, supportCaseEnabled, onSessionExpired }: { response: ExperienceAdminBookingDetailResponse; supportCaseEnabled: boolean; onSessionExpired: () => void }) {
+export function AdminHttpBookingDetail({ response, supportCaseEnabled, operationsEnabled, operationId, onSessionExpired }: { response: ExperienceAdminBookingDetailResponse; supportCaseEnabled: boolean; operationsEnabled: boolean; operationId: string | null; onSessionExpired: () => void }) {
   const { booking, supportAgreement } = response;
   const support = adminHttpSupportLabel(booking.support);
   const hostKind = booking.host.kind === "SPOT" ? "通常拠点" : "外部提供者";
@@ -62,6 +63,6 @@ export function AdminHttpBookingDetail({ response, supportCaseEnabled, onSession
 
     <AdminSupportCaseEditor key={booking.id} bookingId={booking.id} enabled={supportCaseEnabled} onSessionExpired={onSessionExpired} />
 
-    <section className="mt-4 border-t border-line pt-4"><Heading>予約・金融操作</Heading><p className="rounded-xl bg-sand px-3 py-2 text-[0.8125rem] text-ink-soft">{supportCaseEnabled ? "承認・辞退・取消／返金・メッセージ送信は引き続き準備中です。担当・内部メモの保存は予約状態や料金、権限を変更しません。" : "現在、この画面では予約内容の確認だけができます。承認・辞退・取消／返金・メッセージ送信・担当・内部メモの操作は準備中です。"}</p></section>
+    <AdminBookingOperations key={`operations-${booking.id}`} bookingId={booking.id} enabled={operationsEnabled} recoveredOperationId={operationId} onSessionExpired={onSessionExpired} />
   </article>;
 }

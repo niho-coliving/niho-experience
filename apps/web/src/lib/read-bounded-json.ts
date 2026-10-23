@@ -1,7 +1,7 @@
 export class ResponseBodyTooLarge extends Error {}
 
-/** Read and decode JSON without ever buffering more than the configured response-body cap. */
-export async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
+/** Read and decode JSON without ever buffering more than the configured body cap (requests and responses). */
+export async function readBoundedJson(response: Pick<Response, "body" | "headers">, maxBytes: number): Promise<unknown> {
   const declaredLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > maxBytes) throw new ResponseBodyTooLarge();
   if (!response.body) throw new Error("Empty response body");
