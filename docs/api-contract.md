@@ -8,6 +8,8 @@
 
 機械可読の契約は [`packages/api-client/contract/experience-public-api.openapi.json`](../packages/api-client/contract/experience-public-api.openapi.json)、公開項目の規則は [`public-field-policy.json`](../packages/api-client/contract/public-field-policy.json) です。この文書と食い違ったら JSON を正とし、文書を直します。
 
+この文書は旅行者向け公開APIを扱う。認証付きのAdmin予約参照と予約別担当・内部メモcaseは公開APIへ混ぜず、選別済みの別契約と [Admin予約支援](admin-support.md) で管理する。
+
 ## 1. 境界
 
 | 持つ側 | 持つもの |
@@ -163,6 +165,24 @@
   - scenario は `empty`（提供者 0 件）・`two-providers`（OWNER で口座準備済み・体験ページ 2 件〔英語で公開中・掲載中／日本語の下書き〕・集合場所あり、と EDITOR で下書き）・`payments-pending`（口座未接続・再利用の候補あり）。
   - 書き込みは同じ fetch の中だけで変わり、Web は要求ごとに作り直すので次の要求には残らない。
   - 写真の URL は `https://uploads.niho-mock.test/...`（`isMockPhotoUrl`）。option `uploadsDisabled` で上げ口の 503 を再現できる。
+
+### 9.2 Host本人のNIHOサポート設定（#130）
+
+- 独立契約：`experience-host-support-settings-api.openapi.json` v1.0.1。sourceCommit `4787c3b34b2c30d51a9f0f523c34f865c20e4230`、SHA256 `9cff926462fe388b8ff5a8c82a582eb26d6aafc8eba49f5468ea064021c07a75`、状態 `agreed-not-deployed`。既存Admin auth/read/case/operations/history契約には混ぜない。
+- SDK：server-onlyの`@niho-experience/api-client/host-support-settings`。ブラウザはtokenを持たず、strict decoderだけを`host-support-settings-schema`から使う。固定の対象一覧GETとkind/id別GET/PUT以外へ中継しない。
+- 認可：NIHO APIが現在の本人OWNERを毎回正本として判定する。EDITOR、Admin、platform roleをOWNERへ読み替えない。通常Spotと外部Providerをkindで区別する。
+- 配備境界：`HOST_SUPPORT_SETTINGS_API_ENABLED`は既定OFFで、HTTP modeだけ有効。API配備・受入前はBFFを404に保ち、失敗や未設定をmock成功/OFFへfallbackしない。preview flagはmock専用browser stubで、BFFを開かない。
+- 保存：確認直前にGETし、host・policy・setting revision/state・write capabilityが変われば古いcommandを捨てて再確認する。同意済みの`enabled`・`consentVersion`・`expectedRevision`はimmutable payloadとし、結果不明時だけ同payloadを再送する。409は入力を保持する。GETで同値を見ても今回の保存成功とは断言しない。
+- 表示：OFF合計10%／ON合計15%はいずれも決済手数料込み。人件費はホストから担当者へ直接払い。全額キャンセル・返金で戻らないStripe決済費用はNIHO負担。ただし、このAPIは設定保存だけで、料金producer・予約snapshot・精算への接続済みを示さない。変更後の新規予約だけへ適用し、過去予約は変更しない。
+
+### 9.3 予約別の実料金・精算（#134）
+
+- 独立契約：`experience-fee-summary-api.openapi.json` v1.0.0。sourceCommit `291bc1fca9a9e21ebaeae4a9637379afc472aa61`、SHA256 `c7b39ac5ae5331268915f4b9b2ded477a09f35eb333a291a9826e6b8f3a9d95e`、状態 `agreed-not-deployed`。
+- SDK：browser-safeな`@niho-experience/api-client/fee-summary`は型とstrict decoderだけを公開する。Bearerを扱う`fee-summary-server`とはexportを分離する。
+- パス：Adminは`GET /api/admin/experience-bookings/{requestId}/fee-summary`、Host本人は`GET /api/experience-providers/management/bookings/{requestId}/fee-summary`だけ。query、別method、対象ID不一致、余分なDTO項目を受けない。
+- 表示：APIの金額だけを整形する。nullは未確認、0は¥0として区別し、負数が許されるホスト残額とNIHO入出金差額も符号を保つ。NIHO入出金差額はAdminだけに示し、利益とは呼ばない。
+- 配備境界：`EXPERIENCE_FEE_SUMMARY_API_ENABLED`は既定OFFかつHTTP専用で、Admin/Host双方のconsole/sessionを別々に再検証する。preview flagはmock専用browser stubで、実BFFを開かない。HTTP失敗を合成成功へfallbackしない。
+- 現在地：SDK、固定BFF、Admin/Host読取パネル、合成E2Eまで。ホストの実予約HTTP導線が未接続なので、Admin・Host・NIHO APIの三者実受入完了とは扱わない。
 
 ## 10. mock
 
